@@ -92,6 +92,25 @@
   button:hover { background: #9f8b77; }
   button:active { background: #7e6a57; }
 
+  .button-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  #autoBtn { background: #6b8e23; }
+  #autoBtn:hover { background: #7ba036; }
+  #autoBtn:active { background: #5a7d1f; }
+  #autoBtn.playing { background: #c0392b; }
+  #autoBtn.playing:hover { background: #d24f3f; }
+  .ai-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    font-size: 11px;
+    background: #c0392b;
+    color: #fff;
+    border-radius: 4px;
+    vertical-align: middle;
+    animation: aiBlink 1.2s ease-in-out infinite;
+  }
+  @keyframes aiBlink { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
   .board-wrapper {
     background: #bbada0;
     border-radius: 8px;
@@ -209,7 +228,10 @@
 
   <div class="subheader">
     <p>合并相同数字凑出 <strong>2048</strong>！<br>方向键或滑动屏幕来移动方块。</p>
-    <button id="newGameBtn">新游戏</button>
+    <div class="button-group">
+      <button id="autoBtn">🤖 AI 自动玩</button>
+      <button id="newGameBtn">新游戏</button>
+    </div>
   </div>
 
   <div class="board-wrapper" id="board">
@@ -546,6 +568,165 @@
   keepGoingBtn.addEventListener('click', () => {
     keepGoing = true;
     overlay.classList.remove('show', 'win');
+  });
+
+  // ========== AI: Expectimax with snake-corner heuristic ==========
+  // Pre-computed snake weight matrix: keeps the biggest tile chained
+  // along a "boustrophedon" path starting from the top-left corner.
+  const SNAKE = [
+    [Math.pow(4,15), Math.pow(4,14), Math.pow(4,13), Math.pow(4,12)],
+    [Math.pow(4, 8), Math.pow(4, 9), Math.pow(4,10), Math.pow(4,11)],
+    [Math.pow(4, 7), Math.pow(4, 6), Math.pow(4, 5), Math.pow(4, 4)],
+    [Math.pow(4, 0), Math.pow(4, 1), Math.pow(4, 2), Math.pow(4, 3)]
+  ];
+
+  function gridToBoard() {
+    const b = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+    for (let r = 0; r < 4; r++)
+      for (let c = 0; c < 4; c++)
+        if (grid[r][c]) b[r][c] = grid[r][c].value;
+    return b;
+  }
+
+  // Pure board move simulator — operates on a 4x4 numeric array
+  function simBoardMove(board, dir) {
+    const b = [board[0].slice(), board[1].slice(), board[2].slice(), board[3].slice()];
+    const vec = { up:[-1,0], down:[1,0], left:[0,-1], right:[0,1] }[dir];
+    const rows = dir === 'down'  ? [3,2,1,0] : [0,1,2,3];
+    const cols = dir === 'right' ? [3,2,1,0] : [0,1,2,3];
+    const merged = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]];
+    let moved = false;
+
+    for (const r of rows) {
+      for (const c of cols) {
+        if (b[r][c] === 0) continue;
+        let cr = r, cc = c;
+        while (true) {
+          const nr = cr + vec[0], nc = cc + vec[1];
+          if (nr < 0 || nr > 3 || nc < 0 || nc > 3) break;
+          if (b[nr][nc] === 0) {
+            b[nr][nc] = b[cr][cc];
+            b[cr][cc] = 0;
+            cr = nr; cc = nc;
+            moved = true;
+          } else if (b[nr][nc] === b[cr][cc] && !merged[nr][nc]) {
+            b[nr][nc] *= 2;
+            b[cr][cc] = 0;
+            merged[nr][nc] = 1;
+            moved = true;
+            break;
+          } else {
+            break;
+          }
+        }
+      }
+    }
+    return { board: b, moved };
+  }
+
+  function evaluateBoard(board) {
+    let snake = 0, empty = 0;
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) {
+        const v = board[r][c];
+        if (v === 0) empty++;
+        else snake += v * SNAKE[r][c];
+      }
+    }
+    // Empty cells are crucial — more space = more options
+    return snake + empty * 100000;
+  }
+
+  function expectimax(board, depth, isPlayer) {
+    if (depth <= 0) return evaluateBoard(board);
+
+    if (isPlayer) {
+      let best = -Infinity, any = false;
+      for (const dir of ['up','down','left','right']) {
+        const r = simBoardMove(board, dir);
+        if (!r.moved) continue;
+        any = true;
+        const s = expectimax(r.board, depth - 1, false);
+        if (s > best) best = s;
+      }
+      return any ? best : evaluateBoard(board);
+    } else {
+      const empties = [];
+      for (let r = 0; r < 4; r++)
+        for (let c = 0; c < 4; c++)
+          if (board[r][c] === 0) empties.push([r, c]);
+      if (empties.length === 0) return evaluateBoard(board);
+
+      let sum = 0;
+      for (const [r, c] of empties) {
+        board[r][c] = 2;
+        sum += 0.9 * expectimax(board, depth - 1, true);
+        board[r][c] = 4;
+        sum += 0.1 * expectimax(board, depth - 1, true);
+        board[r][c] = 0;
+      }
+      return sum / empties.length;
+    }
+  }
+
+  function findBestMove(board) {
+    let empty = 0;
+    for (let r = 0; r < 4; r++)
+      for (let c = 0; c < 4; c++)
+        if (board[r][c] === 0) empty++;
+    // Adaptive depth: search deeper when board is tight (fewer branches)
+    const depth = empty <= 3 ? 5 : empty <= 6 ? 4 : empty <= 10 ? 3 : 2;
+
+    let bestDir = null, bestScore = -Infinity;
+    for (const dir of ['up','down','left','right']) {
+      const r = simBoardMove(board, dir);
+      if (!r.moved) continue;
+      const s = expectimax(r.board, depth - 1, false);
+      if (s > bestScore) { bestScore = s; bestDir = dir; }
+    }
+    return bestDir;
+  }
+
+  // ========== Auto-play loop ==========
+  const autoBtn = document.getElementById('autoBtn');
+  let autoPlaying = false;
+  let autoTimer = null;
+
+  function stopAuto() {
+    autoPlaying = false;
+    if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+    autoBtn.classList.remove('playing');
+    autoBtn.textContent = '🤖 AI 自动玩';
+  }
+
+  function autoStep() {
+    if (!autoPlaying) return;
+    if (over) { stopAuto(); return; }
+
+    // If AI hit 2048 and the win overlay is showing, dismiss it and keep going
+    if (won && !keepGoing) {
+      keepGoing = true;
+      overlay.classList.remove('show', 'win');
+    }
+
+    const board = gridToBoard();
+    const dir = findBestMove(board);
+    if (!dir) { stopAuto(); return; }
+
+    move(dir);
+    autoTimer = setTimeout(autoStep, SLIDE_MS + 30);
+  }
+
+  autoBtn.addEventListener('click', () => {
+    if (autoPlaying) {
+      stopAuto();
+    } else {
+      if (over) newGame();
+      autoPlaying = true;
+      autoBtn.classList.add('playing');
+      autoBtn.textContent = '⏸ 停止 AI';
+      autoStep();
+    }
   });
 
   newGame();
