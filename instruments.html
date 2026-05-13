@@ -259,6 +259,55 @@ h1 { font-size: 22px; color: #f0e6d2; font-weight: 600; letter-spacing: 1px; }
 }
 .tone-btn:hover:not(.active) { color: #fff; background: rgba(255,255,255,0.06); }
 
+.song-section {
+  max-width: 1400px;
+  margin: 18px auto 0;
+  background: rgba(255,255,255,0.04);
+  border-radius: 10px;
+  padding: 16px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.song-section h3 {
+  margin-bottom: 12px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+.song-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.song-btn {
+  background: #2e2e36;
+  border: 1px solid #555;
+  color: #f0e0c0;
+  padding: 10px 18px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.song-btn:hover { background: #3e3e46; transform: translateY(-1px); border-color: var(--accent-dim); }
+.song-btn.playing {
+  background: linear-gradient(180deg, #e4b383, var(--accent));
+  color: #1a1a1a;
+  border-color: var(--accent);
+  box-shadow: 0 2px 10px rgba(212,163,115,0.35);
+}
+
+/* Stronger highlight while a song is auto-playing the key */
+.white-key.song-active {
+  background: linear-gradient(180deg, #f7d9a6 0%, var(--accent) 100%) !important;
+  box-shadow: inset 0 -4px 10px rgba(0,0,0,0.3), 0 0 12px rgba(212,163,115,0.6) !important;
+}
+.black-key.song-active {
+  background: linear-gradient(180deg, #8a5a2a 0%, #5a3a1a 100%) !important;
+  box-shadow: 0 0 14px rgba(212,163,115,0.8) !important;
+}
+
 .chord-section {
   margin-top: 22px;
   background: rgba(255,255,255,0.04);
@@ -328,6 +377,10 @@ h1 { font-size: 22px; color: #f0e6d2; font-weight: 600; letter-spacing: 1px; }
     <div class="piano-scroll" id="pianoScroll">
       <div class="piano" id="pianoKeys"></div>
     </div>
+  </div>
+  <div class="song-section">
+    <h3>🎼 名曲自动演奏</h3>
+    <div class="song-buttons" id="songButtons"></div>
   </div>
   <div class="hint">
     标准 88 键钢琴 (A0 ~ C8) · 左右滚动浏览所有琴键<br>
@@ -625,12 +678,13 @@ function buildPiano() {
   }
 }
 
-function strikePiano(midi) {
+function strikePiano(midi, holdMs = 160, songMode = false) {
   playPiano(midi);
   const el = pianoEls[midi];
   if (!el) return;
-  el.classList.add('active');
-  setTimeout(() => el.classList.remove('active'), 160);
+  const cls = songMode ? 'song-active' : 'active';
+  el.classList.add(cls);
+  setTimeout(() => el.classList.remove(cls), holdMs);
 }
 
 // Keyboard input for piano
@@ -645,6 +699,167 @@ document.addEventListener('keydown', e => {
   }
 });
 document.addEventListener('keyup', e => heldKeys.delete(e.code));
+
+// ========== AUTO-PLAY SONGS ==========
+// Each song has melody (right hand) + accompaniment (left hand chord track).
+// Format per entry: [midi, beats]
+//   midi can be: null (rest), single number, or an array (chord — all notes struck simultaneously)
+//
+// Left-hand chord voicings used below:
+//   C  major (C E G):  [48,52,55]      F  major (F A C):  [41,45,48]
+//   G  major (G B D):  [43,47,50]      G7 (G B D F):       [43,47,50,53]
+//   Am  (A C E):       [45,48,52]      E  major (E G# B):  [40,44,47]
+const SONGS = {
+  '小星星': {
+    tempo: 130,
+    melody: [
+      [60,1],[60,1],[67,1],[67,1],[69,1],[69,1],[67,2],
+      [65,1],[65,1],[64,1],[64,1],[62,1],[62,1],[60,2],
+      [67,1],[67,1],[65,1],[65,1],[64,1],[64,1],[62,2],
+      [67,1],[67,1],[65,1],[65,1],[64,1],[64,1],[62,2],
+      [60,1],[60,1],[67,1],[67,1],[69,1],[69,1],[67,2],
+      [65,1],[65,1],[64,1],[64,1],[62,1],[62,1],[60,2]
+    ],
+    // One chord per measure (4 beats), classic I-IV-V harmony
+    accompaniment: [
+      [[48,52,55], 4], [[48,52,55], 4],   // C — Twinkle twinkle / little star
+      [[41,45,48], 4], [[48,52,55], 4],   // F C — How I wonder / what you are
+      [[48,52,55], 4], [[43,47,50], 4],   // C G — Up above the / world so high
+      [[48,52,55], 4], [[43,47,50], 4],   // C G — Like a diamond / in the sky
+      [[48,52,55], 4], [[48,52,55], 4],   // C
+      [[41,45,48], 4], [[48,52,55], 4]    // F C
+    ]
+  },
+  '生日快乐': {
+    tempo: 130,
+    melody: [
+      [67,0.75],[67,0.25],[69,1],[67,1],[72,1],[71,2],
+      [67,0.75],[67,0.25],[69,1],[67,1],[74,1],[72,2],
+      [67,0.75],[67,0.25],[79,1],[76,1],[72,1],[71,1],[69,2],
+      [77,0.75],[77,0.25],[76,1],[72,1],[74,1],[72,2]
+    ],
+    accompaniment: [
+      [[48,52,55],3],       [[43,47,50,53],3],         // C  → G7
+      [[43,47,50,53],3],    [[48,52,55],3],            // G7 → C
+      [[48,52,55],4],       [[41,45,48],3],            // C  → F
+      [[41,45,48],1.5], [[48,52,55],1.5], [[43,47,50,53],1.5], [[48,52,55],1.5]  // F-C-G7-C
+    ]
+  },
+  '欢乐颂': {
+    tempo: 120,
+    melody: [
+      [64,1],[64,1],[65,1],[67,1],
+      [67,1],[65,1],[64,1],[62,1],
+      [60,1],[60,1],[62,1],[64,1],
+      [64,1.5],[62,0.5],[62,2],
+      [64,1],[64,1],[65,1],[67,1],
+      [67,1],[65,1],[64,1],[62,1],
+      [60,1],[60,1],[62,1],[64,1],
+      [62,1.5],[60,0.5],[60,2]
+    ],
+    accompaniment: [
+      [[48,52,55],4],                                  // C
+      [[43,47,50,53],4],                               // G7
+      [[48,52,55],4],                                  // C
+      [[43,47,50,53],2], [[48,52,55],2],               // G7 → C
+      [[48,52,55],4],                                  // C
+      [[43,47,50,53],4],                               // G7
+      [[48,52,55],4],                                  // C
+      [[43,47,50,53],2], [[48,52,55],2]                // G7 → C
+    ]
+  },
+  '致爱丽丝': {
+    tempo: 140,
+    // A minor — original opening has the left hand resting during the solo melody,
+    // then alternating Am / E major arpeggiated chords.
+    melody: [
+      [76,0.5],[75,0.5],[76,0.5],[75,0.5],[76,0.5],[71,0.5],[74,0.5],[72,0.5],
+      [69,1],[null,0.5],[60,0.5],[64,0.5],[69,0.5],
+      [71,1],[null,0.5],[64,0.5],[68,0.5],[71,0.5],
+      [72,1],[null,0.5],[64,0.5],
+      [76,0.5],[75,0.5],[76,0.5],[75,0.5],[76,0.5],[71,0.5],[74,0.5],[72,0.5],
+      [69,1],[null,0.5],[60,0.5],[64,0.5],[69,0.5],
+      [71,1],[null,0.5],[64,0.5],[72,0.5],[71,0.5],[69,2]
+    ],
+    accompaniment: [
+      [null,4],              // tacet during the famous E-D#-E motif
+      [[45,48,52],3],        // Am
+      [[40,44,47],3],        // E
+      [[45,48,52],2],        // Am
+      [null,4],              // tacet again on the recap
+      [[45,48,52],3],        // Am
+      [[40,44,47],2],        // E
+      [[45,48,52],3]         // Am (final resolution)
+    ]
+  }
+};
+
+let currentSong = null;
+const songTimers = [];
+
+function stopSong() {
+  currentSong = null;
+  songTimers.forEach(t => clearTimeout(t));
+  songTimers.length = 0;
+  document.querySelectorAll('.song-btn').forEach(b => b.classList.remove('playing'));
+}
+
+function scheduleTrack(track, beatMs, songName) {
+  let t = 0;
+  for (const [note, beats] of track) {
+    if (note !== null) {
+      const notes = Array.isArray(note) ? note : [note];
+      const holdMs = Math.max(140, beats * beatMs * 0.92);
+      songTimers.push(setTimeout(() => {
+        if (currentSong !== songName) return;
+        for (const m of notes) strikePiano(m, holdMs, true);
+      }, t));
+    }
+    t += beats * beatMs;
+  }
+  return t;
+}
+
+function playSong(name) {
+  stopSong();
+  const song = SONGS[name];
+  if (!song) return;
+  getCtx();
+  currentSong = name;
+
+  document.querySelectorAll('.song-btn').forEach(b => {
+    b.classList.toggle('playing', b.dataset.song === name);
+  });
+
+  // Scroll so both bass (C3) and treble (C5) regions are visible
+  const scroll = document.getElementById('pianoScroll');
+  scroll.scrollTo({ left: 14 * WHITE_W, behavior: 'smooth' });
+
+  const beatMs = 60000 / song.tempo;
+  const melMs = scheduleTrack(song.melody, beatMs, name);
+  const accMs = song.accompaniment ? scheduleTrack(song.accompaniment, beatMs, name) : 0;
+  const totalMs = Math.max(melMs, accMs);
+
+  songTimers.push(setTimeout(() => {
+    if (currentSong === name) stopSong();
+  }, totalMs + 200));
+}
+
+function buildSongButtons() {
+  const wrap = document.getElementById('songButtons');
+  for (const name in SONGS) {
+    const b = document.createElement('button');
+    b.className = 'song-btn';
+    b.dataset.song = name;
+    b.textContent = '▶ ' + name;
+    b.addEventListener('click', () => {
+      if (currentSong === name) stopSong();
+      else playSong(name);
+    });
+    wrap.appendChild(b);
+  }
+}
+buildSongButtons();
 
 // ========== GUITAR UI ==========
 // STRINGS[0] = string 1 (high E, visually on top)
