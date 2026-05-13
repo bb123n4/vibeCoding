@@ -384,6 +384,130 @@ footer {
   50%      { transform: translateX(-50%) scale(1.4); opacity: 1; }
 }
 
+/* ════════════════════════
+   Breakout preview
+════════════════════════ */
+.p-breakout {
+  background: #06060e;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.p-breakout::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(50,80,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(50,80,255,0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+.brk-inner {
+  position: relative; z-index: 1;
+  width: 140px; height: 120px;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 8px;
+}
+.brk-blocks {
+  display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; width: 100%;
+}
+.brk-block {
+  height: 6px; border-radius: 1px;
+}
+.brk-ball {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 8px #ffee60, 0 0 4px #fff;
+  position: absolute; top: 52px; left: 62px;
+}
+.brk-paddle {
+  position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 52px; height: 6px; border-radius: 3px;
+  background: #55ccff;
+  box-shadow: 0 0 8px #33aaff;
+}
+
+/* ════════════════════════
+   Minesweeper preview
+════════════════════════ */
+.p-mine {
+  background: #0f1117;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.p-mine::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,200,120,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,200,120,0.03) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+.mine-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 3px; padding: 12px;
+  position: relative; z-index: 1;
+}
+.mc {
+  width: 16px; height: 16px; border-radius: 2px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; font-family: monospace;
+}
+.mc-h  { background: rgba(0,200,100,0.12); border: 1px solid rgba(0,200,100,0.2); }
+.mc-r  { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); }
+.mc-f  { background: rgba(255,180,0,0.12); border: 1px solid rgba(255,180,0,0.3); }
+.mc-m  { background: rgba(255,40,80,0.25); border: 1px solid rgba(255,40,80,0.4); }
+.n1c { color: #44aaff; } .n2c { color: #44dd88; } .n3c { color: #ff6644; }
+
+/* ════════════════════════
+   Namescore preview
+════════════════════════ */
+.p-name {
+  background: #100c1a;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.p-name::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 50% at 50% 0%, rgba(160,100,255,0.1) 0%, transparent 70%);
+}
+.name-cert-mini {
+  position: relative; z-index: 1;
+  border: 1px solid rgba(212,168,75,0.3);
+  border-radius: 8px; padding: 14px 20px;
+  text-align: center;
+  background: rgba(255,255,255,0.02);
+  width: 140px;
+}
+.name-cert-mini::before {
+  content: '';
+  position: absolute; inset: 4px;
+  border: 1px solid rgba(212,168,75,0.1);
+  border-radius: 5px; pointer-events: none;
+}
+.name-cn {
+  font-family: "STKaiti","KaiTi","楷体",serif;
+  font-size: 1.2rem; letter-spacing: 0.4em;
+  color: #f0e4c0; text-indent: 0.4em;
+  text-shadow: 0 0 10px rgba(212,168,75,0.3);
+  margin-bottom: 8px;
+}
+.name-badge-row {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.name-badge {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 1.5px solid #ff9922;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: bold;
+  color: #ff9922; font-family: monospace;
+  box-shadow: 0 0 8px rgba(255,153,34,0.3);
+}
+.name-score-txt {
+  font-size: 9px; letter-spacing: 0.1em;
+  color: rgba(212,168,75,0.5); font-family: monospace;
+  line-height: 1.5;
+}
+
 /* ── Responsive ── */
 @media (max-width: 520px) {
   .grid { grid-template-columns: 1fr; }
@@ -521,6 +645,58 @@ footer {
       </div>
     </a>
 
+    <!-- Breakout -->
+    <a class="card" href="breakout.html">
+      <div class="preview p-breakout">
+        <div class="brk-inner">
+          <div class="brk-blocks" id="brkBlocks"></div>
+          <div class="brk-ball"></div>
+          <div class="brk-paddle"></div>
+        </div>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">无尽弹球</div>
+          <div class="card-desc">关卡无限 · 速度递增 · 挡板渐短</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
+    <!-- Minesweeper -->
+    <a class="card" href="minesweeper.html">
+      <div class="preview p-mine">
+        <div class="mine-grid" id="mineGrid"></div>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">扫雷</div>
+          <div class="card-desc">三难度 · 计时 · 首点安全</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
+    <!-- Namescore -->
+    <a class="card" href="namescore.html">
+      <div class="preview p-name">
+        <div class="name-cert-mini">
+          <div class="name-cn">振宇</div>
+          <div class="name-badge-row">
+            <div class="name-badge">S</div>
+            <div class="name-score-txt">传世之名<br><span style="color:rgba(212,168,75,0.35)">SCORE 92</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">命名打分器</div>
+          <div class="card-desc">字形 · 音律 · 五行 · 数理能量</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
   </div>
 </div>
 
@@ -644,6 +820,43 @@ footer {
     const [x,y]=finalPts[i];
     svg.appendChild(mk('circle',{cx:x,cy:y,r:'2.5',fill:colors[i],'opacity':'0.9'}));
   });
+})();
+
+// ── Breakout blocks ──
+(function(){
+  const colors = ['#ff2255','#ff6622','#ffcc00','#22cc66','#22aaff','#9944ff','#ff44aa'];
+  const grid = document.getElementById('brkBlocks');
+  for(let r=0;r<3;r++) for(let c=0;c<7;c++) {
+    const d = document.createElement('div');
+    d.className = 'brk-block';
+    d.style.background = colors[r];
+    d.style.opacity = r===2&&c>4 ? '0' : '1';
+    d.style.boxShadow = `0 0 4px ${colors[r]}88`;
+    grid.appendChild(d);
+  }
+})();
+
+// ── Minesweeper mini grid ──
+(function(){
+  const grid = document.getElementById('mineGrid');
+  const layout = [
+    ['r','r','r','r','r','h','h'],
+    ['r','1','2','1','r','h','f'],
+    ['r','1','m','r','r','h','h'],
+    ['h','h','h','h','h','h','h'],
+    ['h','h','h','h','h','h','h'],
+  ];
+  const nums = {'1':'1','2':'2'};
+  layout.forEach(row => row.forEach(v => {
+    const d = document.createElement('div');
+    if (v==='h') d.className='mc mc-h';
+    else if (v==='r') d.className='mc mc-r';
+    else if (v==='f') { d.className='mc mc-f'; d.textContent='🚩'; }
+    else if (v==='m') { d.className='mc mc-m'; d.textContent='💣'; }
+    else if (v==='1') { d.className='mc mc-r n1c'; d.textContent='1'; }
+    else if (v==='2') { d.className='mc mc-r n2c'; d.textContent='2'; }
+    grid.appendChild(d);
+  }));
 })();
 
 // ── Tarot mini stars ──

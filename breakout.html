@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>无尽弹球</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #06060e;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: 100vh;
+  font-family: monospace;
+  overflow: hidden;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(50,80,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(50,80,255,0.04) 1px, transparent 1px);
+  background-size: 30px 30px;
+  pointer-events: none;
+}
+#c {
+  display: block;
+  max-width: 400px; width: 100%;
+  aspect-ratio: 400/580;
+  touch-action: none;
+  cursor: none;
+  position: relative; z-index: 1;
+}
+#hiscore {
+  position: relative; z-index: 1;
+  font-size: 11px; color: rgba(255,255,255,0.2);
+  letter-spacing: 0.15em; margin-top: 10px;
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hiscore"></div>
+<script>
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const W = 400, H = 580;
+canvas.width = W; canvas.height = H;
+
+const HS_KEY = 'breakout_hi';
+let hiScore = +localStorage.getItem(HS_KEY) || 0;
+document.getElementById('hiscore').textContent = `HI ${hiScore}`;
+
+// ── Audio ──
+let audioCtx;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function beep(freq, dur=0.06, type='square', vol=0.12) {
+  try {
+    const ac = getAudio();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + dur);
+    o.start(); o.stop(ac.currentTime + dur);
+  } catch(e){}
+}
+function playArpeggio(notes, spacing=110) {
+  notes.forEach((f,i) => setTimeout(() => beep(f, 0.18, 'sine', 0.18), i*spacing));
+}
+
+// ── Constants ──
+const COLS = 8, BH = 15, BGAP = 3;
+const BW = (W - 24 - BGAP*(COLS-1)) / COLS;
+const BLOCK_ROWS_COLORS = ['#ff2255','#ff6622','#ffcc00','#22cc66','#22aaff','#9944ff','#ff44aa','#44ffdd'];
+const BLOCK_PTS         = [60,50,40,30,20,15,10,8];
+const PADDLE_W_BASE = 88, PADDLE_H = 11;
+const BALL_R = 7;
+
+// ── State ──
+const S = { TITLE:0, PLAYING:1, DEAD:2, LEVELCLEAR:3, GAMEOVER:4 };
+let state, score, lives, level, ball, paddle, blocks, trail, flashMsg, mouseX;
+mouseX = W / 2;
+
+function initGame() {
+  score = 0; lives = 3; level = 1;
+  initPaddle(); initLevel(); initBall();
+  state = S.PLAYING;
+}
+function initPaddle() {
+  paddle = { x: W/2 - PADDLE_W_BASE/2, y: H-40, w: PADDLE_W_BASE, h: PADDLE_H };
+}
+function initBall() {
+  const spd = 4.2 + (level-1)*0.35;
+  const a = -Math.PI/2 + (Math.random()-0.5)*(Math.PI*0.55);
+  ball = { x: W/2, y: paddle.y - BALL_R - 2, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd };
+  trail = [];
+}
+function initLevel() {
+  const rows = Math.min(3 + Math.ceil(level*0.8), 9);
+  blocks = [];
+  for (let r=0; r<rows; r++)
+    for (let c=0; c<COLS; c++)
+      blocks.push({
+        x: 12 + c*(BW+BGAP), y: 55 + r*(BH+BGAP),
+        w: BW, h: BH,
+        color: BLOCK_ROWS_COLORS[r % BLOCK_ROWS_COLORS.length],
+        pts:   BLOCK_PTS[r % BLOCK_PTS.length],
+        alive: true,
+      });
+}
+
+// ── Collision helpers ──
+function blockHit(b) {
+  if (!b.alive) return false;
+  const bx = ball.x, by = ball.y, r = BALL_R;
+  if (bx+r < b.x || bx-r > b.x+b.w || by+r < b.y || by-r > b.y+b.h) return false;
+  const ovL = bx+r - b.x, ovR = b.x+b.w - (bx-r);
+  const ovT = by+r - b.y, ovB = b.y+b.h - (by-r);
+  const m = Math.min(ovL,ovR,ovT,ovB);
+  if (m===ovT||m===ovB) ball.vy*=-1; else ball.vx*=-1;
+  b.alive = false;
+  score += b.pts;
+  return true;
+}
+
+// ── Update ──
+function update() {
+  if (state !== S.PLAYING) return;
+
+  // paddle follows mouse
+  paddle.x = Math.max(0, Math.min(W-paddle.w, mouseX - paddle.w/2));
+
+  // trail
+  trail.unshift({x:ball.x, y:ball.y});
+  if (trail.length > 10) trail.pop();
+
+  ball.x += ball.vx; ball.y += ball.vy;
+
+  // walls
+  if (ball.x - BALL_R < 0)  { ball.x = BALL_R;   ball.vx = Math.abs(ball.vx);  beep(280,0.04,'square',0.08); }
+  if (ball.x + BALL_R > W)  { ball.x = W-BALL_R; ball.vx = -Math.abs(ball.vx); beep(280,0.04,'square',0.08); }
+  if (ball.y - BALL_R < 0)  { ball.y = BALL_R;   ball.vy = Math.abs(ball.vy);  beep(280,0.04,'square',0.08); }
+
+  // paddle
+  if (ball.vy>0
+    && ball.y+BALL_R >= paddle.y
+    && ball.y-BALL_R <= paddle.y+paddle.h
+    && ball.x >= paddle.x-4
+    && ball.x <= paddle.x+paddle.w+4) {
+    ball.y = paddle.y - BALL_R;
+    const hit = (ball.x - (paddle.x+paddle.w/2)) / (paddle.w/2);
+    const spd = Math.hypot(ball.vx, ball.vy);
+    const ang = hit * 1.1 - Math.PI/2;
+    ball.vx = Math.cos(ang)*spd;
+    ball.vy = Math.sin(ang)*spd;
+    if (Math.abs(ball.vy) < spd*0.25) ball.vy = -spd*0.25;
+    beep(160,0.08,'triangle',0.18);
+  }
+
+  // blocks
+  for (const b of blocks) {
+    if (blockHit(b)) { beep(180 + BLOCK_ROWS_COLORS.indexOf(b.color)*45, 0.06, 'square', 0.12); break; }
+  }
+
+  // lost ball
+  if (ball.y - BALL_R > H) {
+    lives--;
+    if (lives<=0) {
+      state = S.GAMEOVER;
+      playArpeggio([200,160,130,100], 130);
+      if (score > hiScore) { hiScore=score; localStorage.setItem(HS_KEY,hiScore); document.getElementById('hiscore').textContent=`HI ${hiScore}`; }
+    } else {
+      state = S.DEAD;
+      beep(120,0.3,'sawtooth',0.15);
+      setTimeout(()=>{ initBall(); state=S.PLAYING; }, 1100);
+    }
+  }
+
+  // level clear
+  if (blocks.every(b=>!b.alive)) {
+    state = S.LEVELCLEAR;
+    playArpeggio([523,659,784,1047,1319]);
+    setTimeout(()=>{ level++; paddle.w=Math.max(PADDLE_W_BASE-level*3,40); initLevel(); initBall(); state=S.PLAYING; }, 2000);
+  }
+}
+
+// ── Render ──
+function drawGlow(fn, color, blur=14) {
+  ctx.save(); ctx.shadowBlur=blur; ctx.shadowColor=color; fn(); ctx.restore();
+}
+function roundRect(x,y,w,h,r) {
+  ctx.beginPath(); ctx.roundRect(x,y,w,h,r); ctx.fill();
+}
+
+function render() {
+  // bg
+  ctx.fillStyle='#06060e'; ctx.fillRect(0,0,W,H);
+
+  if (state===S.TITLE) { renderTitle(); return; }
+
+  // trail
+  trail.forEach((p,i)=>{
+    const a = (1-i/trail.length)*0.35;
+    ctx.beginPath(); ctx.arc(p.x,p.y,BALL_R*(1-i/trail.length*0.4),0,Math.PI*2);
+    ctx.fillStyle=`rgba(255,220,60,${a})`; ctx.fill();
+  });
+
+  // ball
+  drawGlow(()=>{ ctx.beginPath(); ctx.arc(ball.x,ball.y,BALL_R,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill(); },'#ffee60',18);
+
+  // paddle
+  drawGlow(()=>{ ctx.fillStyle='#55ccff'; roundRect(paddle.x,paddle.y,paddle.w,paddle.h,6); },'#33aaff',12);
+
+  // blocks
+  blocks.forEach(b=>{
+    if(!b.alive) return;
+    drawGlow(()=>{ ctx.fillStyle=b.color; ctx.fillRect(b.x,b.y,b.w,b.h); },b.color,6);
+    // highlight top edge
+    ctx.fillStyle='rgba(255,255,255,0.18)';
+    ctx.fillRect(b.x,b.y,b.w,2);
+  });
+
+  // HUD bar
+  ctx.fillStyle='rgba(6,6,14,0.85)';
+  ctx.fillRect(0,H-28,W,28);
+  ctx.fillStyle='rgba(255,255,255,0.35)';
+  ctx.font='11px monospace';
+  ctx.textAlign='left';  ctx.fillText(`SCORE ${String(score).padStart(6,'0')}`, 12, H-10);
+  ctx.textAlign='center';ctx.fillText(`LV ${level}`, W/2, H-10);
+  ctx.textAlign='right';
+  for(let i=0;i<lives;i++){
+    ctx.beginPath(); ctx.arc(W-12-i*16, H-14, 5, 0, Math.PI*2);
+    ctx.fillStyle='#ffdd50'; ctx.fill();
+  }
+
+  // overlays
+  if (state===S.LEVELCLEAR) renderOverlay(`LEVEL ${level} CLEAR!`,'#ffcc00','NEXT LEVEL...');
+  if (state===S.DEAD)        renderOverlay(`×${lives} REMAINING`,'#ff6644','');
+  if (state===S.GAMEOVER)    renderGameOver();
+}
+
+function renderTitle() {
+  ctx.textAlign='center';
+  // title
+  drawGlow(()=>{
+    ctx.fillStyle='#ffdd50'; ctx.font='bold 38px monospace';
+    ctx.fillText('无尽弹球', W/2, H/2-60);
+  },'#ffaa00',20);
+  ctx.fillStyle='rgba(255,255,255,0.45)'; ctx.font='13px monospace';
+  ctx.fillText('移动鼠标 / 触摸控制挡板', W/2, H/2-10);
+  ctx.fillText('每关速度加快，挡板变短', W/2, H/2+16);
+  ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.font='11px monospace';
+  ctx.fillText('CLICK TO START', W/2, H/2+58);
+  if (hiScore>0) {
+    ctx.fillStyle='rgba(255,200,50,0.3)'; ctx.font='11px monospace';
+    ctx.fillText(`BEST ${hiScore}`, W/2, H/2+82);
+  }
+}
+function renderOverlay(title, color, sub) {
+  ctx.fillStyle='rgba(6,6,14,0.6)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  drawGlow(()=>{ ctx.fillStyle=color; ctx.font='bold 26px monospace'; ctx.fillText(title,W/2,H/2); }, color, 18);
+  if(sub){ ctx.fillStyle='rgba(255,255,255,0.4)'; ctx.font='12px monospace'; ctx.fillText(sub,W/2,H/2+32); }
+}
+function renderGameOver() {
+  ctx.fillStyle='rgba(6,6,14,0.78)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  drawGlow(()=>{ ctx.fillStyle='#ff3355'; ctx.font='bold 34px monospace'; ctx.fillText('GAME OVER',W/2,H/2-30); },'#ff2244',20);
+  ctx.fillStyle='rgba(255,255,255,0.6)'; ctx.font='14px monospace';
+  ctx.fillText(`SCORE  ${score}`, W/2, H/2+14);
+  if(score>=hiScore&&score>0){ ctx.fillStyle='#ffcc00'; ctx.fillText('NEW BEST!', W/2, H/2+36); }
+  ctx.fillStyle='rgba(255,255,255,0.3)'; ctx.font='12px monospace';
+  ctx.fillText('CLICK TO PLAY AGAIN', W/2, H/2+70);
+}
+
+// ── Input ──
+function getCanvasX(clientX) {
+  const r = canvas.getBoundingClientRect();
+  return (clientX - r.left) * (W / r.width);
+}
+canvas.addEventListener('mousemove', e => { mouseX = getCanvasX(e.clientX); });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); mouseX = getCanvasX(e.touches[0].clientX); }, {passive:false});
+canvas.addEventListener('click', () => {
+  getAudio(); // unlock
+  if (state===S.TITLE||state===S.GAMEOVER) { initGame(); }
+});
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault(); getAudio();
+  mouseX = getCanvasX(e.touches[0].clientX);
+  if (state===S.TITLE||state===S.GAMEOVER) { initGame(); }
+}, {passive:false});
+
+// ── Loop ──
+state = S.TITLE;
+initPaddle(); initLevel(); initBall();
+(function loop(){ update(); render(); requestAnimationFrame(loop); })();
+</script>
+</body>
+</html>

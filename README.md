@@ -15,6 +15,9 @@
 | 🔮 | [tarot.html](tarot.html) | 每日塔罗 — three-card tarot spread with love / career / money readings |
 | ⚡ | [energy.html](energy.html) | 今日能量值 — daily 8-dimension energy report with animated radar chart |
 | 📖 | [adventure.html](adventure.html) | 深夜书店 — text adventure with branching story and 4 endings |
+| 🎯 | [breakout.html](breakout.html) | 无尽弹球 — endless breakout with increasing speed and shrinking paddle |
+| 💣 | [minesweeper.html](minesweeper.html) | 扫雷 — classic minesweeper with 3 difficulties, timer, and safe first click |
+| ✦ | [namescore.html](namescore.html) | 命名打分器 — name appraisal oracle scoring字形, 音律, 五行 & 数理 |
 
 ## 🚀 Run locally
 
