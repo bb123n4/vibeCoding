@@ -1,231 +1,564 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>每日灵签 - 纯净版</title>
-    <style>
-        :root {
-            --primary-red: #c0392b;
-            --gold: #f1c40f;
-            --paper: #f7f1e3;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>每日灵签</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
-        body {
-            font-family: "Microsoft YaHei", "SimSun", sans-serif;
-            background-color: var(--paper);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            color: #2c3e50;
-        }
+body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "STKaiti", "KaiTi", "Kaiti SC", "楷体", "STSong", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  /* warm washi paper */
+  background-color: #ede6d8;
+  background-image:
+    radial-gradient(ellipse at 50% 0%,   rgba(160,100,60,0.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 50% 100%, rgba(100,60,30,0.07)  0%, transparent 55%);
+  overflow: hidden;
+  position: relative;
+}
 
-        .container {
-            text-align: center;
-            background: white;
-            padding: 2.5rem;
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
-            width: 340px;
-            border: 2px solid #eee;
-        }
+/* subtle paper grain */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.45;
+  mix-blend-mode: multiply;
+}
 
-        h2 { color: var(--primary-red); margin-bottom: 5px; }
+/* ── Petals ── */
+#particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.petal {
+  position: absolute;
+  top: -10px;
+  border-radius: 50% 0 50% 0;
+  background: rgba(210,140,150,0.55);
+  animation: petalFall linear infinite;
+}
+@keyframes petalFall {
+  0%   { transform: translateY(0) rotate(0deg) translateX(0);       opacity: 0; }
+  5%   { opacity: 0.8; }
+  85%  { opacity: 0.5; }
+  100% { transform: translateY(105vh) rotate(var(--spin)) translateX(var(--drift)); opacity: 0; }
+}
 
-        .date-info {
-            font-size: 0.9rem;
-            color: #95a5a6;
-            margin-bottom: 20px;
-        }
+/* ── Scene ── */
+.scene {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 300px;
+}
 
-        input {
-            padding: 12px;
-            width: 85%;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            margin-bottom: 1rem;
-            font-size: 1rem;
-            outline: none;
-            transition: border-color 0.3s;
-        }
+/* ── Header ── */
+.header { text-align: center; margin-bottom: 32px; }
 
-        input:focus { border-color: var(--primary-red); }
+/* ensō ring */
+.enso {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(155,35,53,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 14px;
+  position: relative;
+}
+.enso::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  border: 0.5px solid rgba(155,35,53,0.2);
+}
+.enso-inner {
+  font-size: 1.1rem;
+  color: #9b2335;
+  opacity: 0.8;
+}
 
-        button {
-            background: var(--primary-red);
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 1.1rem;
-            font-weight: bold;
-            box-shadow: 0 4px 0 #962d22;
-            transition: all 0.1s;
-        }
+h1 {
+  font-size: 1.25rem;
+  font-weight: 400;
+  letter-spacing: 0.55em;
+  color: #2a1a10;
+  margin-bottom: 8px;
+  padding-left: 0.55em; /* compensate for last letter kerning */
+}
+.title-rule {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(155,35,53,0.4) 40%, rgba(155,35,53,0.4) 60%, transparent);
+  margin-bottom: 8px;
+}
+.date-info {
+  font-size: 0.68rem;
+  color: #8a7060;
+  letter-spacing: 0.2em;
+}
 
-        button:active {
-            transform: translateY(2px);
-            box-shadow: 0 2px 0 #962d22;
-        }
+/* ── Input ── */
+.input-wrap { width: 100%; margin-bottom: 30px; position: relative; }
+input {
+  width: 100%;
+  padding: 10px 4px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(42,26,16,0.25);
+  color: #2a1a10;
+  font-family: inherit;
+  font-size: 0.92rem;
+  letter-spacing: 0.15em;
+  outline: none;
+  text-align: center;
+  transition: border-color 0.3s;
+}
+input::placeholder { color: rgba(42,26,16,0.3); }
+input:focus { border-bottom-color: rgba(155,35,53,0.7); }
 
-        /* 抽签动画核心区 */
-        .stick-container {
-            position: relative;
-            height: 160px;
-            margin: 30px auto;
-            width: 80px;
-        }
+/* focus underline accent */
+.input-wrap::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  height: 1px;
+  background: #9b2335;
+  transition: width 0.3s, left 0.3s;
+}
+.input-wrap:focus-within::after { width: 100%; left: 0; }
 
-        .cup {
-            width: 80px;
-            height: 100px;
-            background: var(--primary-red);
-            border-radius: 5px 5px 15px 15px;
-            position: absolute;
-            bottom: 0;
-            z-index: 5;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--gold);
-            font-size: 1.2rem;
-            font-weight: bold;
-            box-shadow: inset 0 -5px 10px rgba(0,0,0,0.2);
-        }
+/* ── Cup stage ── */
+.cup-stage {
+  position: relative;
+  width: 110px;
+  height: 195px;
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
 
-        .stick {
-            width: 18px;
-            height: 110px;
-            background: #e67e22;
-            border: 1px solid #d35400;
-            position: absolute;
-            bottom: 10px;
-            left: 31px;
-            z-index: 2;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            writing-mode: vertical-rl;
-            font-size: 12px;
-            font-weight: bold;
-            color: #fff;
-            border-radius: 2px;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
+/* Sticks - natural bamboo */
+.sticks-wrap {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 72px;
+  height: 155px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  z-index: 3;
+}
+.qstick {
+  position: absolute;
+  bottom: 0;
+  width: 6px;
+  height: 128px;
+  border-radius: 2px 2px 1px 1px;
+  transform-origin: bottom center;
+  transition: opacity 0.4s;
+}
+/* bamboo gradient per stick */
+.qstick:nth-child(1) { background: linear-gradient(180deg, #d4c08a 0%, #a89060 100%); left: 12px; transform: rotate(-9deg); }
+.qstick:nth-child(2) { background: linear-gradient(180deg, #ccb878 0%, #a08858 100%); left: 24px; transform: rotate(-4deg); }
+.qstick:nth-child(3) { background: linear-gradient(180deg, #e8d49c 0%, #c4a068 100%); left: 36px; transform: rotate(0deg);  z-index: 4; }
+.qstick:nth-child(4) { background: linear-gradient(180deg, #d0bc80 0%, #9c8450 100%); left: 48px; transform: rotate(5deg); }
+.qstick:nth-child(5) { background: linear-gradient(180deg, #c8b070 0%, #947840 100%); left: 60px; transform: rotate(11deg); }
 
-        /* 动画关键帧 */
-        @keyframes shakeContainer {
-            0%, 100% { transform: rotate(0); }
-            20% { transform: rotate(8deg) translateX(5px); }
-            40% { transform: rotate(-8deg) translateX(-5px); }
-            60% { transform: rotate(5deg) translateX(3px); }
-            80% { transform: rotate(-5deg) translateX(-3px); }
-        }
+.qstick.featured {
+  width: 8px;
+  background: linear-gradient(180deg, #f0e0b0 0%, #d4a860 60%, #a07838 100%);
+}
+.stick-text {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  writing-mode: vertical-rl;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: #5a3e18;
+  font-weight: bold;
+  pointer-events: none;
+  opacity: 0;
+}
 
-        @keyframes riseUp {
-            0% { transform: translateY(0); opacity: 1; }
-            100% { transform: translateY(-85px); opacity: 1; }
-        }
+/* Cup - Japanese lacquerware: dark with vermillion */
+.cup-body {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 76px;
+  height: 86px;
+  z-index: 5;
+}
+.cup-outer {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(155deg, #2a1208 0%, #1a0a04 50%, #0f0602 100%);
+  clip-path: polygon(8% 0%, 92% 0%, 100% 100%, 0% 100%);
+  position: relative;
+  box-shadow:
+    inset -3px 0 10px rgba(0,0,0,0.5),
+    inset  3px 0  6px rgba(255,255,255,0.04),
+    inset  0 -4px 8px rgba(0,0,0,0.4);
+}
+/* vermillion band across middle */
+.cup-band {
+  position: absolute;
+  top: 50%;
+  left: 0; right: 0;
+  height: 20%;
+  transform: translateY(-50%);
+  background: rgba(155,35,53,0.18);
+  border-top: 0.5px solid rgba(155,35,53,0.3);
+  border-bottom: 0.5px solid rgba(155,35,53,0.3);
+}
+.cup-rim {
+  position: absolute;
+  top: -3px; left: -2px; right: -2px;
+  height: 6px;
+  background: linear-gradient(180deg, #c8a040, #7a6020);
+  border-radius: 2px 2px 0 0;
+  box-shadow: 0 -1px 6px rgba(200,160,64,0.3);
+}
+.cup-base {
+  position: absolute;
+  bottom: -3px; left: -4px; right: -4px;
+  height: 5px;
+  background: linear-gradient(180deg, #7a6020, #4a3c10);
+  border-radius: 1px;
+}
+.cup-char {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.4rem;
+  color: rgba(200,160,64,0.7);
+  text-shadow: 0 0 8px rgba(200,160,64,0.3);
+}
 
-        .animating .cup { animation: shakeContainer 0.5s infinite linear; }
-        .animating .stick { animation: riseUp 2s forwards ease-out; }
+/* ── Button ── */
+.draw-btn {
+  position: relative;
+  padding: 11px 40px;
+  background: transparent;
+  border: 1px solid rgba(155,35,53,0.45);
+  color: #9b2335;
+  font-family: inherit;
+  font-size: 0.95rem;
+  letter-spacing: 0.45em;
+  padding-left: calc(40px + 0.45em);
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-bottom: 30px;
+  overflow: hidden;
+}
+.draw-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: #9b2335;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  z-index: 0;
+}
+.draw-btn span { position: relative; z-index: 1; transition: color 0.3s; }
+.draw-btn:hover::before { transform: scaleX(1); }
+.draw-btn:hover span { color: #f0ebe0; }
+.draw-btn:active { transform: scale(0.97); }
+.draw-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.draw-btn:disabled::before { display: none; }
 
-        #result-display {
-            margin-top: 25px;
-            font-size: 2.2rem;
-            font-weight: 900;
-            color: var(--primary-red);
-            min-height: 60px;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
-        }
-    </style>
+/* ── Result ── */
+.result-area {
+  min-height: 115px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.result-card {
+  text-align: center;
+  opacity: 0;
+}
+.result-card.visible {
+  animation: stampIn 0.55s cubic-bezier(0.22, 1.25, 0.36, 1) forwards;
+}
+@keyframes stampIn {
+  0%   { opacity: 0; transform: scale(1.9) rotate(-5deg); }
+  45%  { opacity: 1; transform: scale(0.94) rotate(1.5deg); }
+  70%  { transform: scale(1.03) rotate(-0.5deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+/* double-border frame */
+.result-frame {
+  position: relative;
+  padding: 18px 32px 14px;
+  border: 1px solid currentColor;
+  display: inline-block;
+}
+.result-frame::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 0.5px solid currentColor;
+  opacity: 0.4;
+  pointer-events: none;
+}
+/* corner kanji-dot ornaments */
+.result-frame::after {
+  content: '◈';
+  position: absolute;
+  bottom: 3px; right: 5px;
+  font-size: 7px;
+  opacity: 0.4;
+  line-height: 1;
+}
+.corner-tl {
+  position: absolute;
+  top: 3px; left: 5px;
+  font-size: 7px;
+  opacity: 0.4;
+  line-height: 1;
+}
+.result-level {
+  font-size: 3rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+.result-desc {
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  opacity: 0.65;
+  line-height: 1.6;
+}
+
+/* gentle pulse */
+@keyframes breathe {
+  0%,100% { filter: drop-shadow(0 0 5px currentColor); }
+  50%      { filter: drop-shadow(0 0 14px currentColor); }
+}
+.result-card.visible .result-frame {
+  animation: breathe 3s ease-in-out infinite 0.6s;
+}
+
+/* ── Animations ── */
+@keyframes cupShake {
+  0%,100% { transform: translateX(-50%) rotate(0); }
+  10% { transform: translateX(calc(-50% - 5px)) rotate(-7deg); }
+  20% { transform: translateX(calc(-50% + 5px)) rotate(7deg); }
+  30% { transform: translateX(calc(-50% - 6px)) rotate(-9deg); }
+  40% { transform: translateX(calc(-50% + 6px)) rotate(9deg); }
+  50% { transform: translateX(calc(-50% - 4px)) rotate(-5deg); }
+  60% { transform: translateX(calc(-50% + 4px)) rotate(5deg); }
+  75% { transform: translateX(calc(-50% - 2px)) rotate(-2deg); }
+  90% { transform: translateX(calc(-50% + 1px)) rotate(1deg); }
+}
+@keyframes stickRattle {
+  0%,100% { transform: var(--base-rot); }
+  25% { transform: rotate(calc(var(--base-deg) + 4deg)); }
+  75% { transform: rotate(calc(var(--base-deg) - 4deg)); }
+}
+@keyframes featuredRise {
+  0%   { transform: translateY(0) rotate(0); }
+  25%  { transform: translateY(-28px) rotate(-2deg); }
+  65%  { transform: translateY(-80px) rotate(1.5deg); }
+  100% { transform: translateY(-118px) rotate(0); }
+}
+@keyframes stickGlow {
+  0%,100% { box-shadow: 0 0 6px rgba(240,224,176,0.4); }
+  50%     { box-shadow: 0 0 18px rgba(240,224,176,0.85), 0 -6px 24px rgba(220,180,80,0.4); }
+}
+</style>
 </head>
 <body>
 
-<div class="container">
-    <h2>⛩️ 每日抽签</h2>
-    <div class="date-info" id="current-date"></div>
-    
-    <input type="text" id="nameInput" placeholder="请输入您的姓名(禁止数字)" maxlength="12">
-    
-    <div class="stick-container" id="box">
-        <div class="stick" id="stick"></div>
-        <div class="cup">灵签</div>
-    </div>
+<div id="particles"></div>
 
-    <button onclick="drawLots()">诚心求签</button>
-    <div id="result-display"></div>
+<div class="scene">
+
+  <div class="header">
+    <div class="enso"><span class="enso-inner">御</span></div>
+    <h1>每日灵签</h1>
+    <div class="title-rule"></div>
+    <div class="date-info" id="dateInfo"></div>
+  </div>
+
+  <div class="input-wrap">
+    <input type="text" id="nameInput" placeholder="请输入姓名（不含数字）" maxlength="12">
+  </div>
+
+  <div class="cup-stage" id="cupStage">
+    <div class="sticks-wrap" id="sticksWrap">
+      <div class="qstick" style="--base-deg:-9deg; --base-rot:rotate(-9deg)"></div>
+      <div class="qstick" style="--base-deg:-4deg; --base-rot:rotate(-4deg)"></div>
+      <div class="qstick featured" id="featuredStick">
+        <span class="stick-text" id="stickText"></span>
+      </div>
+      <div class="qstick" style="--base-deg:5deg;  --base-rot:rotate(5deg)"></div>
+      <div class="qstick" style="--base-deg:11deg; --base-rot:rotate(11deg)"></div>
+    </div>
+    <div class="cup-body" id="cupBody">
+      <div class="cup-outer">
+        <div class="cup-rim"></div>
+        <div class="cup-band"></div>
+        <div class="cup-base"></div>
+        <div class="cup-char">籤</div>
+      </div>
+    </div>
+  </div>
+
+  <button class="draw-btn" id="drawBtn" onclick="drawLots()">
+    <span>诚心求签</span>
+  </button>
+
+  <div class="result-area">
+    <div class="result-card" id="resultCard">
+      <div class="result-frame" id="resultFrame">
+        <span class="corner-tl">◈</span>
+        <div class="result-level" id="resultLevel"></div>
+        <div class="result-desc"  id="resultDesc"></div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
-    const levels = ["大凶", "凶", "末吉", "小吉", "中吉", "大吉"];
-    
-    // 获取当前日期 (YYYY-MM-DD)
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('current-date').innerText = "农历日期同步中 · " + today;
+const LEVELS = ["大凶","凶","末吉","小吉","中吉","大吉"];
+const FORTUNE = {
+  "大吉": { desc: "诸事顺遂，福星高照，所求皆得", color: "#b08020" },
+  "中吉": { desc: "事事如意，稳中有升，前途光明", color: "#b06818" },
+  "小吉": { desc: "小有收获，细水长流，守正待时", color: "#3a7848" },
+  "末吉": { desc: "平平无奇，安分守己，谨慎行事", color: "#5a7868" },
+  "凶":   { desc: "时有不顺，逢凶化吉，切莫强求", color: "#9b2335" },
+  "大凶": { desc: "时运不济，宜静不动，静待时机", color: "#505058" },
+};
 
-    async function hashCode(str) {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(str);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        // 取前几个字节组合成索引
-        return hashArray.reduce((acc, curr) => acc + curr, 0);
-    }
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('dateInfo').textContent = today + '　一日一籤';
 
-    async function drawLots() {
-        let name = document.getElementById('nameInput').value.trim();
+// ── Petal particles ──
+(function() {
+  const c = document.getElementById('particles');
+  for (let i = 0; i < 22; i++) {
+    const p = document.createElement('div');
+    p.className = 'petal';
+    const w = 5 + Math.random() * 5, h = w * 0.65;
+    p.style.cssText = `
+      width:${w}px; height:${h}px;
+      left:${Math.random()*105}%;
+      --drift:${(Math.random()-0.5)*120}px;
+      --spin:${(Math.random()>0.5?1:-1) * (180+Math.random()*180)}deg;
+      animation-delay:${Math.random()*14}s;
+      animation-duration:${10+Math.random()*10}s;
+      opacity:${0.4+Math.random()*0.4};
+      border-radius:${Math.random()>0.5?'50% 0 50% 0':'0 50% 0 50%'};
+    `;
+    c.appendChild(p);
+  }
+})();
 
-        // 1. 限制：不允许为空
-        if (!name) {
-            alert("请先输入您的姓名。");
-            return;
-        }
+// ── Hash ──
+async function hashCode(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).reduce((a,b) => a+b, 0);
+}
 
-        // 2. 限制：不允许包含数字 (正则匹配 0-9)
-        if (/\d/.test(name)) {
-            alert("姓名中不能包含数字，请重新输入。");
-            return;
-        }
+// ── Draw ──
+async function drawLots() {
+  const name = document.getElementById('nameInput').value.trim();
+  if (!name) { shake(document.querySelector('.input-wrap')); return; }
+  if (/\d/.test(name)) { alert('姓名中不能包含数字'); return; }
 
-        // 3. 限制：大小写不敏感 (统一转小写进行计算)
-        const normalizedName = name.toLowerCase();
+  const btn = document.getElementById('drawBtn');
+  btn.disabled = true;
 
-        const box = document.getElementById('box');
-        const stick = document.getElementById('stick');
-        const resultDisplay = document.getElementById('result-display');
+  const card = document.getElementById('resultCard');
+  card.classList.remove('visible');
+  card.style.opacity = '0';
 
-        // 重置状态
-        box.classList.remove('animating');
-        void box.offsetWidth; // 触发重绘以重新开始动画
-        resultDisplay.innerText = "求签中....";
-        stick.innerText = ""
-        stick.style.opacity = "0";
-        
-        // 开始动画
-        box.classList.add('animating');
+  const hashVal = await hashCode(name.toLowerCase() + today);
+  const result  = LEVELS[hashVal % LEVELS.length];
+  const fortune = FORTUNE[result];
 
-        // 计算结果 (基于 姓名小写 + 日期)
-        const seedSource = normalizedName + today;
-        const hashValue = await hashCode(seedSource);
-        const resultIndex = hashValue % levels.length;
-        const finalResult = levels[resultIndex];
+  document.getElementById('stickText').textContent = result;
 
-        stick.innerText = finalResult
+  const cupBody  = document.getElementById('cupBody');
+  const featured = document.getElementById('featuredStick');
 
-        // 2秒后展示
-        setTimeout(() => {
-            box.classList.remove('animating');
-            // stick.innerText = finalResult;
-            resultDisplay.innerText = finalResult;
-        }, 2000);
-    }
+  // Phase 1: shake
+  cupBody.style.animation = 'cupShake 0.42s ease-in-out infinite';
+  document.querySelectorAll('.qstick:not(.featured)').forEach(s => {
+    s.style.animation = 'stickRattle 0.42s ease-in-out infinite';
+  });
+
+  // Phase 2: rise
+  setTimeout(() => {
+    cupBody.style.animation = '';
+    document.querySelectorAll('.qstick:not(.featured)').forEach(s => {
+      s.style.animation = '';
+      s.style.opacity = '0.2';
+    });
+    featured.style.animation = 'featuredRise 1s cubic-bezier(0.22,1,0.36,1) forwards, stickGlow 1s ease-in-out infinite';
+    document.getElementById('stickText').style.opacity = '1';
+  }, 1400);
+
+  // Phase 3: reveal
+  setTimeout(() => {
+    const frame = document.getElementById('resultFrame');
+    document.getElementById('resultLevel').textContent = result;
+    document.getElementById('resultDesc').textContent  = fortune.desc;
+    document.getElementById('resultLevel').style.color = fortune.color;
+    document.getElementById('resultDesc').style.color  = fortune.color;
+    frame.style.color       = fortune.color;
+    frame.style.borderColor = fortune.color;
+    card.classList.add('visible');
+    btn.disabled = false;
+  }, 2600);
+
+  // Reset
+  setTimeout(() => {
+    featured.style.animation  = '';
+    featured.style.transform  = '';
+    document.getElementById('stickText').style.opacity = '0';
+    document.querySelectorAll('.qstick:not(.featured)').forEach(s => {
+      s.style.opacity = '';
+    });
+  }, 4000);
+}
+
+function shake(el) {
+  el.animate([
+    {transform:'translateX(0)'},{transform:'translateX(-7px)'},
+    {transform:'translateX(7px)'},{transform:'translateX(-4px)'},
+    {transform:'translateX(4px)'},{transform:'translateX(0)'}
+  ], { duration: 280 });
+  document.getElementById('nameInput').focus();
+}
+
+document.getElementById('nameInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') drawLots();
+});
 </script>
-
 </body>
 </html>
