@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>每日塔罗</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  background: radial-gradient(ellipse at 50% 0%, #1c1848 0%, #0e0c28 45%, #070614 100%);
+  color: #e0d8f0;
+  font-family: "STKaiti","KaiTi","Kaiti SC","楷体","Hiragino Mincho ProN","Yu Mincho",serif;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Stars ── */
+#stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+.star {
+  position: absolute; border-radius: 50%; background: #fff;
+  animation: twinkle ease-in-out infinite;
+}
+@keyframes twinkle {
+  0%,100% { opacity: var(--base-op); transform: scale(1); }
+  50%      { opacity: calc(var(--base-op) * 0.2); transform: scale(0.7); }
+}
+.shoot {
+  position: absolute; width: 80px; height: 1px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.9), transparent);
+  animation: shoot linear infinite; opacity: 0;
+}
+@keyframes shoot {
+  0%  { opacity:0; transform:translateX(0) translateY(0) rotate(-25deg); }
+  5%  { opacity:1; }
+  20% { opacity:0; transform:translateX(300px) translateY(120px) rotate(-25deg); }
+  100%{ opacity:0; transform:translateX(300px) translateY(120px) rotate(-25deg); }
+}
+
+/* ── Layout ── */
+.page {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 820px;
+  padding: 40px 20px 60px;
+  display: flex; flex-direction: column; align-items: center;
+}
+
+/* ── Header ── */
+header { text-align: center; margin-bottom: 44px; }
+.header-deco { display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:10px; }
+.deco-line { flex:1; max-width:80px; height:1px; background:linear-gradient(90deg,transparent,rgba(180,140,255,0.5)); }
+.deco-line.r { background:linear-gradient(90deg,rgba(180,140,255,0.5),transparent); }
+.deco-sym { color:rgba(180,140,255,0.7); font-size:1rem; }
+h1 {
+  font-size:1.6rem; font-weight:400; letter-spacing:0.5em; padding-left:0.5em;
+  color:#e8e0ff; text-shadow:0 0 30px rgba(180,140,255,0.4); margin-bottom:8px;
+}
+.subtitle { font-size:0.7rem; letter-spacing:0.25em; color:rgba(200,180,255,0.45); }
+
+/* ── Spread labels ── */
+.spread-label { display:flex; justify-content:center; gap:0; margin-bottom:24px; width:100%; max-width:520px; }
+.pos-label { flex:1; text-align:center; font-size:0.65rem; letter-spacing:0.2em; color:rgba(200,180,255,0.4); padding-top:2px; }
+
+/* ── Cards row ── */
+.cards-row { display:flex; justify-content:center; gap:24px; margin-bottom:36px; flex-wrap:wrap; }
+
+/* ── Card ── */
+.card-wrap {
+  perspective:900px; width:150px; height:255px;
+  cursor:pointer; flex-shrink:0; opacity:0;
+}
+.card-inner {
+  position:relative; width:100%; height:100%;
+  transform-style:preserve-3d;
+  transition:transform 0.85s cubic-bezier(0.4,0,0.2,1);
+}
+.card-wrap.flipped .card-inner { transform:rotateY(180deg); }
+.card-wrap.reversed .card-inner { transform:rotateY(180deg) rotate(180deg); }
+.card-face, .card-back {
+  position:absolute; inset:0; border-radius:14px;
+  backface-visibility:hidden; -webkit-backface-visibility:hidden;
+}
+
+/* Card back */
+.card-back {
+  background:linear-gradient(145deg,#1e1850,#130e38,#0c0920);
+  border:1.5px solid rgba(180,140,255,0.35);
+  overflow:hidden; display:flex; align-items:center; justify-content:center;
+}
+.card-back::before {
+  content:''; position:absolute; inset:7px;
+  border:0.5px solid rgba(180,140,255,0.2); border-radius:8px; pointer-events:none;
+}
+.card-back::after { content:'✦'; position:absolute; font-size:0.55rem; color:rgba(180,140,255,0.35); bottom:12px; right:12px; }
+.back-center { display:flex; flex-direction:column; align-items:center; gap:6px; }
+.back-star { font-size:2rem; color:rgba(200,170,255,0.5); line-height:1; }
+.back-dots { display:flex; gap:5px; }
+.back-dot { width:3px; height:3px; border-radius:50%; background:rgba(180,140,255,0.35); }
+.back-corner-tl { position:absolute; top:11px; left:12px; font-size:0.55rem; color:rgba(180,140,255,0.35); }
+.card-wrap:not(.flipped):not(.reversed):hover .card-back {
+  border-color:rgba(220,180,255,0.7);
+  box-shadow:0 0 20px rgba(180,140,255,0.2),0 0 40px rgba(180,140,255,0.1);
+}
+
+/* Card face */
+.card-face {
+  transform:rotateY(180deg);
+  border:1.5px solid rgba(200,170,255,0.2);
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:space-between; padding:14px 10px 12px;
+  overflow:hidden; position:relative;
+}
+.card-face::before {
+  content:''; position:absolute; inset:0;
+  background:var(--card-bg,linear-gradient(160deg,#1a1640,#0e0c28));
+  border-radius:inherit; z-index:0;
+}
+.card-face::after {
+  content:''; position:absolute; inset:7px;
+  border:0.5px solid rgba(255,255,255,0.07); border-radius:8px; z-index:0; pointer-events:none;
+}
+.card-face > * { position:relative; z-index:1; }
+.card-numeral { font-size:0.65rem; letter-spacing:0.2em; color:rgba(255,255,255,0.35); width:100%; text-align:center; }
+.card-symbol { font-size:3.2rem; line-height:1; filter:drop-shadow(0 0 12px var(--card-color,#c8b0ff)); text-align:center; flex:1; display:flex; align-items:center; }
+.card-name-row { width:100%; text-align:center; }
+.card-name { font-size:1rem; letter-spacing:0.12em; color:var(--card-color,#e0d8ff); display:block; margin-bottom:3px; }
+.card-orientation { font-size:0.58rem; letter-spacing:0.15em; opacity:0.45; color:#fff; }
+
+/* ── Reading panel ── */
+.reading-panel {
+  width:100%; max-width:560px; margin-bottom:32px;
+  opacity:0; transform:translateY(14px);
+  transition:opacity 0.7s ease, transform 0.7s ease;
+}
+.reading-panel.visible { opacity:1; transform:translateY(0); }
+
+/* Tabs */
+.tab-row {
+  display:flex; gap:0; margin-bottom:0;
+  border-bottom:1px solid rgba(180,140,255,0.15);
+}
+.tab-btn {
+  padding:9px 0; flex:1; text-align:center;
+  background:transparent; border:none; border-bottom:2px solid transparent;
+  color:rgba(200,180,255,0.4); font-family:inherit; font-size:0.72rem;
+  letter-spacing:0.15em; cursor:pointer;
+  transition:color 0.2s, border-color 0.2s;
+  margin-bottom:-1px;
+}
+.tab-btn:hover { color:rgba(200,180,255,0.75); }
+.tab-btn.active { color:#d0b8ff; border-bottom-color:#a080e0; }
+
+/* Tab content */
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+
+.reading-card {
+  background:rgba(20,16,50,0.55);
+  border:1px solid rgba(180,140,255,0.18);
+  border-top:none; border-radius:0 0 10px 10px;
+  padding:20px 22px;
+  backdrop-filter:blur(4px);
+}
+
+/* Reading rows */
+.reading-row {
+  display:grid;
+  grid-template-columns: 36px 1fr;
+  gap:0 14px;
+  padding:12px 0;
+  border-bottom:1px solid rgba(180,140,255,0.08);
+  opacity:0; transform:translateX(-6px);
+  transition:opacity 0.5s ease, transform 0.5s ease;
+}
+.reading-row:last-child { border-bottom:none; padding-bottom:0; }
+.reading-row.shown { opacity:1; transform:translateX(0); }
+
+.rrow-pos {
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:flex-start; padding-top:2px;
+}
+.pos-badge {
+  font-size:0.58rem; letter-spacing:0.1em;
+  color:rgba(200,180,255,0.35); margin-bottom:5px; white-space:nowrap;
+}
+.pos-dots { display:flex; flex-direction:column; gap:3px; margin-top:2px; }
+.pos-dot {
+  width:4px; height:4px; border-radius:50%;
+  background:rgba(180,140,255,0.2);
+  transition:background 0.3s;
+}
+.pos-dot.lit { background:var(--dot-color,#a080e0); }
+
+.rrow-content {}
+.rrow-cardname {
+  font-size:0.85rem; letter-spacing:0.1em;
+  color:var(--card-color,#c8b0ff); margin-bottom:5px;
+  display:flex; align-items:center; gap:7px;
+}
+.rrow-orient {
+  font-size:0.58rem; opacity:0.5; color:#fff; letter-spacing:0.1em;
+  background:rgba(255,255,255,0.07); padding:1px 6px; border-radius:10px;
+}
+.rrow-text {
+  font-size:0.78rem; color:rgba(224,216,240,0.72);
+  letter-spacing:0.06em; line-height:1.6;
+}
+
+/* Overall summary row */
+.summary-row {
+  padding:14px 0 2px;
+  border-top:1px solid rgba(180,140,255,0.1);
+  margin-top:4px;
+}
+.summary-label { font-size:0.6rem; letter-spacing:0.2em; color:rgba(200,180,255,0.35); margin-bottom:6px; }
+.summary-text { font-size:0.8rem; color:rgba(224,216,240,0.8); line-height:1.7; letter-spacing:0.06em; }
+
+/* ── Buttons ── */
+.btn-row { display:flex; gap:14px; }
+.action-btn {
+  padding:11px 34px;
+  background:transparent; border:1px solid rgba(180,140,255,0.4);
+  border-radius:3px; color:rgba(200,170,255,0.85);
+  font-family:inherit; font-size:0.88rem; letter-spacing:0.3em;
+  padding-left:calc(34px + 0.3em); cursor:pointer;
+  transition:all 0.3s; overflow:hidden; position:relative;
+}
+.action-btn::before {
+  content:''; position:absolute; inset:0;
+  background:rgba(180,140,255,0.12);
+  transform:scaleX(0); transform-origin:left;
+  transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+.action-btn:hover { border-color:rgba(200,170,255,0.7); color:#e8e0ff; box-shadow:0 0 18px rgba(180,140,255,0.15); }
+.action-btn:hover::before { transform:scaleX(1); }
+.action-btn span { position:relative; z-index:1; }
+.action-btn:active { transform:scale(0.97); }
+.action-btn:disabled { opacity:0.3; cursor:not-allowed; pointer-events:none; }
+
+/* ── Entrance & glow ── */
+@keyframes cardAppear {
+  0%   { opacity:0; transform:translateY(30px) scale(0.92); }
+  100% { opacity:1; transform:translateY(0) scale(1); }
+}
+.card-wrap.appeared { opacity:1; animation:cardAppear 0.6s cubic-bezier(0.22,1,0.36,1) both; }
+
+@keyframes cardGlow {
+  0%,100% { box-shadow:0 0 10px var(--card-glow,rgba(180,140,255,0.2)); }
+  50%      { box-shadow:0 0 28px var(--card-glow,rgba(180,140,255,0.4)); }
+}
+.card-wrap.flipped, .card-wrap.reversed { opacity:1; animation:cardGlow 3s ease-in-out infinite 0.9s; }
+</style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<div class="page">
+  <header>
+    <div class="header-deco">
+      <div class="deco-line"></div>
+      <span class="deco-sym">✦</span>
+      <div class="deco-line r"></div>
+    </div>
+    <h1>每日塔罗</h1>
+    <div class="subtitle" id="dateInfo"></div>
+  </header>
+
+  <div class="spread-label">
+    <div class="pos-label">过去</div>
+    <div class="pos-label">现在</div>
+    <div class="pos-label">未来</div>
+  </div>
+
+  <div class="cards-row" id="cardsRow"></div>
+
+  <!-- Reading panel -->
+  <div class="reading-panel" id="readingPanel">
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="switchTab('all')">综合</button>
+      <button class="tab-btn" onclick="switchTab('love')">♡ 爱情运</button>
+      <button class="tab-btn" onclick="switchTab('career')">✦ 事业运</button>
+      <button class="tab-btn" onclick="switchTab('money')">◈ 金钱运</button>
+    </div>
+    <div class="reading-card">
+      <div class="tab-content active" id="tab-all"></div>
+      <div class="tab-content" id="tab-love"></div>
+      <div class="tab-content" id="tab-career"></div>
+      <div class="tab-content" id="tab-money"></div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="action-btn" id="flipAllBtn" onclick="flipAll()"><span>全部翻开</span></button>
+    <button class="action-btn" id="reshuffleBtn" onclick="reshuffle()"><span>重新洗牌</span></button>
+  </div>
+</div>
+
+<script>
+// ── Card data ──
+const CARDS = [
+  { id:0,  num:"0",    name:"愚者",     sym:"☽",  color:"#f0d060", bg:"#2a2010",
+    up:"新的开始，勇敢踏出第一步，万象更新", rev:"鲁莽冒进，缺乏准备，迷失方向",
+    cats:{
+      love:   {up:"勇于表白，缘分初萌，恋情正在发芽",          rev:"感情冲动，尚未成熟，需要沉淀"},
+      career: {up:"大胆起步，尝试新方向，机遇已在门口",         rev:"轻率决策，准备不足，计划重来"},
+      money:  {up:"新财路初现，乐观投入，意外之喜可期",         rev:"冲动消费，量力而行，财务重整"},
+    }},
+  { id:1,  num:"Ⅰ",   name:"魔术师",   sym:"⚡", color:"#e86040", bg:"#2a1008",
+    up:"意志力充沛，技巧精湛，创造力爆发", rev:"技能浪费，欺骗与操控，心力分散",
+    cats:{
+      love:   {up:"魅力四射，主动出击，感情水到渠成",           rev:"言不由衷，感情游戏，小心套路"},
+      career: {up:"全力施为，才华尽展，目标触手可及",           rev:"能力散漫，难以专注，注意自欺欺人"},
+      money:  {up:"善用资源，财源可期，手握主动权",             rev:"投机取巧，财路有陷，谨防欺诈"},
+    }},
+  { id:2,  num:"Ⅱ",   name:"女祭司",   sym:"◐",  color:"#9080e0", bg:"#180e30",
+    up:"深邃直觉，神秘智慧，内心低语", rev:"隐藏秘密，表面认知，直觉受阻",
+    cats:{
+      love:   {up:"静待时机，心灵共鸣，深层联结即将浮现",       rev:"过度压抑，难以表达，感情需要开口"},
+      career: {up:"默默积累，时机未到，内在力量正在蓄势",       rev:"信息封闭，判断有误，需要更多事实"},
+      money:  {up:"守财待机，切勿轻动，直觉正在保护你",         rev:"忽视信号，财运受阻，重新审视计划"},
+    }},
+  { id:3,  num:"Ⅲ",   name:"女皇",     sym:"✿",  color:"#70c870", bg:"#0e2010",
+    up:"丰盛富足，创造力绽放，孕育新生", rev:"依赖过度，创意枯竭，窒息控制",
+    cats:{
+      love:   {up:"爱意丰沛，关系滋润，感情进入收获期",         rev:"依赖索取，感情窒息，需要给彼此空间"},
+      career: {up:"创造力旺盛，成果丰硕，项目渐入佳境",         rev:"过度追求完美，进展迟缓，放宽标准"},
+      money:  {up:"财运丰盈，物质充足，投入会有回报",           rev:"物欲膨胀，收支失衡，建立合理预算"},
+    }},
+  { id:4,  num:"Ⅳ",   name:"皇帝",     sym:"♛",  color:"#e04838", bg:"#280808",
+    up:"权威稳固，秩序与结构，父性庇护", rev:"专横独断，失控混乱，权力滥用",
+    cats:{
+      love:   {up:"稳固关系，强力守护，感情有依靠",             rev:"控制欲强，感情压抑，学会放手"},
+      career: {up:"领导力强，事业稳健，权威获得认可",           rev:"独断专行，阻碍协作，听听他人意见"},
+      money:  {up:"理财有方，资产稳固，财务掌控有力",           rev:"过度保守，错失机会，适当灵活"},
+    }},
+  { id:5,  num:"Ⅴ",   name:"教皇",     sym:"✠",  color:"#c09838", bg:"#201808",
+    up:"传统智慧，精神引领，寻求指导", rev:"固执己见，反叛权威，虚伪说教",
+    cats:{
+      love:   {up:"传统稳定，步入正轨，关系获得认可",           rev:"循规蹈矩，感情缺少激情，大胆一点"},
+      career: {up:"循序渐进，得到认可，规则助你走稳",           rev:"固守成规，难以突破，需要创新思维"},
+      money:  {up:"保守理财，稳中有进，长期计划见效",           rev:"墨守陈规，收益有限，考虑新方向"},
+    }},
+  { id:6,  num:"Ⅵ",   name:"恋人",     sym:"♡",  color:"#e87090", bg:"#280818",
+    up:"真挚爱情，灵魂契合，重要抉择", rev:"关系失衡，价值冲突，抉择困难",
+    cats:{
+      love:   {up:"深情相遇，灵魂契合，这段缘分值得珍惜",       rev:"选择困难，感情动摇，需要内心诚实"},
+      career: {up:"合作顺畅，价值对齐，团队关系融洽",           rev:"合伙分歧，方向不明，重新梳理价值观"},
+      money:  {up:"共同投资，互利互赢，伴侣财运共振",           rev:"金钱纠纷，利益冲突，财务界限要清晰"},
+    }},
+  { id:7,  num:"Ⅶ",   name:"战车",     sym:"◈",  color:"#50a0e0", bg:"#081828",
+    up:"意志胜利，勇往直前，掌控方向", rev:"失控横冲，侵略过盛，方向迷失",
+    cats:{
+      love:   {up:"主动追求，感情有进展，行动比等待更有力",      rev:"感情急躁，强求反效，慢下来听听对方"},
+      career: {up:"全力冲刺，目标达成，竞争中占得先机",          rev:"方向失控，努力白费，先停下来想清楚"},
+      money:  {up:"积极进取，收入提升，财运随行动而来",          rev:"过度冒进，财务受损，评估风险再出手"},
+    }},
+  { id:8,  num:"Ⅷ",   name:"力量",     sym:"∞",  color:"#f09040", bg:"#281008",
+    up:"内在力量，温柔坚韧，驯服本能", rev:"软弱自疑，自我压抑，失去控制",
+    cats:{
+      love:   {up:"温柔坚韧，感情深厚，用耐心滋养关系",         rev:"内心软弱，感情动摇，需要重建自信"},
+      career: {up:"坚持不懈，终见成效，隐忍是最强的武器",       rev:"自我怀疑，前功尽弃，别在终点放弃"},
+      money:  {up:"稳健积累，财富增长，坚持比冲劲更重要",       rev:"意志不坚，理财混乱，建立固定储蓄习惯"},
+    }},
+  { id:9,  num:"Ⅸ",   name:"隐士",     sym:"♦",  color:"#a0a0a0", bg:"#181818",
+    up:"独处沉思，内省寻真，智慧积累", rev:"孤立自绝，固执退缩，拒绝帮助",
+    cats:{
+      love:   {up:"深思熟虑，感情真诚，需要安静才懂内心",       rev:"过度孤立，错过缘分，走出去才有机会"},
+      career: {up:"深耕专业，积累沉淀，厚积薄发时机将到",       rev:"自我封闭，错失机遇，接纳外部资源"},
+      money:  {up:"节制消费，细水长流，独立思考保护财富",       rev:"过于吝啬，反伤自己，适当投入才有产出"},
+    }},
+  { id:10, num:"Ⅹ",   name:"命运之轮", sym:"⊙",  color:"#c8a838", bg:"#201808",
+    up:"命运转折，好运降临，因果循环", rev:"厄运当头，变化抗拒，业力回响",
+    cats:{
+      love:   {up:"缘分来临，关系迎来转机，把握这个窗口",       rev:"感情遭遇波折，变数频生，静待低谷过去"},
+      career: {up:"好运降临，事业转机，时势正在帮你",           rev:"运势起伏，保持冷静，低谷也是积蓄力量"},
+      money:  {up:"财运转好，意外之财，顺势而为收益更佳",       rev:"财运不稳，当心风险，保守为主"},
+    }},
+  { id:11, num:"Ⅺ",   name:"正义",     sym:"⚖",  color:"#d8d060", bg:"#202008",
+    up:"公平正义，真相大白，理性裁决", rev:"不公不义，逃避责任，偏见蒙蔽",
+    cats:{
+      love:   {up:"平等对待，感情公正，双方都需要被尊重",       rev:"感情不平衡，委屈积累，说出来才能改变"},
+      career: {up:"公正评价，获得认可，努力会被看见",           rev:"不公对待，需要申辩，为自己发声"},
+      money:  {up:"公平交易，收支清明，合同细节保护你",         rev:"财务纠纷，需要核查，谨防利益受损"},
+    }},
+  { id:12, num:"Ⅻ",   name:"倒吊人",   sym:"⊹",  color:"#50b8b8", bg:"#081818",
+    up:"换位思考，暂停牺牲，独特视角", rev:"拖延停滞，抵制转变，徒劳无功",
+    cats:{
+      love:   {up:"暂停等待，关系沉淀，换个角度重新审视感情",   rev:"感情停滞，拒绝改变，别让惰性消耗爱"},
+      career: {up:"换个角度，重新审视，休息是为了更好地前进",   rev:"一味等待，错失良机，该出手时要出手"},
+      money:  {up:"暂缓投入，静观其变，时机未到勿强求",         rev:"投资受困，流动性差，清理低效资产"},
+    }},
+  { id:13, num:"ⅩⅢ", name:"死神",     sym:"✶",  color:"#7878a0", bg:"#101018",
+    up:"彻底蜕变，旧物终结，重生在望", rev:"抗拒变化，执念不放，死寂停滞",
+    cats:{
+      love:   {up:"旧情终结，新缘将至，放手才能遇见更好的",     rev:"执念难放，关系僵化，需要勇气做决定"},
+      career: {up:"转型蜕变，迎接新阶段，旧身份已完成使命",     rev:"抗拒变化，职业停滞，改变虽难但必要"},
+      money:  {up:"清理旧账，财务重启，断舍离带来新空间",       rev:"拖延了断，财务拖累，拖得越久损失越大"},
+    }},
+  { id:14, num:"ⅩⅣ", name:"节制",     sym:"△",  color:"#60c8a8", bg:"#081e18",
+    up:"平衡调和，耐心酝酿，中庸之道", rev:"失衡极端，急功近利，自我放纵",
+    cats:{
+      love:   {up:"耐心经营，关系平稳，慢慢来比较快",           rev:"感情失衡，矛盾积压，找回节奏很重要"},
+      career: {up:"稳步推进，水到渠成，过程比结果更重要",       rev:"急功近利，适得其反，放慢脚步反而更快"},
+      money:  {up:"量入为出，财务平衡，细水长流最稳妥",         rev:"收支失调，需要调整，重建财务规律"},
+    }},
+  { id:15, num:"ⅩⅤ", name:"恶魔",     sym:"⛢",  color:"#a05050", bg:"#200808",
+    up:"物欲束缚，阴影浮现，直面黑暗", rev:"解除枷锁，重获自由，觉醒解脱",
+    cats:{
+      love:   {up:"激情炽烈，吸引力强，但请分清迷恋与真爱",     rev:"有毒关系，需要断舍离，自由比安稳更重要"},
+      career: {up:"警惕诱惑，勿贪小便宜，保持底线",             rev:"从束缚中解脱，找回职业自主权"},
+      money:  {up:"警惕贪念，理性投资，暴利往往是陷阱",         rev:"挣脱财务束缚，重新出发，债务可以被解决"},
+    }},
+  { id:16, num:"ⅩⅥ", name:"塔",       sym:"⚡", color:"#e06838", bg:"#200e08",
+    up:"突如其来，旧秩序崩塌，真相闪现", rev:"避免灾难，延迟变化，内部动荡",
+    cats:{
+      love:   {up:"打破固有模式，关系面临考验，真实才能重建",   rev:"感情动荡将息，逐渐恢复，裂缝正在愈合"},
+      career: {up:"旧格局崩塌，变革来临，做好心理准备",         rev:"内部动荡，谨慎应对，别在此刻冒险"},
+      money:  {up:"财务突变，防范风险，留好现金应急",           rev:"危机暂缓，整顿财务，亡羊补牢未为晚"},
+    }},
+  { id:17, num:"ⅩⅦ", name:"星星",     sym:"✦",  color:"#88c8f8", bg:"#081828",
+    up:"希望重燃，灵感涌现，宁静治愈", rev:"绝望低落，失去方向，信念崩散",
+    cats:{
+      love:   {up:"充满希望，美好缘分将至，相信爱情",           rev:"感情迷茫，需要方向，不要放弃"},
+      career: {up:"理想照进现实，前途光明，坚持你的梦想",       rev:"目标模糊，需要重新定向，找回初心"},
+      money:  {up:"财运向好，收益可期，心态积极带动财气",       rev:"财运黯淡，保持信心，黎明前最黑暗"},
+    }},
+  { id:18, num:"ⅩⅧ", name:"月亮",     sym:"☾",  color:"#8090d8", bg:"#101028",
+    up:"幻觉迷雾，深邃潜意识，直觉引路", rev:"误解消散，真相浮现，压抑解除",
+    cats:{
+      love:   {up:"感情深邃，直觉引导，别压抑那些说不清的感受", rev:"误解消散，真相浮现，曾经的疑虑要放下"},
+      career: {up:"信息不明，谨慎行事，直觉也是一种判断力",     rev:"迷雾散去，方向明朗，真相终会浮出水面"},
+      money:  {up:"财务状况模糊，谨慎为上，不确定时先按兵不动", rev:"隐藏风险浮现，及时处理，越拖越复杂"},
+    }},
+  { id:19, num:"ⅩⅨ", name:"太阳",     sym:"☀",  color:"#f8d030", bg:"#282008",
+    up:"活力四射，成功喜悦，光明坦途", rev:"过度自信，短暂欢愉，光芒过盛",
+    cats:{
+      love:   {up:"爱情明朗，幸福美满，阳光照进这段关系",       rev:"感情过热，需要冷静，避免因过度依赖消耗"},
+      career: {up:"成就显赫，大放异彩，外界看见你的光",         rev:"过于自信，注意细节，不要让骄傲遮住眼睛"},
+      money:  {up:"财运大好，收益丰厚，这是收获的时节",         rev:"财运虽好，勿过度挥霍，留存才是真财富"},
+    }},
+  { id:20, num:"ⅩⅩ", name:"审判",     sym:"♪",  color:"#e0e0e8", bg:"#181820",
+    up:"内心召唤，反省觉醒，蜕变新生", rev:"自我怀疑，逃避审视，拒绝成长",
+    cats:{
+      love:   {up:"感情觉醒，关系升华，过去的误解可以和解",     rev:"感情陷入怀疑，难以决断，诚实面对自己"},
+      career: {up:"重要评估，职业转机，召唤你的时刻到了",       rev:"拖延关键决定，错失机遇，拖延是最大的敌人"},
+      money:  {up:"财务清算，重新规划，这次认真做很重要",       rev:"逃避财务问题，拖延处理，越早面对越好"},
+    }},
+  { id:21, num:"ⅩⅪ", name:"世界",     sym:"◎",  color:"#50e090", bg:"#082018",
+    up:"圆满完成，整合一切，旅程终章", rev:"未竟之业，停滞不前，不完整感",
+    cats:{
+      love:   {up:"圆满感情，完整的爱，这段关系让你成为更好的人", rev:"感情尚未圆满，还需耐心，结局还没写完"},
+      career: {up:"事业大成，全面成功，一个阶段完美收官",        rev:"差临门一脚，继续坚持，终点近在眼前"},
+      money:  {up:"财富丰盈，完满收获，努力终有回报",           rev:"财务目标未达，继续努力，成功只是时间问题"},
+    }},
+];
+
+const POS  = ["过去","现在","未来"];
+const CATS = [
+  { key:"all",    label:"综合" },
+  { key:"love",   label:"爱情运" },
+  { key:"career", label:"事业运" },
+  { key:"money",  label:"金钱运" },
+];
+// Overall summaries per category (indexed by number of positive cards 0-3)
+const SUMMARIES = {
+  love:   ["当下感情整体承压，需要耐心与自我修复。","感情运有所起伏，真诚沟通是化解之道。","爱情能量流动顺畅，用心经营会有收获。","三牌同频，感情运势旺盛，美好缘分正在路上。"],
+  career: ["事业遭遇阻力，此时宜守不宜攻，积蓄能量。","工作运有波折，调整思路可打开新局面。","事业运稳中向好，持续投入会有明显成效。","三牌共鸣，事业运势全面爆发，全力前行。"],
+  money:  ["财运偏弱，谨慎保守，避免重大投入。","财务运转平稳，管好支出，机会会自然出现。","金钱运势渐入佳境，合理配置可获不错回报。","三牌齐利，财运亨通，行动力转化为真实收益。"],
+};
+
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('dateInfo').textContent = today + '　三牌展开';
+
+// ── Stars ──
+(function(){
+  const s = document.getElementById('stars');
+  for(let i=0;i<160;i++){
+    const el=document.createElement('div'); el.className='star';
+    const size=Math.random()<0.85?1:Math.random()*2+1, op=0.2+Math.random()*0.6;
+    el.style.cssText=`width:${size}px;height:${size}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--base-op:${op};animation-duration:${2+Math.random()*4}s;animation-delay:${Math.random()*5}s;`;
+    s.appendChild(el);
+  }
+  for(let i=0;i<3;i++){
+    const el=document.createElement('div'); el.className='shoot';
+    el.style.cssText=`left:${Math.random()*60}%;top:${Math.random()*50}%;animation-delay:${4+Math.random()*20}s;animation-duration:${18+Math.random()*15}s;`;
+    s.appendChild(el);
+  }
+})();
+
+// ── Helpers ──
+function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+let drawnCards=[], flippedCount=0;
+
+function buildCards(){
+  drawnCards = shuffle(CARDS).slice(0,3).map(c=>({...c, reversed:Math.random()<0.35}));
+  flippedCount=0;
+
+  const row=document.getElementById('cardsRow'); row.innerHTML='';
+  drawnCards.forEach((card,i)=>{
+    const wrap=document.createElement('div');
+    wrap.className='card-wrap'; wrap.id=`card-${i}`;
+    wrap.style.setProperty('--card-color',card.color);
+    wrap.style.setProperty('--card-glow',card.color+'55');
+    wrap.onclick=()=>flipCard(i);
+    wrap.innerHTML=`
+      <div class="card-inner">
+        <div class="card-back">
+          <span class="back-corner-tl">✦</span>
+          <div class="back-center">
+            <div class="back-star">✦</div>
+            <div class="back-dots"><div class="back-dot"></div><div class="back-dot"></div><div class="back-dot"></div></div>
+          </div>
+        </div>
+        <div class="card-face" style="--card-bg:linear-gradient(155deg,${card.bg}ee,${card.bg}cc)">
+          <div class="card-numeral">${card.num}</div>
+          <div class="card-symbol">${card.sym}</div>
+          <div class="card-name-row">
+            <span class="card-name">${card.name}</span>
+            <span class="card-orientation">${card.reversed?'逆位':'正位'}</span>
+          </div>
+        </div>
+      </div>`;
+    row.appendChild(wrap);
+    setTimeout(()=>wrap.classList.add('appeared'), 80+i*160);
+  });
+
+  // reset panel
+  const panel=document.getElementById('readingPanel');
+  panel.classList.remove('visible');
+  CATS.forEach(c=>{ document.getElementById(`tab-${c.key}`).innerHTML=''; });
+  document.getElementById('flipAllBtn').disabled=false;
+  switchTab('all');
+}
+
+function flipCard(i){
+  const card=drawnCards[i];
+  const wrap=document.getElementById(`card-${i}`);
+  if(wrap.classList.contains('flipped')||wrap.classList.contains('reversed')) return;
+  wrap.classList.add(card.reversed?'reversed':'flipped');
+  flippedCount++;
+  if(flippedCount===3) showReading();
+}
+
+function flipAll(){
+  drawnCards.forEach((_,i)=>{
+    const wrap=document.getElementById(`card-${i}`);
+    if(!wrap.classList.contains('flipped')&&!wrap.classList.contains('reversed')){
+      setTimeout(()=>{ wrap.classList.add(drawnCards[i].reversed?'reversed':'flipped'); flippedCount++; if(flippedCount===3) showReading(); }, i*320);
+    }
+  });
+  document.getElementById('flipAllBtn').disabled=true;
+}
+
+function showReading(){
+  document.getElementById('flipAllBtn').disabled=true;
+
+  // Build all 4 tabs
+  buildTab('all');
+  buildTab('love');
+  buildTab('career');
+  buildTab('money');
+
+  const panel=document.getElementById('readingPanel');
+  panel.classList.add('visible');
+  // stagger rows in
+  setTimeout(()=>{
+    document.querySelectorAll('.reading-row').forEach((r,i)=>{
+      setTimeout(()=>r.classList.add('shown'), i*120);
+    });
+  }, 400);
+}
+
+function buildTab(key){
+  const container=document.getElementById(`tab-${key}`);
+  container.innerHTML='';
+
+  // positive count for summary
+  let posCount=0;
+  drawnCards.forEach((card,i)=>{
+    const isRev=card.reversed;
+    let text, mainColor;
+    if(key==='all'){
+      text=isRev?card.rev:card.up;
+      mainColor=card.color;
+    } else {
+      text=isRev?card.cats[key].rev:card.cats[key].up;
+      mainColor=card.color;
+    }
+    if(!isRev) posCount++;
+
+    // energy dots (3 dots: lit = positive, dim = reversed)
+    const dots=isRev?1:3;
+    const dotEls=Array.from({length:3},(_,d)=>
+      `<div class="pos-dot${d<dots?' lit':''}" style="--dot-color:${card.color}"></div>`
+    ).join('');
+
+    const row=document.createElement('div');
+    row.className='reading-row';
+    row.innerHTML=`
+      <div class="rrow-pos">
+        <div class="pos-badge">${POS[i]}</div>
+        <div class="pos-dots">${dotEls}</div>
+      </div>
+      <div class="rrow-content">
+        <div class="rrow-cardname" style="--card-color:${mainColor}">
+          ${card.name}<span class="rrow-orient">${isRev?'逆位':'正位'}</span>
+        </div>
+        <div class="rrow-text">${text}</div>
+      </div>`;
+    container.appendChild(row);
+  });
+
+  // Summary for category tabs
+  if(key!=='all'){
+    const idx=Math.min(posCount,3);
+    const sumRow=document.createElement('div');
+    sumRow.className='reading-row summary-row';
+    sumRow.innerHTML=`
+      <div class="rrow-pos"><div class="pos-badge">综</div></div>
+      <div class="rrow-content">
+        <div class="summary-label">综合解读</div>
+        <div class="summary-text">${SUMMARIES[key][idx]}</div>
+      </div>`;
+    container.appendChild(sumRow);
+  }
+}
+
+function switchTab(key){
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>{
+    b.classList.toggle('active', CATS[i].key===key);
+  });
+  document.querySelectorAll('.tab-content').forEach(el=>{
+    el.classList.toggle('active', el.id===`tab-${key}`);
+  });
+}
+
+function reshuffle(){
+  document.getElementById('flipAllBtn').disabled=false;
+  buildCards();
+}
+
+buildCards();
+</script>
+</body>
+</html>
