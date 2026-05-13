@@ -3,58 +3,131 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>bb123n4 Navigation project</title>
+    <title>My Vibe Coding Projects</title>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --bg-color: #f7f6f2;    
+            --text-main: #3d3d3d;  
+            /* 调整后的标题颜色：深矿灰，比黑轻盈，比灰坚定 */
+            --text-title: #55504a; 
+            --accent: #9a8c7d;     
+            --item-hover-bg: rgba(154, 140, 125, 0.08); 
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            line-height: 1.6;
-            color: #24292e;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-            background-color: #f6f8fa;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Quicksand', 'Segoe UI', Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding-top: 15vh;
         }
+
+        .container {
+            width: 100%;
+            max-width: 700px;
+            padding: 0 50px;
+        }
+
         h1 {
-            border-bottom: 1px solid #eaecef;
-            padding-bottom: .3em;
+            font-size: 1.15rem; 
+            font-weight: 500;
+            letter-spacing: 0.45em; 
+            color: var(--text-title); /* 柔和的深灰色 */
+            text-transform: uppercase;
+            margin-bottom: 85px;
+            opacity: 0.85; 
+            border-left: 2px solid var(--accent); /* 线条稍微减细，更显精致 */
+            padding-left: 18px;
         }
+
         .nav-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
         }
+
         .nav-item {
-            background: white;
-            border: 1px solid #e1e4e8;
-            border-radius: 6px;
-            padding: 16px;
             text-decoration: none;
-            color: #0366d6;
-            font-weight: 600;
-            transition: all 0.2s ease;
-            text-align: center;
+            color: var(--text-main);
+            font-size: 2.4rem; 
+            font-weight: 400;
+            padding: 18px 30px;
+            margin-left: -30px; 
+            border-radius: 50px; 
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2);
+            width: fit-content;
+            display: flex;
+            align-items: center;
         }
+
         .nav-item:hover {
-            background-color: #0366d6;
-            color: white;
-            border-color: #0366d6;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            color: var(--accent);
+            background-color: var(--item-hover-bg);
+            transform: translateX(25px) scale(1.02);
+            padding-left: 40px;
+        }
+
+        .nav-item::after {
+            content: "";
+            width: 10px;
+            height: 10px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            margin-left: 20px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .nav-item:hover::after {
+            opacity: 0.5;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url('https://www.transparenttextures.com/patterns/handmade-paper.png');
+            opacity: 0.25;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        footer {
+            position: fixed;
+            bottom: 40px;
+            right: 50px;
+            font-size: 0.75rem;
+            color: var(--accent);
+            letter-spacing: 0.3em;
+            writing-mode: vertical-rl;
+            opacity: 0.5;
         }
     </style>
 </head>
 <body>
 
-    <h1>My vibe coding projects</h1>
-    
-    <div class="nav-container">
-        <a class="nav-item" href="2048.html">2048</a>
-        <a class="nav-item" href="instruments.html">software instruments</a>
-        <a class="nav-item" href="luckToday.html">Your luck today</a>
-        <!-- <a class="nav-item" href="another-folder/page3.html">子文件夹项目</a>
-        <a class="nav-item" href="https://google.com">外部链接示例</a> -->
+    <div class="container">
+        <h1>My vibe coding projects</h1>
+        
+        <div class="nav-container">
+            <a class="nav-item" href="2048.html">2048</a>
+            <a class="nav-item" href="instruments.html">software instruments</a>
+            <a class="nav-item" href="luckToday.html">your luck today</a>
+        </div>
     </div>
+
+    <footer>
+        二 零 二 六
+    </footer>
 
 </body>
 </html>
