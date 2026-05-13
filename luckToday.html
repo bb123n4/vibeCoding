@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>每日灵签 - 纯净版</title>
+    <style>
+        :root {
+            --primary-red: #c0392b;
+            --gold: #f1c40f;
+            --paper: #f7f1e3;
+        }
+
+        body {
+            font-family: "Microsoft YaHei", "SimSun", sans-serif;
+            background-color: var(--paper);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        .container {
+            text-align: center;
+            background: white;
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            width: 340px;
+            border: 2px solid #eee;
+        }
+
+        h2 { color: var(--primary-red); margin-bottom: 5px; }
+
+        .date-info {
+            font-size: 0.9rem;
+            color: #95a5a6;
+            margin-bottom: 20px;
+        }
+
+        input {
+            padding: 12px;
+            width: 85%;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        input:focus { border-color: var(--primary-red); }
+
+        button {
+            background: var(--primary-red);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: bold;
+            box-shadow: 0 4px 0 #962d22;
+            transition: all 0.1s;
+        }
+
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #962d22;
+        }
+
+        /* 抽签动画核心区 */
+        .stick-container {
+            position: relative;
+            height: 160px;
+            margin: 30px auto;
+            width: 80px;
+        }
+
+        .cup {
+            width: 80px;
+            height: 100px;
+            background: var(--primary-red);
+            border-radius: 5px 5px 15px 15px;
+            position: absolute;
+            bottom: 0;
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--gold);
+            font-size: 1.2rem;
+            font-weight: bold;
+            box-shadow: inset 0 -5px 10px rgba(0,0,0,0.2);
+        }
+
+        .stick {
+            width: 18px;
+            height: 110px;
+            background: #e67e22;
+            border: 1px solid #d35400;
+            position: absolute;
+            bottom: 10px;
+            left: 31px;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            writing-mode: vertical-rl;
+            font-size: 12px;
+            font-weight: bold;
+            color: #fff;
+            border-radius: 2px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        /* 动画关键帧 */
+        @keyframes shakeContainer {
+            0%, 100% { transform: rotate(0); }
+            20% { transform: rotate(8deg) translateX(5px); }
+            40% { transform: rotate(-8deg) translateX(-5px); }
+            60% { transform: rotate(5deg) translateX(3px); }
+            80% { transform: rotate(-5deg) translateX(-3px); }
+        }
+
+        @keyframes riseUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-85px); opacity: 1; }
+        }
+
+        .animating .cup { animation: shakeContainer 0.5s infinite linear; }
+        .animating .stick { animation: riseUp 2s forwards ease-out; }
+
+        #result-display {
+            margin-top: 25px;
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: var(--primary-red);
+            min-height: 60px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>⛩️ 每日抽签</h2>
+    <div class="date-info" id="current-date"></div>
+    
+    <input type="text" id="nameInput" placeholder="请输入您的姓名(禁止数字)" maxlength="12">
+    
+    <div class="stick-container" id="box">
+        <div class="stick" id="stick"></div>
+        <div class="cup">灵签</div>
+    </div>
+
+    <button onclick="drawLots()">诚心求签</button>
+    <div id="result-display"></div>
+</div>
+
+<script>
+    const levels = ["大凶", "凶", "末吉", "小吉", "中吉", "大吉"];
+    
+    // 获取当前日期 (YYYY-MM-DD)
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('current-date').innerText = "农历日期同步中 · " + today;
+
+    async function hashCode(str) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(str);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        // 取前几个字节组合成索引
+        return hashArray.reduce((acc, curr) => acc + curr, 0);
+    }
+
+    async function drawLots() {
+        let name = document.getElementById('nameInput').value.trim();
+
+        // 1. 限制：不允许为空
+        if (!name) {
+            alert("请先输入您的姓名。");
+            return;
+        }
+
+        // 2. 限制：不允许包含数字 (正则匹配 0-9)
+        if (/\d/.test(name)) {
+            alert("姓名中不能包含数字，请重新输入。");
+            return;
+        }
+
+        // 3. 限制：大小写不敏感 (统一转小写进行计算)
+        const normalizedName = name.toLowerCase();
+
+        const box = document.getElementById('box');
+        const stick = document.getElementById('stick');
+        const resultDisplay = document.getElementById('result-display');
+
+        // 重置状态
+        box.classList.remove('animating');
+        void box.offsetWidth; // 触发重绘以重新开始动画
+        resultDisplay.innerText = "求签中....";
+        stick.innerText = ""
+        stick.style.opacity = "0";
+        
+        // 开始动画
+        box.classList.add('animating');
+
+        // 计算结果 (基于 姓名小写 + 日期)
+        const seedSource = normalizedName + today;
+        const hashValue = await hashCode(seedSource);
+        const resultIndex = hashValue % levels.length;
+        const finalResult = levels[resultIndex];
+
+        stick.innerText = finalResult
+
+        // 2秒后展示
+        setTimeout(() => {
+            box.classList.remove('animating');
+            // stick.innerText = finalResult;
+            resultDisplay.innerText = finalResult;
+        }, 2000);
+    }
+</script>
+
+</body>
+</html>
