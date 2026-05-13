@@ -1,135 +1,543 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Vibe Coding Projects</title>
-    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg-color: #f7f6f2;    
-            --text-main: #3d3d3d;  
-            /* 调整后的标题颜色：深矿灰，比黑轻盈，比灰坚定 */
-            --text-title: #55504a; 
-            --accent: #9a8c7d;     
-            --item-hover-bg: rgba(154, 140, 125, 0.08); 
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Vibe Coding Projects</title>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+:root {
+  --bg:       #f5f2ec;
+  --card-bg:  #ffffff;
+  --text:     #2e2a24;
+  --muted:    #9a9288;
+  --border:   rgba(0,0,0,0.06);
+  --shadow:   0 2px 12px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.05);
+  --shadow-h: 0 10px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.07);
+}
 
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: 'Quicksand', 'Segoe UI', Roboto, sans-serif;
-            display: flex;
-            justify-content: center;
-            min-height: 100vh;
-            padding-top: 15vh;
-        }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Quicksand', 'Segoe UI', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14vh 24px 80px;
+}
 
-        .container {
-            width: 100%;
-            max-width: 700px;
-            padding: 0 50px;
-        }
+/* paper grain */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url('https://www.transparenttextures.com/patterns/handmade-paper.png');
+  opacity: 0.2; pointer-events: none; z-index: 0;
+}
 
-        h1 {
-            font-size: 1.15rem; 
-            font-weight: 500;
-            letter-spacing: 0.45em; 
-            color: var(--text-title); /* 柔和的深灰色 */
-            text-transform: uppercase;
-            margin-bottom: 85px;
-            opacity: 0.85; 
-            border-left: 2px solid var(--accent); /* 线条稍微减细，更显精致 */
-            padding-left: 18px;
-        }
+.wrap { position: relative; z-index: 1; width: 100%; max-width: 680px; }
 
-        .nav-container {
-            display: flex;
-            flex-direction: column;
-            gap: 1.2rem;
-        }
+/* ── Header ── */
+header { margin-bottom: 52px; }
+.header-label {
+  font-size: 0.68rem; font-weight: 500;
+  letter-spacing: 0.45em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 10px;
+}
+h1 {
+  font-size: 1.75rem; font-weight: 300; letter-spacing: -0.01em;
+  color: var(--text); line-height: 1.2;
+}
+h1 strong { font-weight: 600; }
 
-        .nav-item {
-            text-decoration: none;
-            color: var(--text-main);
-            font-size: 2.4rem; 
-            font-weight: 400;
-            padding: 18px 30px;
-            margin-left: -30px; 
-            border-radius: 50px; 
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2);
-            width: fit-content;
-            display: flex;
-            align-items: center;
-        }
+/* ── Grid ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
 
-        .nav-item:hover {
-            color: var(--accent);
-            background-color: var(--item-hover-bg);
-            transform: translateX(25px) scale(1.02);
-            padding-left: 40px;
-        }
+/* ── Card ── */
+.card {
+  text-decoration: none;
+  background: var(--card-bg);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  transition: transform 0.3s cubic-bezier(0.22,1,0.36,1), box-shadow 0.3s ease;
+  cursor: pointer;
+}
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-h);
+}
 
-        .nav-item::after {
-            content: "";
-            width: 10px;
-            height: 10px;
-            background-color: var(--accent);
-            border-radius: 50%;
-            margin-left: 20px;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
+/* preview area */
+.preview {
+  height: 160px;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+}
 
-        .nav-item:hover::after {
-            opacity: 0.5;
-        }
+/* info bar */
+.info {
+  padding: 14px 18px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+}
+.info-left { flex: 1; min-width: 0; }
+.card-name {
+  font-size: 0.95rem; font-weight: 600;
+  color: var(--text); letter-spacing: 0.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card-desc {
+  font-size: 0.68rem; color: var(--muted);
+  letter-spacing: 0.03em; margin-top: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card-arrow {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--bg); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem; color: var(--muted);
+  transition: background 0.2s, color 0.2s, transform 0.2s;
+  flex-shrink: 0;
+}
+.card:hover .card-arrow {
+  background: var(--text); color: #fff; transform: rotate(-45deg);
+}
 
-        body::before {
-            content: "";
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-image: url('https://www.transparenttextures.com/patterns/handmade-paper.png');
-            opacity: 0.25;
-            pointer-events: none;
-            z-index: -1;
-        }
+/* ════════════════════════
+   2048  preview
+════════════════════════ */
+.p-2048 {
+  background: #faf8ef;
+  display: flex; align-items: center; justify-content: center;
+}
+.tiles-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 18px;
+  width: 100%;
+}
+.tile {
+  aspect-ratio: 1;
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.75rem;
+  font-family: 'Quicksand', sans-serif;
+}
+.t-empty  { background: rgba(205,193,180,0.35); }
+.t-2      { background: #eee4da; color: #776e65; }
+.t-4      { background: #ede0c8; color: #776e65; }
+.t-8      { background: #f2b179; color: #fff; }
+.t-16     { background: #f59563; color: #fff; }
+.t-32     { background: #f67c5f; color: #fff; }
+.t-64     { background: #f65e3b; color: #fff; }
+.t-128    { background: #edcf72; color: #fff; font-size: 0.62rem; }
+.t-256    { background: #edcc61; color: #fff; font-size: 0.62rem; }
+.t-512    { background: #edc850; color: #fff; font-size: 0.62rem; }
+.t-1024   { background: #edc53f; color: #fff; font-size: 0.52rem; }
+.t-2048   { background: #edc22e; color: #fff; font-size: 0.52rem; }
 
-        footer {
-            position: fixed;
-            bottom: 40px;
-            right: 50px;
-            font-size: 0.75rem;
-            color: var(--accent);
-            letter-spacing: 0.3em;
-            writing-mode: vertical-rl;
-            opacity: 0.5;
-        }
-    </style>
+/* ════════════════════════
+   Instruments preview
+════════════════════════ */
+.p-instruments {
+  background: linear-gradient(160deg, #1a1830 0%, #0d0c20 100%);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-end;
+  padding-bottom: 0;
+  position: relative;
+  overflow: hidden;
+}
+.inst-notes {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 60px;
+  display: flex; align-items: center; justify-content: center;
+  gap: 24px;
+  font-size: 1.4rem;
+  color: rgba(180,140,255,0.5);
+  pointer-events: none;
+}
+.inst-note { animation: floatNote ease-in-out infinite; }
+.inst-note:nth-child(1) { animation-duration: 3.2s; animation-delay: 0s; }
+.inst-note:nth-child(2) { animation-duration: 2.8s; animation-delay: 0.8s; font-size: 1rem; color: rgba(140,180,255,0.4); }
+.inst-note:nth-child(3) { animation-duration: 3.5s; animation-delay: 1.5s; font-size: 1.6rem; }
+@keyframes floatNote {
+  0%,100% { transform: translateY(0) rotate(-5deg); opacity: 0.6; }
+  50%      { transform: translateY(-10px) rotate(5deg); opacity: 1; }
+}
+.piano-keys {
+  display: flex; align-items: flex-end;
+  width: 100%; padding: 0 12px;
+  gap: 2px; height: 64px;
+  position: relative;
+}
+.wkey {
+  flex: 1; height: 60px;
+  background: linear-gradient(180deg, #f8f8f8, #e8e8e8);
+  border-radius: 0 0 4px 4px;
+  border: 1px solid rgba(0,0,0,0.15);
+  border-top: none;
+  position: relative;
+  transition: background 0.15s;
+}
+.bkey {
+  position: absolute;
+  width: 60%; height: 36px;
+  background: linear-gradient(180deg, #2a2840, #1a1628);
+  border-radius: 0 0 3px 3px;
+  top: 0; left: 55%;
+  transform: translateX(-50%);
+  z-index: 2;
+  box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+}
+/* highlight one key */
+.wkey.active { background: linear-gradient(180deg, #d4a373, #c89060); }
+
+/* ════════════════════════
+   Lucky Today preview
+════════════════════════ */
+.p-luck {
+  background: linear-gradient(160deg, #f0ebe0 0%, #e5ddd0 100%);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+/* falling petals */
+.luck-petal {
+  position: absolute;
+  border-radius: 50% 0 50% 0;
+  background: rgba(210,140,150,0.45);
+  animation: luckPetal linear infinite;
+}
+@keyframes luckPetal {
+  0%   { transform: translateY(-10px) rotate(0deg); opacity: 0; }
+  10%  { opacity: 0.8; }
+  100% { transform: translateY(180px) rotate(var(--spin)); opacity: 0; }
+}
+/* CSS cup */
+.luck-cup-wrap {
+  position: relative; display: flex; flex-direction: column; align-items: center;
+}
+.luck-cup {
+  width: 56px; height: 62px;
+  background: linear-gradient(155deg, #2a1208, #1a0a04);
+  clip-path: polygon(10% 0%, 90% 0%, 100% 100%, 0% 100%);
+  position: relative; z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+}
+.luck-cup-rim {
+  width: 60px; height: 5px;
+  background: linear-gradient(90deg, #9a7020, #c8a040, #9a7020);
+  border-radius: 2px; margin-bottom: -1px; z-index: 3; position: relative;
+}
+.luck-cup-char {
+  font-size: 1.1rem; color: rgba(200,160,64,0.8);
+  font-family: "STKaiti", serif;
+}
+.luck-sticks {
+  position: absolute; bottom: 62px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; gap: 4px; z-index: 1;
+}
+.luck-stick {
+  width: 5px; height: 55px;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(180deg, #d4c08a, #9a7840);
+  transform-origin: bottom center;
+}
+.luck-stick:nth-child(1) { transform: rotate(-8deg); }
+.luck-stick:nth-child(2) { transform: rotate(-2deg); }
+.luck-stick:nth-child(3) { transform: rotate(4deg); background: linear-gradient(180deg, #f0e0b0, #c8a060); }
+.luck-stick:nth-child(4) { transform: rotate(10deg); }
+
+/* ════════════════════════
+   Pixel Board preview
+════════════════════════ */
+.p-pixel {
+  background: #12111e;
+  display: flex; align-items: center; justify-content: center;
+}
+.pixel-grid {
+  display: grid;
+  grid-template-columns: repeat(16, 1fr);
+  gap: 2px;
+  padding: 18px;
+  width: 100%;
+}
+.px {
+  aspect-ratio: 1;
+  border-radius: 1px;
+}
+
+/* ════════════════════════
+   Tarot preview
+════════════════════════ */
+.p-tarot {
+  background: radial-gradient(ellipse at 50% 30%, #1c1848, #0a0818);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.tarot-stars {
+  position: absolute; inset: 0; pointer-events: none;
+}
+.tstar {
+  position: absolute; border-radius: 50%; background: #fff;
+  animation: tsTwinkle ease-in-out infinite;
+}
+@keyframes tsTwinkle {
+  0%,100% { opacity: var(--op); } 50% { opacity: calc(var(--op)*0.2); }
+}
+.mini-card {
+  width: 62px; height: 100px;
+  border-radius: 7px;
+  background: linear-gradient(145deg, #1e1850, #130e38);
+  border: 1px solid rgba(180,140,255,0.45);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  box-shadow: 0 0 20px rgba(140,100,255,0.3), 0 4px 12px rgba(0,0,0,0.5);
+}
+.mini-card::before {
+  content: '';
+  position: absolute; inset: 5px;
+  border: 0.5px solid rgba(180,140,255,0.2);
+  border-radius: 4px;
+}
+.mini-card-sym {
+  font-size: 1.6rem; color: rgba(200,170,255,0.6);
+  animation: symPulse 3s ease-in-out infinite;
+}
+@keyframes symPulse {
+  0%,100% { filter: drop-shadow(0 0 4px rgba(180,140,255,0.4)); }
+  50%      { filter: drop-shadow(0 0 10px rgba(180,140,255,0.8)); }
+}
+
+/* ── Footer ── */
+footer {
+  position: fixed; bottom: 36px; right: 44px;
+  font-size: 0.7rem; color: var(--muted);
+  letter-spacing: 0.3em; writing-mode: vertical-rl; opacity: 0.5;
+  font-family: 'Quicksand', sans-serif; z-index: 1;
+}
+
+/* ── Responsive ── */
+@media (max-width: 520px) {
+  .grid { grid-template-columns: 1fr; }
+  body { padding-top: 10vh; }
+}
+</style>
 </head>
 <body>
 
-    <div class="container">
-        <h1>My vibe coding projects</h1>
-        
-        <div class="nav-container">
-            <a class="nav-item" href="2048.html">2048</a>
-            <a class="nav-item" href="instruments.html">software instruments</a>
-            <a class="nav-item" href="luckToday.html">your luck today</a>
-            <a class="nav-item" href="pixel.html">pixel board</a>
-            <a class="nav-item" href="tarot.html">tarot</a>
+<div class="wrap">
+  <header>
+    <div class="header-label">vibe coding</div>
+    <h1><strong>Projects</strong> I made<br>for fun</h1>
+  </header>
+
+  <div class="grid">
+
+    <!-- 2048 -->
+    <a class="card" href="2048.html">
+      <div class="preview p-2048">
+        <div class="tiles-grid" id="tilesGrid"></div>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">2048</div>
+          <div class="card-desc">数字消除 · 自动推演</div>
         </div>
-    </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
 
-    <footer>
-        二 零 二 六
-    </footer>
+    <!-- Instruments -->
+    <a class="card" href="instruments.html">
+      <div class="preview p-instruments">
+        <div class="inst-notes">
+          <span class="inst-note">♩</span>
+          <span class="inst-note">♪</span>
+          <span class="inst-note">♫</span>
+        </div>
+        <div class="piano-keys" id="pianoKeys"></div>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">Software Instruments</div>
+          <div class="card-desc">虚拟钢琴 & 吉他 · 自动演奏</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
 
+    <!-- Lucky Today -->
+    <a class="card" href="luckToday.html">
+      <div class="preview p-luck" id="luckPreview">
+        <div class="luck-cup-wrap">
+          <div class="luck-sticks">
+            <div class="luck-stick"></div>
+            <div class="luck-stick"></div>
+            <div class="luck-stick"></div>
+            <div class="luck-stick"></div>
+          </div>
+          <div class="luck-cup-rim"></div>
+          <div class="luck-cup"><div class="luck-cup-char">籤</div></div>
+        </div>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">Your Luck Today</div>
+          <div class="card-desc">每日灵签 · 诚心求签</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
+    <!-- Pixel Board -->
+    <a class="card" href="pixel.html">
+      <div class="preview p-pixel">
+        <div class="pixel-grid" id="pixelGrid"></div>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">Pixel Board</div>
+          <div class="card-desc">像素画板 · 工具齐全 · 导出 PNG</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
+    <!-- Tarot -->
+    <a class="card" href="tarot.html">
+      <div class="preview p-tarot">
+        <div class="tarot-stars" id="tarotStars"></div>
+        <div class="mini-card">
+          <div class="mini-card-sym">✦</div>
+        </div>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">Tarot</div>
+          <div class="card-desc">每日塔罗 · 爱情 · 事业 · 金钱</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
+  </div>
+</div>
+
+<footer>二 零 二 六</footer>
+
+<script>
+// ── 2048 tiles ──
+(function(){
+  const layout = [
+    '2','4','8','16',
+    '32','64','128','256',
+    'empty','512','1024','2048',
+    'empty','empty','empty','empty',
+  ];
+  const grid = document.getElementById('tilesGrid');
+  layout.forEach(v => {
+    const d = document.createElement('div');
+    d.className = v === 'empty' ? 'tile t-empty' : `tile t-${v}`;
+    d.textContent = v === 'empty' ? '' : v;
+    grid.appendChild(d);
+  });
+})();
+
+// ── Piano keys ──
+(function(){
+  const container = document.getElementById('pianoKeys');
+  // 8 white keys, black keys at positions 1,2 | 4,5,6 (0-indexed gaps)
+  const hasBlack = [true,true,false,true,true,true,false,false];
+  const activeKey = 2;
+  for(let i=0;i<8;i++){
+    const w = document.createElement('div');
+    w.className = 'wkey' + (i===activeKey?' active':'');
+    if(hasBlack[i]){
+      const b = document.createElement('div');
+      b.className = 'bkey';
+      w.appendChild(b);
+    }
+    container.appendChild(w);
+  }
+})();
+
+// ── Pixel art (cat face, 16×10) ──
+(function(){
+  const _ = '000000', W = 'ffffff', G = 'aaaaaa', B = '222222',
+        P = 'ffaacc', Y = 'ffdd88', O = 'ff9955';
+  // 16 wide × 10 tall pixel cat face
+  const rows = [
+    [_,_,_,Y,Y,_,_,_,_,_,Y,Y,_,_,_,_],
+    [_,_,Y,Y,Y,Y,_,_,_,Y,Y,Y,Y,_,_,_],
+    [_,Y,Y,Y,Y,Y,Y,_,Y,Y,Y,Y,Y,Y,_,_],
+    [Y,Y,W,W,Y,Y,Y,Y,Y,Y,Y,W,W,Y,Y,_],
+    [Y,Y,B,W,Y,Y,Y,Y,Y,Y,Y,W,B,Y,Y,_],
+    [Y,Y,Y,Y,Y,P,Y,Y,Y,Y,P,Y,Y,Y,Y,_],
+    [Y,Y,Y,Y,Y,Y,Y,O,Y,Y,Y,Y,Y,Y,Y,_],
+    [_,Y,Y,Y,W,Y,Y,Y,Y,Y,W,Y,Y,Y,_,_],
+    [_,_,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,Y,_,_,_],
+    [_,_,_,Y,Y,Y,Y,Y,Y,Y,Y,Y,_,_,_,_],
+  ];
+  const grid = document.getElementById('pixelGrid');
+  grid.style.gridTemplateRows = `repeat(${rows.length}, 1fr)`;
+  rows.forEach(row => {
+    row.forEach(color => {
+      const px = document.createElement('div');
+      px.className = 'px';
+      px.style.background = color === '000000' ? 'transparent' : '#' + color;
+      grid.appendChild(px);
+    });
+  });
+})();
+
+// ── Lucky petal particles ──
+(function(){
+  const container = document.getElementById('luckPreview');
+  for(let i=0;i<8;i++){
+    const p = document.createElement('div');
+    p.className = 'luck-petal';
+    const size = 4 + Math.random()*4;
+    p.style.cssText = `
+      width:${size}px; height:${size*0.65}px;
+      left:${10+Math.random()*80}%;
+      --spin:${(Math.random()>0.5?1:-1)*(90+Math.random()*180)}deg;
+      animation-delay:${Math.random()*5}s;
+      animation-duration:${3+Math.random()*3}s;
+      border-radius:${Math.random()>0.5?'50% 0 50% 0':'0 50% 0 50%'};
+    `;
+    container.appendChild(p);
+  }
+})();
+
+// ── Tarot mini stars ──
+(function(){
+  const container = document.getElementById('tarotStars');
+  for(let i=0;i<30;i++){
+    const s = document.createElement('div');
+    s.className = 'tstar';
+    const size = Math.random() < 0.8 ? 1 : 2;
+    s.style.cssText = `
+      width:${size}px; height:${size}px;
+      left:${Math.random()*100}%;
+      top:${Math.random()*100}%;
+      --op:${0.2+Math.random()*0.6};
+      animation-duration:${2+Math.random()*3}s;
+      animation-delay:${Math.random()*4}s;
+    `;
+    container.appendChild(s);
+  }
+})();
+</script>
 </body>
 </html>
