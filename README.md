@@ -16,5 +16,5 @@ A collection of fun, single-file browser mini-apps built for the vibe.
 Just open any `.html` file directly in a browser — no build step, no dependencies.
 
 ## Open directly via Github Pages
-Just click https://github.com/bb123n4/vibeCoding and have fun!
+Just click https://bb123n4.github.io/vibeCoding/ and have fun!
 
