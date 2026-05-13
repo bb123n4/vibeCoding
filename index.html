@@ -327,6 +327,63 @@ footer {
   font-family: 'Quicksand', sans-serif; z-index: 1;
 }
 
+/* ════════════════════════
+   Energy preview
+════════════════════════ */
+.p-energy {
+  background: #0b0d14;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.p-energy::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(80,120,255,0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(80,120,255,0.06) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+#energyRadar { overflow: visible; position: relative; z-index: 1; }
+
+/* ════════════════════════
+   Adventure preview
+════════════════════════ */
+.p-adventure {
+  background: #0c0a08;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px; position: relative; overflow: hidden;
+}
+.adv-title {
+  font-family: "STKaiti","KaiTi","楷体",serif;
+  font-size: 1.3rem; letter-spacing: 0.3em;
+  color: rgba(200,168,100,0.85);
+  text-shadow: 0 0 16px rgba(200,168,100,0.4);
+  position: relative; z-index: 1;
+}
+.adv-choices {
+  display: flex; flex-direction: column; gap: 5px;
+  width: 80%; position: relative; z-index: 1;
+}
+.adv-choice {
+  font-size: 0.6rem; letter-spacing: 0.08em;
+  color: rgba(200,168,100,0.45);
+  border: 1px solid rgba(200,168,100,0.12);
+  border-radius: 3px; padding: 4px 8px;
+  background: rgba(200,168,100,0.03);
+}
+.adv-light {
+  position: absolute;
+  width: 80px; height: 80px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(200,168,100,0.12), transparent 70%);
+  top: 20%; left: 50%; transform: translateX(-50%);
+  animation: advPulse 3s ease-in-out infinite;
+}
+@keyframes advPulse {
+  0%,100% { transform: translateX(-50%) scale(1); opacity: 0.6; }
+  50%      { transform: translateX(-50%) scale(1.4); opacity: 1; }
+}
+
 /* ── Responsive ── */
 @media (max-width: 520px) {
   .grid { grid-template-columns: 1fr; }
@@ -409,6 +466,39 @@ footer {
         <div class="info-left">
           <div class="card-name">Pixel Board</div>
           <div class="card-desc">像素画板 · 工具齐全 · 导出 PNG</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
+    <!-- Energy -->
+    <a class="card" href="energy.html">
+      <div class="preview p-energy">
+        <svg id="energyRadar" width="140" height="140" viewBox="0 0 140 140"></svg>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">今日能量值</div>
+          <div class="card-desc">八维能量扫描 · 专注 · 财运 · 爱情</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
+    <!-- Adventure -->
+    <a class="card" href="adventure.html">
+      <div class="preview p-adventure">
+        <div class="adv-light"></div>
+        <div class="adv-title">深夜书店</div>
+        <div class="adv-choices">
+          <div class="adv-choice">▸ 推开那扇门</div>
+          <div class="adv-choice">▸ 继续向前走</div>
+        </div>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">深夜书店</div>
+          <div class="card-desc">文字冒险 · 四种结局 · 每次不同</div>
         </div>
         <div class="card-arrow">→</div>
       </div>
@@ -518,6 +608,42 @@ footer {
     `;
     container.appendChild(p);
   }
+})();
+
+// ── Energy mini radar ──
+(function(){
+  const svg = document.getElementById('energyRadar');
+  const ns = 'http://www.w3.org/2000/svg';
+  const mk = (tag, attrs) => { const el=document.createElementNS(ns,tag); Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v)); return el; };
+  const cx=70, cy=70, maxR=50, n=8;
+  const angle = i => (-90 + i*360/n)*Math.PI/180;
+  const pt = (i,r) => [cx+r*Math.cos(angle(i)), cy+r*Math.sin(angle(i))];
+  const poly = pts => pts.map(p=>p.join(',')).join(' ');
+
+  // rings
+  [0.4,0.7,1].forEach(f => {
+    const pts = Array.from({length:n},(_,i)=>pt(i,maxR*f));
+    svg.appendChild(mk('polygon',{points:poly(pts),fill:'none',stroke:'rgba(100,160,255,0.12)','stroke-width':'0.8'}));
+  });
+  // axes
+  for(let i=0;i<n;i++){
+    const [x2,y2]=pt(i,maxR);
+    svg.appendChild(mk('line',{x1:cx,y1:cy,x2,y2,stroke:'rgba(100,160,255,0.1)','stroke-width':'0.8'}));
+  }
+  // sample scores
+  const scores=[82,65,74,58,88,70,62,78];
+  const colors=['#60b8f8','#f07090','#b080e8','#e8c040','#f08040','#50d0b0','#70c870','#f090c0'];
+  const defs=mk('defs',{}); svg.appendChild(defs);
+  const grad=mk('radialGradient',{id:'erg',cx:'50%',cy:'50%',r:'50%'});
+  grad.appendChild(Object.assign(mk('stop',{}),{}) && (() => { const s=mk('stop',{'offset':'0%','stop-color':'rgba(100,180,255,0.4)'}); return s; })());
+  grad.appendChild((() => { const s=mk('stop',{'offset':'100%','stop-color':'rgba(100,120,255,0.05)'}); return s; })());
+  defs.appendChild(grad);
+  const finalPts = scores.map((s,i)=>pt(i,(s/100)*maxR));
+  svg.appendChild(mk('polygon',{points:poly(finalPts),fill:'url(#erg)',stroke:'rgba(120,180,255,0.6)','stroke-width':'1','stroke-linejoin':'round'}));
+  scores.forEach((s,i) => {
+    const [x,y]=finalPts[i];
+    svg.appendChild(mk('circle',{cx:x,cy:y,r:'2.5',fill:colors[i],'opacity':'0.9'}));
+  });
 })();
 
 // ── Tarot mini stars ──

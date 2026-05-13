@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>深夜书店</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0c0a08;
+  --text: #e8e0d0;
+  --muted: rgba(200,188,168,0.5);
+  --accent: #c8a060;
+  --border: rgba(200,168,100,0.15);
+}
+
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "STKaiti","KaiTi","Kaiti SC","楷体","Georgia",serif;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ambient bg layer that shifts per scene */
+#ambience {
+  position: fixed; inset: 0;
+  transition: background 1.8s ease;
+  pointer-events: none; z-index: 0;
+}
+
+/* noise grain */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.4; pointer-events: none; z-index: 0; mix-blend-mode: overlay;
+}
+
+.stage {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 560px;
+  display: flex; flex-direction: column;
+  gap: 0;
+}
+
+/* ── Progress dots ── */
+.progress {
+  display: flex; gap: 6px; margin-bottom: 32px;
+  justify-content: center; align-items: center;
+}
+.pdot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: rgba(200,168,100,0.2);
+  transition: background 0.4s, transform 0.4s;
+}
+.pdot.active { background: var(--accent); transform: scale(1.3); }
+.pdot.done   { background: rgba(200,168,100,0.45); }
+
+/* ── Scene header ── */
+.scene-tag {
+  font-size: 0.6rem; letter-spacing: 0.35em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 18px; text-align: center;
+  opacity: 0; transition: opacity 0.5s ease 0.2s;
+}
+.scene-tag.show { opacity: 1; }
+
+/* ── Text area ── */
+.scene-text {
+  font-size: 1.05rem; line-height: 2;
+  color: var(--text); letter-spacing: 0.04em;
+  min-height: 140px;
+  margin-bottom: 32px;
+  position: relative;
+}
+/* cursor blink */
+.cursor {
+  display: inline-block; width: 2px; height: 1.1em;
+  background: var(--accent); margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: blink 0.9s step-end infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ── Choices ── */
+.choices {
+  display: flex; flex-direction: column; gap: 10px;
+  opacity: 0; transform: translateY(8px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.choices.show { opacity: 1; transform: translateY(0); }
+
+.choice-btn {
+  padding: 14px 20px;
+  background: rgba(200,168,100,0.04);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text); font-family: inherit;
+  font-size: 0.92rem; letter-spacing: 0.05em;
+  cursor: pointer; text-align: left;
+  transition: all 0.25s;
+  position: relative; overflow: hidden;
+}
+.choice-btn::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: rgba(200,168,100,0.08);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+.choice-btn:hover { border-color: rgba(200,168,100,0.5); color: #f0e8d8; }
+.choice-btn:hover::before { transform: scaleX(1); }
+.choice-btn span { position: relative; z-index: 1; }
+.choice-btn .choice-arrow {
+  color: var(--accent); opacity: 0; margin-right: 8px;
+  transition: opacity 0.2s;
+}
+.choice-btn:hover .choice-arrow { opacity: 1; }
+
+/* ── Ending screen ── */
+.ending-screen {
+  text-align: center;
+  opacity: 0; transform: scale(0.96);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+  display: none;
+}
+.ending-screen.show { opacity: 1; transform: scale(1); display: block; }
+
+.ending-badge {
+  display: inline-block;
+  font-size: 0.58rem; letter-spacing: 0.3em; text-transform: uppercase;
+  border: 1px solid var(--accent); color: var(--accent);
+  padding: 4px 14px; border-radius: 2px; margin-bottom: 20px;
+  opacity: 0.8;
+}
+.ending-icon { font-size: 2.4rem; margin-bottom: 16px; line-height: 1; }
+.ending-title {
+  font-size: 1.4rem; font-weight: 400; letter-spacing: 0.12em;
+  color: #f0e8d8; margin-bottom: 20px;
+}
+.ending-sep {
+  width: 40px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  margin: 0 auto 20px;
+}
+.ending-text {
+  font-size: 0.9rem; line-height: 2; letter-spacing: 0.05em;
+  color: rgba(220,210,190,0.8); margin-bottom: 28px;
+  max-width: 420px; margin-left: auto; margin-right: auto;
+}
+.ending-tag {
+  font-size: 0.62rem; letter-spacing: 0.2em;
+  color: rgba(200,168,100,0.5); margin-bottom: 28px;
+}
+.restart-btn {
+  padding: 11px 36px;
+  background: transparent;
+  border: 1px solid rgba(200,168,100,0.35);
+  border-radius: 3px; color: rgba(200,168,100,0.8);
+  font-family: inherit; font-size: 0.85rem; letter-spacing: 0.25em;
+  cursor: pointer; transition: all 0.3s;
+}
+.restart-btn:hover { background: rgba(200,168,100,0.1); border-color: rgba(200,168,100,0.7); color: var(--accent); }
+
+/* ── Title screen ── */
+.title-screen {
+  text-align: center;
+  opacity: 0; animation: fadeIn 1.2s ease 0.3s forwards;
+}
+@keyframes fadeIn { to { opacity: 1; } }
+
+.title-tag {
+  font-size: 0.58rem; letter-spacing: 0.4em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 16px;
+}
+.title-main {
+  font-size: 2rem; font-weight: 400; letter-spacing: 0.15em;
+  color: #f0e8d8; margin-bottom: 8px;
+  text-shadow: 0 0 30px rgba(200,168,100,0.3);
+}
+.title-sub {
+  font-size: 0.72rem; color: var(--muted); letter-spacing: 0.2em;
+  margin-bottom: 36px;
+}
+.title-sep {
+  width: 60px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  margin: 0 auto 36px;
+}
+.start-btn {
+  padding: 13px 44px;
+  background: transparent;
+  border: 1px solid rgba(200,168,100,0.4);
+  border-radius: 3px; color: rgba(200,168,100,0.85);
+  font-family: inherit; font-size: 0.92rem; letter-spacing: 0.35em;
+  cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden;
+}
+.start-btn::before {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(200,168,100,0.1);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+.start-btn:hover::before { transform: scaleX(1); }
+.start-btn:hover { border-color: rgba(200,168,100,0.8); }
+.start-btn span { position: relative; z-index: 1; }
+
+/* transition overlay */
+#overlay {
+  position: fixed; inset: 0;
+  background: #0c0a08; opacity: 0;
+  pointer-events: none; z-index: 100;
+  transition: opacity 0.4s ease;
+}
+#overlay.fade-in  { opacity: 1; pointer-events: all; }
+#overlay.fade-out { opacity: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div id="ambience"></div>
+<div id="overlay"></div>
+
+<div class="stage" id="stage">
+
+  <!-- Title -->
+  <div class="title-screen" id="titleScreen">
+    <div class="title-tag">interactive fiction</div>
+    <div class="title-main">深夜书店</div>
+    <div class="title-sub">一个关于迷路与相遇的故事</div>
+    <div class="title-sep"></div>
+    <button class="start-btn" onclick="startGame()"><span>开始故事</span></button>
+  </div>
+
+  <!-- Game -->
+  <div id="gameScreen" style="display:none">
+    <div class="progress" id="progress"></div>
+    <div class="scene-tag" id="sceneTag"></div>
+    <div class="scene-text" id="sceneText"></div>
+    <div class="choices"   id="choices"></div>
+  </div>
+
+  <!-- Ending -->
+  <div class="ending-screen" id="endingScreen">
+    <div class="ending-badge">Ending</div>
+    <div class="ending-icon"  id="endIcon"></div>
+    <div class="ending-title" id="endTitle"></div>
+    <div class="ending-sep"></div>
+    <div class="ending-text"  id="endText"></div>
+    <div class="ending-tag"   id="endTag"></div>
+    <button class="restart-btn" onclick="restartGame()">重新开始</button>
+  </div>
+
+</div>
+
+<script>
+// ── Story data ──
+const STORY = {
+  start: {
+    tag: '序章',
+    bg: 'radial-gradient(ellipse at 50% 0%, #1a1208 0%, #0c0a08 70%)',
+    text: '2026年某个深夜，你在陌生的街道迷了路。\n\n手机没电，周围一片安静。\n\n前方有一家亮着暖光的旧书店——\n招牌写着「无名书肆」，门缝里透出淡淡的木香。',
+    depth: 0,
+    choices: [
+      { text: '推开那扇门', next: 'bookstore' },
+      { text: '绕过书店，继续向前走', next: 'street' },
+    ]
+  },
+  bookstore: {
+    tag: '无名书肆',
+    bg: 'radial-gradient(ellipse at 40% 30%, #221408 0%, #0c0a06 70%)',
+    text: '店内的书架高至天花板，每一格都塞满了旧书。\n\n一位白发老人坐在柜台后，抬起头看了你一眼，\n又低下去继续读手里的书，\n像是早就料到你会来。',
+    depth: 1,
+    choices: [
+      { text: '走向柜台，和老人打招呼', next: 'oldman' },
+      { text: '悄悄在书架间穿行', next: 'shelves' },
+    ]
+  },
+  street: {
+    tag: '街道深处',
+    bg: 'radial-gradient(ellipse at 60% 50%, #0e1420 0%, #080810 70%)',
+    text: '拐过两条街，你闻到了食物的香气。\n\n一条热闹的深夜夜市出现在眼前——\n霓虹灯牌、炭火烤串、远处有人在大声笑。\n\n你已经很久没有在深夜出门了。',
+    depth: 1,
+    choices: [
+      { text: '融入夜市，随便逛逛', next: 'nightmarket' },
+      { text: '找个路边摊坐下，看人群', next: 'watching' },
+    ]
+  },
+  oldman: {
+    tag: '柜台前',
+    bg: 'radial-gradient(ellipse at 35% 40%, #281a08 0%, #0c0a06 70%)',
+    text: '老人递给你一杯茶，用沙哑的声音说：\n\n「迷路的人，往往是在寻找什么。\n你要找的，就在这里。」\n\n他抬手，指向店内深处的一扇小木门。\n门缝里透出一丝奇异的蓝光。',
+    depth: 2,
+    choices: [
+      { text: '推开那扇小门', next: 'ending_wonder' },
+      { text: '婉拒，道谢后离开书店', next: 'ending_peace' },
+    ]
+  },
+  shelves: {
+    tag: '书架深处',
+    bg: 'radial-gradient(ellipse at 50% 60%, #1a1428 0%, #0a0810 70%)',
+    text: '你在最深处的书架上发现一本无名的旧书。\n\n封面上什么字也没有，\n但当你伸手去碰它时，\n指尖传来一丝奇异的温热——\n像是有人刚刚放下它。',
+    depth: 2,
+    choices: [
+      { text: '翻开那本书', next: 'ending_book' },
+      { text: '放回原处，默默离开书店', next: 'ending_peace' },
+    ]
+  },
+  nightmarket: {
+    tag: '夜市',
+    bg: 'radial-gradient(ellipse at 50% 40%, #1a1020 0%, #080810 70%)',
+    text: '你在一个卖糖葫芦的摊位前停下来。\n\n旁边站着一个人，也正望向同一个方向——\n城市的夜空，几颗星星透过光污染勉强可见。\n\n「你也觉得今晚的星星特别少吗？」\n对方先开了口。',
+    depth: 2,
+    choices: [
+      { text: '「是啊……但这样也挺美的。」', next: 'ending_encounter' },
+      { text: '笑了笑，独自转身离开', next: 'ending_peace' },
+    ]
+  },
+  watching: {
+    tag: '路边',
+    bg: 'radial-gradient(ellipse at 50% 50%, #0e0e18 0%, #080810 70%)',
+    text: '你找了一个角落坐下，看着人群来来往往。\n\n这种疏离的热闹，有一种奇怪的治愈感——\n你不属于这里，但你在这里，\n这件事本身就让你感到某种轻盈。\n\n夜市快收摊时，你起身，感觉好像把什么放下了。',
+    depth: 2,
+    choices: [
+      { text: '起身，慢慢走回家', next: 'ending_peace' },
+    ]
+  },
+
+  // ── Endings ──
+  ending_wonder: {
+    type: 'ending', id: 1,
+    icon: '🌀', title: '奇遇之夜',
+    bg: 'radial-gradient(ellipse at 50% 30%, #1a1440 0%, #080610 100%)',
+    text: '小门后是一条古老的石板路，通向一个你说不清在哪里的地方。\n\n那一夜，你看见了许多无法用语言描述的事情。\n\n回到家时，天已微亮。你再也找不到那家书店，但那杯茶的味道，你记了很久很久。',
+    tag: '神秘 · 不可思议',
+  },
+  ending_book: {
+    type: 'ending', id: 2,
+    icon: '📖', title: '书中之人',
+    bg: 'radial-gradient(ellipse at 50% 40%, #201028 0%, #080610 100%)',
+    text: '书页翻开的瞬间，文字像流水一样涌出来。\n\n你看见了另一段生活——也许是你的，也许不是。\n\n当你合上书时，泪流满面，却说不清为什么。你把书买下，带回了家。',
+    tag: '感动 · 文学',
+  },
+  ending_encounter: {
+    type: 'ending', id: 3,
+    icon: '✦', title: '深夜相遇',
+    bg: 'radial-gradient(ellipse at 50% 50%, #1a1020 0%, #080610 100%)',
+    text: '你们聊了很久，关于城市、关于星星、关于各自的来处。\n\n夜市散场时，你们加了联系方式。也许什么都不会发生，但那个深夜，你们都记得彼此说的最后一句话：\n\n「下次早点出门，星星会更多。」',
+    tag: '温暖 · 意外',
+  },
+  ending_peace: {
+    type: 'ending', id: 4,
+    icon: '🌙', title: '普通的深夜',
+    bg: 'radial-gradient(ellipse at 50% 20%, #141020 0%, #080610 100%)',
+    text: '你回到了街上，不知走了多久，手机被一位路人好心充了会儿电，打车回了家。\n\n躺在床上，你想起今晚的那些时刻——觉得或许什么都没错过。\n\n有些门，留着不推也是一种答案。',
+    tag: '平静 · 自洽',
+  },
+};
+
+// ── State ──
+let depth = 0;
+const MAX_DEPTH = 3;
+
+function startGame() {
+  fadeTransition(() => {
+    document.getElementById('titleScreen').style.display = 'none';
+    document.getElementById('gameScreen').style.display  = 'block';
+    depth = 0;
+    renderScene('start');
+  });
+}
+
+function renderScene(key) {
+  const scene = STORY[key];
+  if (!scene) return;
+
+  if (scene.type === 'ending') { showEnding(scene); return; }
+
+  // ambience
+  document.getElementById('ambience').style.background = scene.bg || '';
+
+  // progress
+  depth = scene.depth ?? depth;
+  buildProgress(depth);
+
+  // tag
+  const tagEl = document.getElementById('sceneTag');
+  tagEl.classList.remove('show');
+  tagEl.textContent = scene.tag || '';
+  setTimeout(() => tagEl.classList.add('show'), 50);
+
+  // text (typewriter)
+  const textEl = document.getElementById('sceneText');
+  textEl.innerHTML = '';
+  const choicesEl = document.getElementById('choices');
+  choicesEl.classList.remove('show');
+  choicesEl.innerHTML = '';
+
+  typewrite(textEl, scene.text, () => {
+    buildChoices(choicesEl, scene.choices);
+    setTimeout(() => choicesEl.classList.add('show'), 100);
+  });
+}
+
+function typewrite(el, text, onDone) {
+  const lines = text.split('\n');
+  let lineIdx = 0, charIdx = 0;
+  const cursor = document.createElement('span');
+  cursor.className = 'cursor';
+
+  function nextChar() {
+    if (lineIdx >= lines.length) { cursor.remove(); onDone?.(); return; }
+    const line = lines[lineIdx];
+    if (charIdx < line.length) {
+      // find or create current text node
+      let node = el.lastChild;
+      if (!node || node === cursor || node.nodeType !== Node.TEXT_NODE) {
+        node = document.createTextNode('');
+        el.insertBefore(node, cursor);
+      }
+      node.textContent += line[charIdx];
+      charIdx++;
+      el.appendChild(cursor);
+      setTimeout(nextChar, 22 + Math.random() * 18);
+    } else {
+      // end of line
+      lineIdx++; charIdx = 0;
+      if (lineIdx < lines.length) {
+        el.insertBefore(document.createElement('br'), cursor);
+        el.appendChild(cursor);
+      }
+      setTimeout(nextChar, line.length === 0 ? 30 : 80);
+    }
+  }
+
+  el.appendChild(cursor);
+  nextChar();
+}
+
+function buildChoices(el, choices) {
+  choices.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.innerHTML = `<span class="choice-arrow">▸</span><span>${c.text}</span>`;
+    btn.onclick = () => {
+      el.querySelectorAll('.choice-btn').forEach(b => b.disabled = true);
+      fadeTransition(() => renderScene(c.next));
+    };
+    el.appendChild(btn);
+  });
+}
+
+function buildProgress(current) {
+  const el = document.getElementById('progress');
+  el.innerHTML = '';
+  for (let i = 0; i <= MAX_DEPTH; i++) {
+    const d = document.createElement('div');
+    d.className = 'pdot' + (i < current ? ' done' : i === current ? ' active' : '');
+    el.appendChild(d);
+  }
+}
+
+function showEnding(ending) {
+  const gs = document.getElementById('gameScreen');
+  const es = document.getElementById('endingScreen');
+
+  document.getElementById('ambience').style.background = ending.bg || '';
+
+  gs.style.display = 'none';
+  es.style.display = 'block';
+  es.classList.remove('show');
+
+  document.getElementById('endIcon').textContent  = ending.icon;
+  document.getElementById('endTitle').textContent = ending.title;
+  document.getElementById('endText').textContent  = ending.text.replace(/\n/g,' ');
+  document.getElementById('endTag').textContent   = ending.tag;
+
+  // render ending text properly with line breaks
+  const textEl = document.getElementById('endText');
+  textEl.innerHTML = ending.text.split('\n\n').map(p => `<p style="margin-bottom:0.8em">${p}</p>`).join('');
+
+  setTimeout(() => es.classList.add('show'), 50);
+}
+
+function restartGame() {
+  fadeTransition(() => {
+    document.getElementById('endingScreen').classList.remove('show');
+    document.getElementById('endingScreen').style.display = 'none';
+    document.getElementById('gameScreen').style.display   = 'block';
+    document.getElementById('ambience').style.background  = '';
+    depth = 0;
+    renderScene('start');
+  });
+}
+
+function fadeTransition(fn) {
+  const ov = document.getElementById('overlay');
+  ov.classList.add('fade-in');
+  setTimeout(() => { fn(); setTimeout(() => ov.classList.remove('fade-in'), 380); }, 380);
+}
+</script>
+</body>
+</html>

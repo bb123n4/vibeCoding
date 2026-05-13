@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>今日能量值</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  background: #0b0d14;
+  color: #e0e4f0;
+  font-family: "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 48px 20px 80px;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* grid bg */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(80,120,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(80,120,255,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+.page { position: relative; z-index: 1; width: 100%; max-width: 480px; }
+
+/* ── Header ── */
+header { text-align: center; margin-bottom: 40px; }
+.header-tag {
+  display: inline-block;
+  font-size: 0.6rem; letter-spacing: 0.35em; text-transform: uppercase;
+  color: rgba(100,160,255,0.6);
+  border: 1px solid rgba(100,160,255,0.2);
+  border-radius: 20px; padding: 3px 12px; margin-bottom: 12px;
+}
+h1 {
+  font-size: 1.5rem; font-weight: 300; letter-spacing: 0.08em;
+  color: #e8eeff; margin-bottom: 6px;
+}
+h1 strong { font-weight: 600; }
+.date-line { font-size: 0.68rem; color: rgba(160,180,255,0.45); letter-spacing: 0.15em; }
+
+/* ── Input area ── */
+.input-area { display: flex; gap: 10px; margin-bottom: 36px; }
+input {
+  flex: 1; padding: 11px 16px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(100,160,255,0.2);
+  border-radius: 8px; color: #e0e4f0;
+  font-size: 0.9rem; letter-spacing: 0.08em;
+  outline: none; transition: border-color 0.3s, box-shadow 0.3s;
+  font-family: inherit;
+}
+input::placeholder { color: rgba(160,180,255,0.3); }
+input:focus { border-color: rgba(100,160,255,0.5); box-shadow: 0 0 0 3px rgba(100,160,255,0.08); }
+.gen-btn {
+  padding: 11px 22px;
+  background: rgba(100,160,255,0.12);
+  border: 1px solid rgba(100,160,255,0.35);
+  border-radius: 8px; color: rgba(160,200,255,0.9);
+  font-size: 0.85rem; letter-spacing: 0.1em; font-family: inherit;
+  cursor: pointer; transition: all 0.2s; white-space: nowrap;
+}
+.gen-btn:hover { background: rgba(100,160,255,0.22); border-color: rgba(100,160,255,0.6); }
+.gen-btn:active { transform: scale(0.97); }
+.gen-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ── Radar ── */
+.radar-wrap {
+  display: flex; justify-content: center;
+  margin-bottom: 32px;
+  opacity: 0; transition: opacity 0.6s ease;
+}
+.radar-wrap.show { opacity: 1; }
+#radarSvg { overflow: visible; }
+
+/* ── Dimensions ── */
+.dims {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-bottom: 32px;
+  opacity: 0; transition: opacity 0.6s ease 0.3s;
+}
+.dims.show { opacity: 1; }
+
+.dim-row {
+  display: grid;
+  grid-template-columns: 24px 60px 1fr 36px;
+  align-items: center; gap: 10px;
+}
+.dim-icon { font-size: 1rem; text-align: center; line-height: 1; }
+.dim-name { font-size: 0.72rem; letter-spacing: 0.08em; color: rgba(200,210,255,0.7); }
+.dim-bar-wrap {
+  height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden;
+}
+.dim-bar {
+  height: 100%; border-radius: 3px; width: 0%;
+  transition: width 0.8s cubic-bezier(0.22,1,0.36,1);
+}
+.dim-score { font-size: 0.72rem; text-align: right; font-variant-numeric: tabular-nums; color: rgba(200,210,255,0.5); }
+
+/* dim descriptions */
+.dim-desc-row {
+  grid-column: 2 / 5;
+  font-size: 0.66rem; color: rgba(180,200,255,0.45);
+  letter-spacing: 0.04em; line-height: 1.5;
+  padding-left: 2px; margin-top: -6px;
+  opacity: 0; transition: opacity 0.4s ease;
+}
+.dim-desc-row.show { opacity: 1; }
+
+/* ── Verdict ── */
+.verdict {
+  border: 1px solid rgba(100,160,255,0.18);
+  border-radius: 12px;
+  padding: 20px 24px;
+  background: rgba(100,160,255,0.04);
+  position: relative; overflow: hidden;
+  opacity: 0; transform: translateY(10px);
+  transition: opacity 0.6s ease 0.6s, transform 0.6s ease 0.6s;
+}
+.verdict.show { opacity: 1; transform: translateY(0); }
+.verdict::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--verdict-color, #60a0ff), transparent);
+}
+.verdict-header {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+}
+.verdict-icon { font-size: 1.4rem; }
+.verdict-title { font-size: 0.62rem; letter-spacing: 0.2em; color: rgba(160,180,255,0.5); }
+.verdict-score {
+  font-size: 2rem; font-weight: 700; letter-spacing: -0.02em;
+  color: var(--verdict-color, #60a0ff);
+  line-height: 1; margin-bottom: 2px;
+}
+.verdict-label { font-size: 0.75rem; color: var(--verdict-color, #60a0ff); opacity: 0.8; margin-bottom: 10px; }
+.verdict-text { font-size: 0.78rem; color: rgba(200,210,255,0.65); line-height: 1.7; letter-spacing: 0.04em; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="header-tag">Daily Energy Report</div>
+    <h1><strong>今日</strong>能量值</h1>
+    <div class="date-line" id="dateLine"></div>
+  </header>
+
+  <div class="input-area">
+    <input type="text" id="nameInput" placeholder="输入你的名字" maxlength="12">
+    <button class="gen-btn" id="genBtn" onclick="generate()">生成报告</button>
+  </div>
+
+  <div class="radar-wrap" id="radarWrap">
+    <svg id="radarSvg" width="280" height="280" viewBox="0 0 280 280"></svg>
+  </div>
+
+  <div class="dims" id="dims"></div>
+
+  <div class="verdict" id="verdict">
+    <div class="verdict-header">
+      <span class="verdict-icon" id="verdictIcon"></span>
+      <span class="verdict-title">综合能量指数</span>
+    </div>
+    <div class="verdict-score" id="verdictScore"></div>
+    <div class="verdict-label" id="verdictLabel"></div>
+    <div class="verdict-text"  id="verdictText"></div>
+  </div>
+
+</div>
+<script>
+const DIMS = [
+  { name:'专注力', icon:'◎', color:'#60b8f8', desc:['思绪涣散，适合做简单重复的事','专注力尚可，短时高效，注意休息','心流加持，思维清晰，专攻难题'] },
+  { name:'社交力', icon:'♡', color:'#f07090', desc:['倾向独处，避开社交是今日上策','与人交谈顺畅，但无需主动出击','魅力爆棚，今天非常适合拓展人脉'] },
+  { name:'创造力', icon:'✦', color:'#b080e8', desc:['灵感枯竭，执行已有方案更稳妥','偶有灵光，记下来别让它溜走','创意井喷，把脑子里的东西做出来'] },
+  { name:'财运',   icon:'◈', color:'#e8c040', desc:['财气偏弱，今日不宜大额消费','财务平稳，收支均衡即可','财星高照，小投入可能有意外惊喜'] },
+  { name:'行动力', icon:'⚡', color:'#f08040', desc:['能量低，休息比行动更有价值','执行力稳定，按计划推进不出错','干劲十足，今天做什么都高效'] },
+  { name:'直觉',   icon:'◐', color:'#50d0b0', desc:['直觉噪音较大，多依赖逻辑判断','直觉时准时不准，决策前多想一步','第六感在线，相信第一反应'] },
+  { name:'健康',   icon:'△', color:'#70c870', desc:['身体发出警告，好好照顾自己','状态普通，注意饮食和睡眠','精力充沛，今天身体是你最好的工具'] },
+  { name:'爱情',   icon:'✿', color:'#f090c0', desc:['感情上需要一些空间与沉淀','爱情运平稳，细水长流','桃花运旺，对喜欢的人勇敢一点'] },
+];
+
+const VERDICTS = [
+  { min:0,  label:'能量偏低',   icon:'🌑', color:'#7090b0', text:'今天适合慢下来，做一件事，好好休息。不是每天都要全力以赴，低能量的日子也是自我充电的机会。' },
+  { min:40, label:'平稳运行',   icon:'🌒', color:'#80a8d0', text:'今天是踏实的一天，没有什么高光，但稳定本身就是一种力量。按部就班，积累会在某天突然显现。' },
+  { min:58, label:'状态不错',   icon:'🌓', color:'#60b8e8', text:'大多数维度都在正常区间之上，今天可以推进一些稍有挑战的事情，会比预期顺利。' },
+  { min:72, label:'能量充盈',   icon:'🌔', color:'#60d0a0', text:'今天的状态值得好好利用，不要浪费在刷手机上。把能量投入到真正重要的事情里，会有不错的收获。' },
+  { min:85, label:'满载运行',   icon:'🌕', color:'#e8c840', text:'今日能量全开，是少有的高峰状态。做决定、开新局、表白、谈判——今天出手，成功率都会比平时高。' },
+];
+
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('dateLine').textContent = today + '  ·  八维能量扫描';
+
+async function hashBytes(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf));
+}
+
+async function generate() {
+  const name = document.getElementById('nameInput').value.trim();
+  if (!name) { shake(document.getElementById('nameInput')); return; }
+
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true; btn.textContent = '扫描中…';
+
+  const bytes = await hashBytes(name.toLowerCase() + today);
+  const scores = DIMS.map((_, i) => Math.round((bytes[i] % 71) + 28)); // 28–98
+
+  btn.textContent = '重新生成'; btn.disabled = false;
+
+  drawRadar(scores);
+  buildDims(scores);
+  buildVerdict(scores);
+}
+
+// ── Radar ──
+function drawRadar(scores) {
+  const svg = document.getElementById('radarSvg');
+  svg.innerHTML = '';
+  const cx = 140, cy = 140, maxR = 105, n = 8;
+
+  const angle = i => (-90 + i * 360/n) * Math.PI/180;
+  const pt    = (i, r) => [cx + r*Math.cos(angle(i)), cy + r*Math.sin(angle(i))];
+  const poly  = (pts) => pts.map(p=>p.join(',')).join(' ');
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const mk = (tag, attrs) => { const el=document.createElementNS(ns,tag); Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v)); return el; };
+
+  // defs: gradient
+  const defs = mk('defs',{});
+  const grad = mk('radialGradient',{id:'rg',cx:'50%',cy:'50%',r:'50%'});
+  const s1 = mk('stop',{'offset':'0%','stop-color':'rgba(100,180,255,0.35)'});
+  const s2 = mk('stop',{'offset':'100%','stop-color':'rgba(100,120,255,0.08)'});
+  grad.appendChild(s1); grad.appendChild(s2); defs.appendChild(grad); svg.appendChild(defs);
+
+  // bg rings
+  [0.25,0.5,0.75,1].forEach(f => {
+    const pts = Array.from({length:n},(_,i)=>pt(i, maxR*f));
+    svg.appendChild(mk('polygon',{points:poly(pts), fill:'none', stroke:'rgba(100,160,255,0.1)', 'stroke-width':'1'}));
+  });
+
+  // axes + labels
+  DIMS.forEach((d,i) => {
+    const [x2,y2] = pt(i, maxR);
+    svg.appendChild(mk('line',{x1:cx,y1:cy,x2,y2,stroke:'rgba(100,160,255,0.12)','stroke-width':'1'}));
+
+    const [lx,ly] = pt(i, maxR+20);
+    const anchor = lx < cx-4 ? 'end' : lx > cx+4 ? 'start' : 'middle';
+    const icon = mk('text',{x:lx,y:ly-2,'text-anchor':anchor,'font-size':'11','fill':d.color,'opacity':'0.8'});
+    icon.textContent = d.icon;
+    svg.appendChild(icon);
+    const label = mk('text',{x:lx,y:ly+10,'text-anchor':anchor,'font-size':'9','fill':'rgba(180,200,255,0.5)'});
+    label.textContent = d.name;
+    svg.appendChild(label);
+  });
+
+  // score polygon — animate from center
+  const finalPts = scores.map((s,i) => pt(i, (s/100)*maxR));
+  const startPts = Array.from({length:n}, () => [cx,cy]);
+
+  const polyEl = mk('polygon',{points:poly(startPts), fill:'url(#rg)', stroke:'rgba(120,180,255,0.7)', 'stroke-width':'1.5', 'stroke-linejoin':'round'});
+  svg.appendChild(polyEl);
+
+  // dot on each axis tip
+  const dots = finalPts.map((p,i) => {
+    const c = mk('circle',{cx:cx,cy:cy,r:'3',fill:DIMS[i].color,'opacity':'0'});
+    svg.appendChild(c);
+    return c;
+  });
+
+  // animate
+  const dur = 900, start = performance.now();
+  function frame(now) {
+    const t = Math.min((now-start)/dur, 1);
+    const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+    const pts = finalPts.map((fp,i) => [
+      cx + (fp[0]-cx)*ease,
+      cy + (fp[1]-cy)*ease,
+    ]);
+    polyEl.setAttribute('points', poly(pts));
+    dots.forEach((d,i) => {
+      d.setAttribute('cx', pts[i][0]);
+      d.setAttribute('cy', pts[i][1]);
+      d.setAttribute('opacity', ease * 0.9);
+    });
+    if (t < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  document.getElementById('radarWrap').classList.add('show');
+}
+
+// ── Dimension bars ──
+function buildDims(scores) {
+  const container = document.getElementById('dims');
+  container.innerHTML = '';
+
+  DIMS.forEach((d, i) => {
+    const score = scores[i];
+    const tier = score < 45 ? 0 : score < 72 ? 1 : 2;
+
+    const wrap = document.createElement('div');
+    wrap.style.display = 'contents';
+
+    const row = document.createElement('div');
+    row.className = 'dim-row';
+    row.innerHTML = `
+      <div class="dim-icon" style="color:${d.color}">${d.icon}</div>
+      <div class="dim-name">${d.name}</div>
+      <div class="dim-bar-wrap"><div class="dim-bar" id="bar-${i}" style="background:${d.color}40; outline: none;"></div></div>
+      <div class="dim-score" style="color:${d.color}">${score}</div>
+    `;
+    const descRow = document.createElement('div');
+    descRow.className = 'dim-desc-row';
+    descRow.textContent = d.desc[tier];
+
+    container.appendChild(row);
+    container.appendChild(descRow);
+
+    setTimeout(() => {
+      document.getElementById(`bar-${i}`).style.width = score + '%';
+      document.getElementById(`bar-${i}`).style.background = d.color + '99';
+      setTimeout(() => descRow.classList.add('show'), 300);
+    }, 200 + i * 80);
+  });
+
+  container.classList.add('show');
+}
+
+// ── Verdict ──
+function buildVerdict(scores) {
+  const avg = Math.round(scores.reduce((a,b)=>a+b,0) / scores.length);
+  const v = [...VERDICTS].reverse().find(v => avg >= v.min) || VERDICTS[0];
+
+  const el = document.getElementById('verdict');
+  el.style.setProperty('--verdict-color', v.color);
+  document.getElementById('verdictIcon').textContent  = v.icon;
+  document.getElementById('verdictScore').textContent = avg;
+  document.getElementById('verdictLabel').textContent = v.label;
+  document.getElementById('verdictText').textContent  = v.text;
+
+  setTimeout(() => el.classList.add('show'), 500);
+}
+
+function shake(el) {
+  el.animate([
+    {transform:'translateX(0)'},{transform:'translateX(-6px)'},
+    {transform:'translateX(6px)'},{transform:'translateX(-4px)'},
+    {transform:'translateX(4px)'},{transform:'translateX(0)'},
+  ], {duration:280});
+  el.focus();
+}
+
+document.getElementById('nameInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') generate();
+});
+</script>
+</body>
+</html>
