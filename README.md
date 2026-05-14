@@ -22,6 +22,8 @@
 | 🎵 | [rhythm.html](rhythm.html) | 节奏打击 — rhythm click game with approach circles, combos, and 3 difficulties |
 | 🎰 | [slots.html](slots.html) | 老虎机 — neon slot machine with animated reels, jackpots, and Web Audio |
 | 🎆 | [fireworks.html](fireworks.html) | 烟花 — interactive fireworks over a city skyline, 5 burst types, auto mode |
+| 🏖️ | [sand.html](sand.html) | 沙粒模拟 — falling sand simulation with sand, water, fire, oil & wood physics |
+| 🔮 | [fractal.html](fractal.html) | 分形浏览器 — Mandelbrot browser with WebGL, smooth coloring, 5 palettes, zoom & pan |
 
 ## 🚀 Run locally
 

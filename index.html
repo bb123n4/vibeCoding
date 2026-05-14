@@ -634,6 +634,24 @@ footer {
 }
 .p-fire canvas { display: block; width: 100%; height: 100%; }
 
+/* ════════════════════════
+   Sand preview
+════════════════════════ */
+.p-sand {
+  background: #0a0a0f;
+  position: relative; overflow: hidden;
+}
+.p-sand canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+
+/* ════════════════════════
+   Fractal preview
+════════════════════════ */
+.p-fractal {
+  background: #000;
+  position: relative; overflow: hidden;
+}
+.p-fractal canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+
 /* ── Responsive ── */
 @media (max-width: 520px) {
   .grid { grid-template-columns: 1fr; }
@@ -908,6 +926,34 @@ footer {
       </div>
     </a>
 
+    <!-- Sand -->
+    <a class="card" href="sand.html">
+      <div class="preview p-sand">
+        <canvas id="sandCanvas"></canvas>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">沙粒模拟</div>
+          <div class="card-desc">沙 · 水 · 火 · 油 · 元素交互</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
+    <!-- Fractal -->
+    <a class="card" href="fractal.html">
+      <div class="preview p-fractal">
+        <canvas id="fractalCanvas"></canvas>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">分形浏览器</div>
+          <div class="card-desc">Mandelbrot · 缩放漫游 · 五种配色</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
   </div>
 </div>
 
@@ -1166,6 +1212,134 @@ footer {
     `;
     container.appendChild(s);
   }
+})();
+
+// ── Sand mini preview ──
+(function(){
+  const cv=document.getElementById('sandCanvas');
+  if(!cv)return;
+  const par=cv.parentElement;
+  const CELL=3;
+  const GW=Math.floor((par.offsetWidth||320)/CELL);
+  const GH=Math.floor((par.offsetHeight||160)/CELL);
+  cv.width=GW*CELL; cv.height=GH*CELL;
+  const ctx=cv.getContext('2d');
+  const N=GW*GH;
+  const EMPTY=0,SAND=1,WATER=2,FIRE=3,OIL=4;
+  const grid=new Uint8Array(N),vx=new Float32Array(N),vy=new Float32Array(N);
+  const cr=new Uint8Array(N),cg=new Uint8Array(N),cb=new Uint8Array(N);
+  const moved=new Uint8Array(N);
+  const imgd=ctx.createImageData(GW*CELL,GH*CELL);
+  for(let i=3;i<imgd.data.length;i+=4)imgd.data[i]=255;
+  // init bg color
+  for(let i=0;i<N;i++){cr[i]=10;cg[i]=10;cb[i]=15;}
+
+  function set(i,m){
+    grid[i]=m;
+    if(m===SAND){cr[i]=200+Math.random()*20|0;cg[i]=160+Math.random()*20|0;cb[i]=70+Math.random()*15|0;}
+    else if(m===WATER){cr[i]=40+Math.random()*15|0;cg[i]=110+Math.random()*20|0;cb[i]=220+Math.random()*20|0;}
+    else if(m===FIRE){cr[i]=255;cg[i]=80+Math.random()*60|0;cb[i]=10+Math.random()*20|0;}
+    else if(m===OIL){cr[i]=150+Math.random()*15|0;cg[i]=110+Math.random()*15|0;cb[i]=45+Math.random()*10|0;}
+    else{cr[i]=10;cg[i]=10;cb[i]=15;}
+  }
+  function clr(i){grid[i]=0;cr[i]=10;cg[i]=10;cb[i]=15;}
+  function swap(a,b){[grid[a],grid[b]]=[grid[b],grid[a]];[cr[a],cr[b]]=[cr[b],cr[a]];[cg[a],cg[b]]=[cg[b],cg[a]];[cb[a],cb[b]]=[cb[b],cb[a]];moved[a]=moved[b]=1;}
+
+  // seed some initial material
+  const cx2=GW>>1;
+  for(let c=cx2-2;c<=cx2+2;c++) for(let r=GH>>2;r<=(GH>>2)+3;r++) set(r*GW+c,SAND);
+  const cx3=Math.floor(GW*.3);
+  for(let c=cx3-1;c<=cx3+1;c++) for(let r=2;r<=5;r++) set(r*GW+c,WATER);
+  const cx4=Math.floor(GW*.7);
+  for(let c=cx4-1;c<=cx4+1;c++) set(2*GW+c,FIRE);
+
+  let tick2=0;
+  function step2(){
+    moved.fill(0); tick2++;
+    const dir=tick2%2?1:-1;
+    for(let r=GH-1;r>=0;r--){
+      const c0=dir>0?0:GW-1, c1=dir>0?GW:-1;
+      for(let c=c0;c!==c1;c+=dir){
+        const i=r*GW+c; if(moved[i]||!grid[i])continue;
+        const m=grid[i];
+        if(m===SAND&&r<GH-1){
+          const dn=i+GW;
+          if(!grid[dn]){swap(i,dn);continue;}
+          if(grid[dn]===WATER){swap(i,dn);continue;}
+          const d1=dir,d2=-dir;
+          const cl=c+d1,cr2=c+d2;
+          const dl=i+GW+d1,dr2=i+GW+d2;
+          if(cl>=0&&cl<GW&&!grid[dl])swap(i,dl);
+          else if(cr2>=0&&cr2<GW&&!grid[dr2])swap(i,dr2);
+        } else if(m===WATER&&r<GH-1){
+          const dn=i+GW;
+          if(!grid[dn]){swap(i,dn);continue;}
+          for(const dc of[dir,-dir,1,-1]){const nc=c+dc;if(nc>=0&&nc<GW&&!grid[i+dc]){swap(i,i+dc);break;}}
+        } else if(m===FIRE){
+          // flicker color
+          if(Math.random()<.3){cr[i]=255;cg[i]=60+Math.random()*80|0;cb[i]=Math.random()*15|0;}
+          if(r>0&&!grid[i-GW]&&Math.random()<.3)swap(i,i-GW);
+          if(Math.random()<.004)clr(i);
+        }
+      }
+    }
+    // auto-spawn to keep it interesting
+    if(tick2%22===0){const c=Math.floor(Math.random()*GW);if(!grid[c])set(c,Math.random()<.6?SAND:WATER);}
+    if(tick2%55===0){const c=Math.floor(GW*.5+Math.random()*GW*.3-GW*.15);if(!grid[c])set(c,FIRE);}
+  }
+
+  function render2(){
+    const d=imgd.data;
+    for(let r=0;r<GH;r++) for(let c=0;c<GW;c++){
+      const i=r*GW+c, R=cr[i],G=cg[i],B=cb[i];
+      for(let dr=0;dr<CELL;dr++){const row=(r*CELL+dr)*GW*CELL+c*CELL;for(let dc=0;dc<CELL;dc++){const p=(row+dc)*4;d[p]=R;d[p+1]=G;d[p+2]=B;}}
+    }
+    ctx.putImageData(imgd,0,0);
+  }
+
+  function loop2(){requestAnimationFrame(loop2);step2();step2();render2();}
+  requestAnimationFrame(loop2);
+})();
+
+// ── Fractal mini preview (CPU, low-res) ──
+(function(){
+  const cv=document.getElementById('fractalCanvas');
+  if(!cv)return;
+  const par=cv.parentElement;
+  const W=Math.floor((par.offsetWidth||320)/3);
+  const H=Math.floor((par.offsetHeight||160)/3);
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  const imgd=ctx.createImageData(W,H);
+  const d=imgd.data;
+
+  // IQ electric palette: a+b*cos(2π(c*t+offset))
+  function pal(t){
+    const r=0.5+0.5*Math.cos(6.283*(1.0*t+0.0));
+    const g=0.5+0.5*Math.cos(6.283*(1.0*t+0.33));
+    const b=0.5+0.5*Math.cos(6.283*(1.0*t+0.67));
+    return[r*255|0,g*255|0,b*255|0];
+  }
+
+  const MAX=80, cx=-0.5, cy=0, zoom=0.38;
+  for(let py=0;py<H;py++){
+    for(let px=0;px<W;px++){
+      const x0=(px-W/2)/(W*zoom)+cx;
+      const y0=(py-H/2)/(W*zoom)+cy;
+      let x=x0,y=y0,i=0,len2=0;
+      for(;i<MAX;i++){const x2=x*x,y2=y*y;len2=x2+y2;if(len2>256)break;const xt=x2-y2+x0;y=2*x*y+y0;x=xt;}
+      const p=(py*W+px)*4;
+      if(i>=MAX){d[p]=d[p+1]=d[p+2]=0;}
+      else{
+        const fi=i+1-Math.log(Math.log(Math.sqrt(len2)))/Math.log(2);
+        const t=((fi/MAX)*4+0.5)%1;
+        const[r,g,b]=pal(t);
+        d[p]=r;d[p+1]=g;d[p+2]=b;
+      }
+      d[p+3]=255;
+    }
+  }
+  ctx.putImageData(imgd,0,0);
 })();
 </script>
 </body>

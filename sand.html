@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>沙粒模拟</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0f;overflow:hidden;width:100vw;height:100vh;display:flex;flex-direction:column;align-items:center;font-family:monospace}
+#title{position:fixed;top:12px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.22);font-size:11px;letter-spacing:.35em;pointer-events:none;z-index:5}
+canvas{display:block;cursor:crosshair;image-rendering:pixelated;flex-shrink:0}
+#toolbar{position:fixed;bottom:0;left:0;right:0;height:52px;background:rgba(8,8,16,.85);backdrop-filter:blur(8px);border-top:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;gap:6px;padding:0 10px;z-index:10}
+.mat-btn{width:36px;height:36px;border-radius:8px;border:1.5px solid rgba(255,255,255,.15);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .15s;flex-shrink:0}
+.mat-btn:hover{border-color:rgba(255,255,255,.4);transform:scale(1.1)}
+.mat-btn.active{border-color:#fff;box-shadow:0 0 8px rgba(255,255,255,.4)}
+.sep{width:1px;height:28px;background:rgba(255,255,255,.1);flex-shrink:0}
+.sz-btn{width:28px;height:28px;border-radius:6px;border:1.5px solid rgba(255,255,255,.12);cursor:pointer;background:rgba(255,255,255,.04);color:rgba(255,255,255,.5);font-size:11px;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.sz-btn:hover{border-color:rgba(255,255,255,.35);color:#fff}
+.sz-btn.active{border-color:rgba(255,255,255,.6);color:#fff;background:rgba(255,255,255,.1)}
+.act-btn{padding:0 12px;height:28px;border-radius:6px;border:1.5px solid rgba(255,255,255,.12);cursor:pointer;background:rgba(255,255,255,.04);color:rgba(255,255,255,.45);font-size:11px;letter-spacing:.1em;transition:all .15s;flex-shrink:0}
+.act-btn:hover{border-color:rgba(255,255,255,.3);color:rgba(255,255,255,.8)}
+#info{position:fixed;top:36px;left:50%;transform:translateX(-50%);color:rgba(255,255,255,.15);font-size:10px;letter-spacing:.2em;pointer-events:none;z-index:5}
+</style>
+</head>
+<body>
+<div id="title">沙粒模拟 · SAND SIMULATION</div>
+<div id="info" id="info"></div>
+<canvas id="c"></canvas>
+
+<div id="toolbar">
+  <button class="mat-btn active" id="btn-sand" title="沙子" style="background:rgba(210,170,80,.15)">🟡</button>
+  <button class="mat-btn" id="btn-water" title="水" style="background:rgba(60,140,255,.15)">🔵</button>
+  <button class="mat-btn" id="btn-stone" title="石头" style="background:rgba(130,130,140,.15)">⬜</button>
+  <button class="mat-btn" id="btn-fire" title="火" style="background:rgba(255,90,20,.15)">🔴</button>
+  <button class="mat-btn" id="btn-oil" title="油" style="background:rgba(180,140,60,.15)">🟤</button>
+  <button class="mat-btn" id="btn-wood" title="木头" style="background:rgba(100,70,30,.15)">🟫</button>
+  <button class="mat-btn" id="btn-eraser" title="橡皮" style="background:rgba(255,255,255,.05)">⬛</button>
+  <div class="sep"></div>
+  <button class="sz-btn active" id="sz-1" data-sz="1">S</button>
+  <button class="sz-btn" id="sz-2" data-sz="3">M</button>
+  <button class="sz-btn" id="sz-3" data-sz="6">L</button>
+  <div class="sep"></div>
+  <button class="act-btn" id="pauseBtn">⏸</button>
+  <button class="act-btn" id="clearBtn">清除</button>
+</div>
+
+<script>
+const cv=document.getElementById('c');
+const ctx=cv.getContext('2d');
+
+const CELL=3;
+const TOOLBAR_H=52;
+const TITLE_H=32;
+
+let W,H,GW,GH,N;
+let grid,meta,cr,cg,cb,moved;
+let imgd;
+
+function initCanvas(){
+  W=window.innerWidth;
+  H=window.innerHeight-TOOLBAR_H;
+  GW=Math.min(400,Math.floor(W/CELL));
+  GH=Math.min(260,Math.floor(H/CELL));
+  cv.width=GW*CELL;
+  cv.height=GH*CELL;
+  cv.style.marginTop=(H-GH*CELL)/2+'px';
+  N=GW*GH;
+  // preserve old grid on resize if possible
+  const oldGrid=grid,oldGW=GW,oldGH=GH,oldMeta=meta,oldCr=cr,oldCg=cg,oldCb=cb;
+  grid=new Uint8Array(N);
+  meta=new Uint8Array(N);
+  cr=new Uint8Array(N);cg=new Uint8Array(N);cb=new Uint8Array(N);
+  moved=new Uint8Array(N);
+  imgd=ctx.createImageData(GW*CELL,GH*CELL);
+  // fill alpha
+  for(let i=3;i<imgd.data.length;i+=4)imgd.data[i]=255;
+}
+initCanvas();
+window.addEventListener('resize',initCanvas);
+
+// ── Materials ──
+const EMPTY=0,SAND=1,WATER=2,STONE=3,FIRE=4,OIL=5,SMOKE=6,WOOD=7;
+
+// Base colors [r,g,b] with variation range
+const MAT_COLOR=[
+  [10,10,15,0,0,0],       // EMPTY — dark bg
+  [210,170,80,20,15,10],  // SAND — golden
+  [50,120,230,15,20,30],  // WATER — blue
+  [110,110,120,15,15,15], // STONE — grey
+  [255,90,20,30,40,10],   // FIRE — orange-red
+  [160,120,50,15,12,8],   // OIL — brown
+  [80,80,95,20,20,25],    // SMOKE — grey-blue
+  [90,60,25,12,10,8],     // WOOD — dark brown
+];
+
+function rng(v){return Math.floor(Math.random()*v*2)-v;}
+function setCell(i,mat){
+  grid[i]=mat;
+  const c=MAT_COLOR[mat];
+  cr[i]=Math.min(255,Math.max(0,c[0]+rng(c[3])));
+  cg[i]=Math.min(255,Math.max(0,c[1]+rng(c[4])));
+  cb[i]=Math.min(255,Math.max(0,c[2]+rng(c[5])));
+  if(mat===FIRE)meta[i]=40+Math.floor(Math.random()*40);
+  else if(mat===SMOKE)meta[i]=60+Math.floor(Math.random()*60);
+  else meta[i]=0;
+}
+function clr(i){grid[i]=0;meta[i]=0;cr[i]=10;cg[i]=10;cb[i]=15;}
+
+// ── Physics ──
+let tick=0;
+function step(){
+  moved.fill(0);
+  tick++;
+  const dir=tick%2===0?1:-1; // alternate left-right bias
+
+  // bottom to top, alternating horizontal direction
+  for(let r=GH-1;r>=0;r--){
+    const c0=dir>0?0:GW-1;
+    const c1=dir>0?GW:-1;
+    for(let c=c0;c!==c1;c+=dir){
+      const i=r*GW+c;
+      if(moved[i])continue;
+      const m=grid[i];
+      if(m===EMPTY)continue;
+
+      if(m===SAND){
+        // fall down
+        if(r<GH-1){
+          const dn=i+GW;
+          if(grid[dn]===EMPTY){swap(i,dn);continue;}
+          if(grid[dn]===WATER){swap(i,dn);continue;}
+          // slide diagonally
+          const d1=dir,d2=-dir;
+          const dl=i+GW+d1,dr_=i+GW+d2;
+          const cl1=c+d1,cl2=c+d2;
+          const canL=cl1>=0&&cl1<GW&&grid[dl]===EMPTY;
+          const canR=cl2>=0&&cl2<GW&&grid[dr_]===EMPTY;
+          if(canL&&canR){if(Math.random()<.5)swap(i,dl);else swap(i,dr_);}
+          else if(canL)swap(i,dl);
+          else if(canR)swap(i,dr_);
+        }
+      }
+      else if(m===WATER){
+        if(r<GH-1){
+          const dn=i+GW;
+          if(grid[dn]===EMPTY){swap(i,dn);continue;}
+          // flow sideways
+          const sides=[];
+          for(const dc of[dir,-dir,1,-1]){
+            const nc=c+dc;
+            if(nc>=0&&nc<GW&&grid[i+dc]===EMPTY)sides.push(i+dc);
+          }
+          if(sides.length){swap(i,sides[0]);continue;}
+        } else {
+          const sides=[];
+          for(const dc of[dir,-dir,1,-1]){
+            const nc=c+dc;
+            if(nc>=0&&nc<GW&&grid[i+dc]===EMPTY)sides.push(i+dc);
+          }
+          if(sides.length)swap(i,sides[0]);
+        }
+      }
+      else if(m===OIL){
+        if(r<GH-1){
+          const dn=i+GW;
+          if(grid[dn]===EMPTY){swap(i,dn);continue;}
+          if(grid[dn]===WATER){swap(i,dn);continue;}
+          const sides=[];
+          for(const dc of[dir,-dir,1,-1]){
+            const nc=c+dc;
+            if(nc>=0&&nc<GW&&grid[i+dc]===EMPTY)sides.push(i+dc);
+          }
+          if(sides.length){swap(i,sides[0]);continue;}
+        }
+        // oil on water floats (handled by water pushing down)
+        if(r>0&&grid[i-GW]===WATER){swap(i,i-GW);continue;}
+        // spread sideways
+        const sides=[];
+        for(const dc of[dir,-dir,1,-1]){
+          const nc=c+dc;
+          if(nc>=0&&nc<GW&&grid[i+dc]===EMPTY)sides.push(i+dc);
+        }
+        if(sides.length)swap(i,sides[0]);
+      }
+      else if(m===FIRE){
+        meta[i]--;
+        // update color (flicker)
+        if(Math.random()<.4){
+          const hot=meta[i]/80;
+          cr[i]=255;
+          cg[i]=Math.floor(hot*90+Math.random()*60);
+          cb[i]=Math.floor(Math.random()*20);
+        }
+        if(meta[i]<=0){
+          // turn to smoke
+          setCell(i,SMOKE);
+          continue;
+        }
+        // rise up
+        if(r>0){
+          const up=i-GW;
+          if(grid[up]===EMPTY&&Math.random()<.4){swap(i,up);moved[up]=1;continue;}
+          // spread fire
+          if(grid[up]===OIL||grid[up]===WOOD){
+            if(Math.random()<.08)setCell(up,FIRE);
+          }
+        }
+        // ignite neighbors
+        for(const di of[1,-1,GW,-GW]){
+          const ni=i+di;
+          if(ni<0||ni>=N)continue;
+          const dc=di===1?1:di===-1?-1:0;
+          if(dc!==0&&(c+dc<0||c+dc>=GW))continue;
+          if(grid[ni]===OIL||grid[ni]===WOOD){
+            if(Math.random()<.04)setCell(ni,FIRE);
+          }
+        }
+        // random horizontal drift
+        if(Math.random()<.3){
+          const dc=Math.random()<.5?1:-1;
+          const nc=c+dc;
+          if(nc>=0&&nc<GW&&grid[i+dc]===EMPTY){swap(i,i+dc);}
+        }
+      }
+      else if(m===SMOKE){
+        meta[i]--;
+        if(Math.random()<.15){
+          const fade=meta[i]/120;
+          cr[i]=Math.floor(70+fade*20);
+          cg[i]=Math.floor(70+fade*20);
+          cb[i]=Math.floor(85+fade*25);
+        }
+        if(meta[i]<=0){clr(i);continue;}
+        if(r>0){
+          const up=i-GW;
+          if(grid[up]===EMPTY&&Math.random()<.5){swap(i,up);moved[up]=1;continue;}
+          const dc=Math.random()<.5?1:-1;
+          const nc=c+dc;
+          if(nc>=0&&nc<GW&&grid[i+dc]===EMPTY&&Math.random()<.4){swap(i,i+dc);}
+        }
+      }
+    }
+  }
+}
+
+function swap(a,b){
+  [grid[a],grid[b]]=[grid[b],grid[a]];
+  [meta[a],meta[b]]=[meta[b],meta[a]];
+  [cr[a],cr[b]]=[cr[b],cr[a]];
+  [cg[a],cg[b]]=[cg[b],cg[a]];
+  [cb[a],cb[b]]=[cb[b],cb[a]];
+  moved[a]=1;moved[b]=1;
+}
+
+// ── Render ──
+function render(){
+  const data=imgd.data;
+  for(let r=0;r<GH;r++){
+    for(let c=0;c<GW;c++){
+      const i=r*GW+c;
+      const R=cr[i],G=cg[i],B=cb[i];
+      const px=(r*GW*CELL+c)*CELL;
+      for(let dr=0;dr<CELL;dr++){
+        const row=(r*CELL+dr)*GW*CELL+c*CELL;
+        for(let dc=0;dc<CELL;dc++){
+          const p=(row+dc)*4;
+          data[p]=R;data[p+1]=G;data[p+2]=B;
+        }
+      }
+    }
+  }
+  ctx.putImageData(imgd,0,0);
+}
+
+// ── Input ──
+let curMat=SAND,brushSz=1,drawing=false,paused=false;
+let lastX=-1,lastY=-1;
+
+const MAT_MAP={
+  'btn-sand':SAND,'btn-water':WATER,'btn-stone':STONE,
+  'btn-fire':FIRE,'btn-oil':OIL,'btn-wood':WOOD,'btn-eraser':EMPTY
+};
+
+for(const [id,mat] of Object.entries(MAT_MAP)){
+  document.getElementById(id).addEventListener('click',()=>{
+    curMat=mat;
+    document.querySelectorAll('.mat-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  });
+}
+
+document.querySelectorAll('.sz-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    brushSz=parseInt(b.dataset.sz);
+    document.querySelectorAll('.sz-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+  });
+});
+
+document.getElementById('pauseBtn').addEventListener('click',()=>{
+  paused=!paused;
+  document.getElementById('pauseBtn').textContent=paused?'▶':'⏸';
+});
+document.getElementById('clearBtn').addEventListener('click',()=>{
+  for(let i=0;i<N;i++)clr(i);
+});
+
+function getCell(e){
+  const rect=cv.getBoundingClientRect();
+  const x=e.clientX??e.touches[0].clientX;
+  const y=e.clientY??e.touches[0].clientY;
+  const cx=Math.floor((x-rect.left)/CELL);
+  const cy=Math.floor((y-rect.top)/CELL);
+  return[cx,cy];
+}
+
+function paint(cx,cy){
+  for(let dr=-brushSz+1;dr<brushSz;dr++){
+    for(let dc=-brushSz+1;dc<brushSz;dc++){
+      if(dr*dr+dc*dc>brushSz*brushSz)continue;
+      const r=cy+dr,c=cx+dc;
+      if(r<0||r>=GH||c<0||c>=GW)continue;
+      const i=r*GW+c;
+      if(curMat===EMPTY){clr(i);}
+      else if(grid[i]===EMPTY||curMat===STONE||curMat===WOOD){
+        setCell(i,curMat);
+      }
+    }
+  }
+}
+
+function paintLine(x0,y0,x1,y1){
+  const dx=Math.abs(x1-x0),dy=Math.abs(y1-y0);
+  const sx=x0<x1?1:-1,sy=y0<y1?1:-1;
+  let err=dx-dy,x=x0,y=y0;
+  while(true){
+    paint(x,y);
+    if(x===x1&&y===y1)break;
+    const e2=2*err;
+    if(e2>-dy){err-=dy;x+=sx;}
+    if(e2<dx){err+=dx;y+=sy;}
+  }
+}
+
+cv.addEventListener('mousedown',e=>{drawing=true;const[cx,cy]=getCell(e);paint(cx,cy);lastX=cx;lastY=cy;});
+cv.addEventListener('mousemove',e=>{
+  if(!drawing)return;
+  const[cx,cy]=getCell(e);
+  paintLine(lastX,lastY,cx,cy);
+  lastX=cx;lastY=cy;
+});
+cv.addEventListener('mouseup',()=>{drawing=false;lastX=-1;lastY=-1;});
+cv.addEventListener('mouseleave',()=>{drawing=false;});
+cv.addEventListener('touchstart',e=>{e.preventDefault();drawing=true;const[cx,cy]=getCell(e);paint(cx,cy);lastX=cx;lastY=cy;},{passive:false});
+cv.addEventListener('touchmove',e=>{e.preventDefault();if(!drawing)return;const[cx,cy]=getCell(e);paintLine(lastX,lastY,cx,cy);lastX=cx;lastY=cy;},{passive:false});
+cv.addEventListener('touchend',()=>{drawing=false;});
+
+// ── Loop ──
+// init empty (colors set to bg)
+for(let i=0;i<N;i++){cr[i]=10;cg[i]=10;cb[i]=15;}
+
+let lastTime=0;
+function loop(t){
+  requestAnimationFrame(loop);
+  if(!paused&&t-lastTime>16){
+    lastTime=t;
+    step();
+    step(); // 2 steps per frame for snappier physics
+  }
+  render();
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
