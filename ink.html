@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>流体墨水</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f8f4ed;overflow:hidden;width:100vw;height:100vh;font-family:monospace}
+canvas{display:block;width:100%;height:100%;cursor:crosshair;touch-action:none}
+#ui{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;z-index:10;background:rgba(248,244,237,.7);backdrop-filter:blur(8px);border:1px solid rgba(0,0,0,.08);border-radius:24px;padding:8px 16px}
+.swatch{width:26px;height:26px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .15s,border-color .15s;flex-shrink:0}
+.swatch:hover{transform:scale(1.18)}
+.swatch.active{border-color:rgba(0,0,0,.5);transform:scale(1.15)}
+.divider{width:1px;height:20px;background:rgba(0,0,0,.1)}
+.act{background:none;border:1px solid rgba(0,0,0,.15);border-radius:12px;color:rgba(0,0,0,.45);font-family:monospace;font-size:10px;letter-spacing:.15em;padding:5px 12px;cursor:pointer;transition:all .15s}
+.act:hover{border-color:rgba(0,0,0,.4);color:rgba(0,0,0,.8)}
+#title{position:fixed;top:14px;left:50%;transform:translateX(-50%);color:rgba(0,0,0,.15);font-size:10px;letter-spacing:.35em;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="title">流体墨水 · FLUID INK</div>
+
+<div id="ui">
+  <div class="swatch active" data-idx="0" style="background:#12111e" title="墨"></div>
+  <div class="swatch" data-idx="1" style="background:#8b0000" title="朱"></div>
+  <div class="swatch" data-idx="2" style="background:#00448b" title="靛"></div>
+  <div class="swatch" data-idx="3" style="background:#005a2b" title="翠"></div>
+  <div class="swatch" data-idx="4" style="background:#8b5a00" title="金"></div>
+  <div class="divider"></div>
+  <button class="act" id="clearBtn">清纸</button>
+  <button class="act" id="dryBtn">速干</button>
+</div>
+
+<script>
+const cv = document.getElementById('c');
+const gl = cv.getContext('webgl2');
+if (!gl) { document.body.innerHTML = '<p style="color:#333;padding:40px;font-family:monospace">需要 WebGL2 支持</p>'; throw 0; }
+
+gl.getExtension('EXT_color_buffer_float');
+
+// ── Config ──
+const SIM  = 128;
+const DYE  = 512;
+const ITER = 25;
+const CURL = 28;
+const V_DISS = 0.20;   // velocity dissipation per second
+const D_DISS = 0.06;   // dye dissipation per second
+const SPLAT_R = 3e-4;
+
+// ── Ink palette (RGB 0..1, concentrated dark pigments) ──
+const PALETTE = [
+  [0.04, 0.04, 0.10],  // 墨 blue-black
+  [0.55, 0.02, 0.02],  // 朱 vermillion
+  [0.02, 0.10, 0.55],  // 靛 indigo
+  [0.00, 0.28, 0.12],  // 翠 jade
+  [0.42, 0.24, 0.00],  // 金 amber
+];
+let inkIdx = 0;
+let fastDry = false;
+
+// ── Shader sources ──
+const VS = `attribute vec2 p; varying vec2 uv;
+void main(){ uv = p*.5+.5; gl_Position = vec4(p,0,1); }`;
+
+const ADVECT = `precision highp float;
+varying vec2 uv;
+uniform sampler2D uVel, uSrc;
+uniform float uDt, uDiss;
+void main(){ vec2 v=texture2D(uVel,uv).xy; gl_FragColor=uDiss*texture2D(uSrc,uv-uDt*v); }`;
+
+const CURL_S = `precision highp float;
+varying vec2 uv; uniform sampler2D uVel; uniform vec2 e;
+void main(){
+  float L=texture2D(uVel,uv-vec2(e.x,0)).y, R=texture2D(uVel,uv+vec2(e.x,0)).y;
+  float B=texture2D(uVel,uv-vec2(0,e.y)).x, T=texture2D(uVel,uv+vec2(0,e.y)).x;
+  gl_FragColor=vec4(R-L-T+B,0,0,1);
+}`;
+
+const VORT = `precision highp float;
+varying vec2 uv; uniform sampler2D uVel, uCurl; uniform vec2 e; uniform float str, dt;
+void main(){
+  float L=abs(texture2D(uCurl,uv-vec2(e.x,0)).x), R=abs(texture2D(uCurl,uv+vec2(e.x,0)).x);
+  float B=abs(texture2D(uCurl,uv-vec2(0,e.y)).x), T=abs(texture2D(uCurl,uv+vec2(0,e.y)).x);
+  float C=texture2D(uCurl,uv).x;
+  vec2 f=normalize(vec2(T-B,R-L)+1e-5)*str*C;
+  gl_FragColor=vec4(texture2D(uVel,uv).xy+f*dt, 0, 1);
+}`;
+
+const DIV = `precision highp float;
+varying vec2 uv; uniform sampler2D uVel; uniform vec2 e;
+void main(){
+  float L=texture2D(uVel,uv-vec2(e.x,0)).x, R=texture2D(uVel,uv+vec2(e.x,0)).x;
+  float B=texture2D(uVel,uv-vec2(0,e.y)).y, T=texture2D(uVel,uv+vec2(0,e.y)).y;
+  gl_FragColor=vec4(.5*(R-L+T-B),0,0,1);
+}`;
+
+const PRESS = `precision highp float;
+varying vec2 uv; uniform sampler2D uP, uDiv; uniform vec2 e;
+void main(){
+  float L=texture2D(uP,uv-vec2(e.x,0)).x, R=texture2D(uP,uv+vec2(e.x,0)).x;
+  float B=texture2D(uP,uv-vec2(0,e.y)).x, T=texture2D(uP,uv+vec2(0,e.y)).x;
+  gl_FragColor=vec4((L+R+B+T-texture2D(uDiv,uv).x)*.25,0,0,1);
+}`;
+
+const GRAD = `precision highp float;
+varying vec2 uv; uniform sampler2D uP, uVel; uniform vec2 e;
+void main(){
+  float L=texture2D(uP,uv-vec2(e.x,0)).x, R=texture2D(uP,uv+vec2(e.x,0)).x;
+  float B=texture2D(uP,uv-vec2(0,e.y)).x, T=texture2D(uP,uv+vec2(0,e.y)).x;
+  gl_FragColor=vec4(texture2D(uVel,uv).xy-vec2(R-L,T-B)*.5, 0, 1);
+}`;
+
+const SPLAT_S = `precision highp float;
+varying vec2 uv; uniform sampler2D uTex; uniform vec2 pt; uniform vec3 col;
+uniform float r, aspect;
+void main(){
+  vec2 p=uv-pt; p.x*=aspect;
+  gl_FragColor=texture2D(uTex,uv)+exp(-dot(p,p)/r)*vec4(col,0);
+}`;
+
+const DISPLAY = `precision highp float;
+varying vec2 uv; uniform sampler2D uDye;
+void main(){
+  vec3 dye=texture2D(uDye,uv).rgb;
+  vec3 paper=vec3(0.97,0.95,0.90);
+  float amt=length(dye);
+  vec3 hue=amt>1e-4 ? dye/amt : vec3(0);
+  float absorb=1.0-exp(-amt*3.5);
+  gl_FragColor=vec4(mix(paper, hue*0.06, absorb),1);
+}`;
+
+// ── Program helpers ──
+function mkProg(fs) {
+  function sh(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src); gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw gl.getShaderInfoLog(s);
+    return s;
+  }
+  const p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, VS));
+  gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw gl.getProgramInfoLog(p);
+  // cache uniform locations lazily
+  const cache = {};
+  return { prog: p, use() { gl.useProgram(p); },
+    u(name) { return cache[name] ?? (cache[name] = gl.getUniformLocation(p, name)); } };
+}
+
+const advectP = mkProg(ADVECT), curlP = mkProg(CURL_S), vortP = mkProg(VORT);
+const divP = mkProg(DIV), pressP = mkProg(PRESS), gradP = mkProg(GRAD);
+const splatP = mkProg(SPLAT_S), displayP = mkProg(DISPLAY);
+
+// ── Fullscreen quad ──
+const quad = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, quad);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+[advectP,curlP,vortP,divP,pressP,gradP,splatP,displayP].forEach(({prog}) => {
+  gl.useProgram(prog);
+  const loc = gl.getAttribLocation(prog, 'p');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+});
+
+// ── FBO helpers ──
+function mkTex(w, h, filter, fmt, type) {
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, t);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.texImage2D(gl.TEXTURE_2D, 0, fmt, w, h, 0, gl.RGBA, type, null);
+  return t;
+}
+function mkFBO(w, h, filter, fmt, type) {
+  const tex = mkTex(w, h, filter, fmt, type);
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+  gl.viewport(0, 0, w, h); gl.clear(gl.COLOR_BUFFER_BIT);
+  return { tex, fbo, w, h,
+    bind(id) { gl.activeTexture(gl.TEXTURE0+id); gl.bindTexture(gl.TEXTURE_2D, this.tex); return id; } };
+}
+function mkDouble(w, h, filter, fmt, type) {
+  let a = mkFBO(w,h,filter,fmt,type), b = mkFBO(w,h,filter,fmt,type);
+  return { w, h, get r(){return a;}, get W(){return b;},
+    swap(){ [a,b]=[b,a]; } };
+}
+function blit(dst) {
+  if (dst) { gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fbo); gl.viewport(0,0,dst.w,dst.h); }
+  else { gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0,0,W,H); }
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+// ── Simulation buffers ──
+const F16 = gl.RGBA16F, HALF = gl.HALF_FLOAT, LIN = gl.LINEAR, NEAR = gl.NEAREST;
+let vel  = mkDouble(SIM, SIM, LIN,  F16, HALF);
+let dye  = mkDouble(DYE, DYE, LIN,  F16, HALF);
+let pres = mkDouble(SIM, SIM, NEAR, F16, HALF);
+let div  = mkFBO(SIM, SIM, NEAR, F16, HALF);
+let curl = mkFBO(SIM, SIM, NEAR, F16, HALF);
+
+// ── Simulation step ──
+let W = window.innerWidth, H = window.innerHeight;
+
+function step(dt) {
+  const ve = [1/SIM, 1/SIM], de = [1/DYE, 1/DYE];
+  const vd = Math.pow(1 - V_DISS, dt);
+  const dd = Math.pow(1 - (fastDry ? D_DISS*8 : D_DISS), dt);
+
+  // Curl
+  curlP.use();
+  gl.uniform1i(curlP.u('uVel'), vel.r.bind(0));
+  gl.uniform2fv(curlP.u('e'), ve);
+  blit(curl);
+
+  // Vorticity
+  vortP.use();
+  gl.uniform1i(vortP.u('uVel'), vel.r.bind(0));
+  gl.uniform1i(vortP.u('uCurl'), curl.bind(1));
+  gl.uniform2fv(vortP.u('e'), ve);
+  gl.uniform1f(vortP.u('str'), CURL);
+  gl.uniform1f(vortP.u('dt'), dt);
+  blit(vel.W); vel.swap();
+
+  // Divergence
+  divP.use();
+  gl.uniform1i(divP.u('uVel'), vel.r.bind(0));
+  gl.uniform2fv(divP.u('e'), ve);
+  blit(div);
+
+  // Pressure — clear then iterate
+  pressP.use();
+  gl.uniform1i(pressP.u('uDiv'), div.bind(1));
+  gl.uniform2fv(pressP.u('e'), ve);
+  for (let i = 0; i < ITER; i++) {
+    gl.uniform1i(pressP.u('uP'), pres.r.bind(0));
+    blit(pres.W); pres.swap();
+  }
+
+  // Gradient subtract
+  gradP.use();
+  gl.uniform1i(gradP.u('uP'), pres.r.bind(0));
+  gl.uniform1i(gradP.u('uVel'), vel.r.bind(1));
+  gl.uniform2fv(gradP.u('e'), ve);
+  blit(vel.W); vel.swap();
+
+  // Advect velocity
+  advectP.use();
+  gl.uniform1i(advectP.u('uVel'), vel.r.bind(0));
+  gl.uniform1i(advectP.u('uSrc'), vel.r.bind(0));
+  gl.uniform1f(advectP.u('uDt'), dt);
+  gl.uniform1f(advectP.u('uDiss'), vd);
+  blit(vel.W); vel.swap();
+
+  // Advect dye
+  gl.uniform1i(advectP.u('uVel'), vel.r.bind(0));
+  gl.uniform1i(advectP.u('uSrc'), dye.r.bind(1));
+  gl.uniform1f(advectP.u('uDiss'), dd);
+  blit(dye.W); dye.swap();
+}
+
+function splat(x, y, dx, dy, col) {
+  const aspect = W / H;
+  splatP.use();
+  gl.uniform1f(splatP.u('aspect'), aspect);
+  // velocity
+  gl.uniform1i(splatP.u('uTex'), vel.r.bind(0));
+  gl.uniform2f(splatP.u('pt'), x, y);
+  gl.uniform3f(splatP.u('col'), dx, dy, 0);
+  gl.uniform1f(splatP.u('r'), SPLAT_R);
+  blit(vel.W); vel.swap();
+  // dye
+  gl.uniform1i(splatP.u('uTex'), dye.r.bind(0));
+  gl.uniform3fv(splatP.u('col'), col);
+  gl.uniform1f(splatP.u('r'), SPLAT_R * 3.5);
+  blit(dye.W); dye.swap();
+}
+
+function render() {
+  displayP.use();
+  gl.uniform1i(displayP.u('uDye'), dye.r.bind(0));
+  blit(null);
+}
+
+// ── Resize ──
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = W; cv.height = H;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ── Input ──
+const pointers = new Map();
+
+function norm(clientX, clientY) {
+  return [clientX / W, 1 - clientY / H];
+}
+
+cv.addEventListener('mousedown', e => {
+  const [x, y] = norm(e.clientX, e.clientY);
+  pointers.set(-1, { x, y, down: true });
+});
+cv.addEventListener('mousemove', e => {
+  const p = pointers.get(-1);
+  if (!p || !p.down) return;
+  const [x, y] = norm(e.clientX, e.clientY);
+  const dx = (x - p.x) * 40;
+  const dy = (y - p.y) * 40;
+  splat(x, y, dx, dy, PALETTE[inkIdx].map(v => v * (1.5 + Math.random() * 0.5)));
+  p.x = x; p.y = y;
+});
+cv.addEventListener('mouseup',    () => { const p = pointers.get(-1); if(p) p.down = false; });
+cv.addEventListener('mouseleave', () => { const p = pointers.get(-1); if(p) p.down = false; });
+
+cv.addEventListener('touchstart', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    const [x, y] = norm(t.clientX, t.clientY);
+    pointers.set(t.identifier, { x, y, down: true });
+  }
+}, {passive:false});
+cv.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    const p = pointers.get(t.identifier);
+    if (!p) continue;
+    const [x, y] = norm(t.clientX, t.clientY);
+    const dx = (x - p.x) * 40;
+    const dy = (y - p.y) * 40;
+    splat(x, y, dx, dy, PALETTE[inkIdx].map(v => v * (1.5 + Math.random() * 0.5)));
+    p.x = x; p.y = y;
+  }
+}, {passive:false});
+cv.addEventListener('touchend', e => {
+  for (const t of e.changedTouches) pointers.delete(t.identifier);
+}, {passive:false});
+
+// ── UI ──
+document.querySelectorAll('.swatch').forEach(el => {
+  el.addEventListener('click', () => {
+    inkIdx = +el.dataset.idx;
+    document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+  });
+});
+document.getElementById('clearBtn').addEventListener('click', () => {
+  // Re-create dye buffer (clear to zero)
+  dye = mkDouble(DYE, DYE, LIN, F16, HALF);
+  vel = mkDouble(SIM, SIM, LIN, F16, HALF);
+  pres = mkDouble(SIM, SIM, NEAR, F16, HALF);
+});
+document.getElementById('dryBtn').addEventListener('click', () => {
+  fastDry = !fastDry;
+  document.getElementById('dryBtn').style.color = fastDry ? 'rgba(0,0,0,.7)' : '';
+  document.getElementById('dryBtn').style.borderColor = fastDry ? 'rgba(0,0,0,.5)' : '';
+});
+
+// ── Loop ──
+let last = 0;
+function loop(t) {
+  requestAnimationFrame(loop);
+  const dt = Math.min((t - last) / 1000, 0.033);
+  last = t;
+  if (dt > 0) step(dt);
+  render();
+}
+requestAnimationFrame(t => { last = t; requestAnimationFrame(loop); });
+</script>
+</body>
+</html>

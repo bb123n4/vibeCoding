@@ -353,6 +353,10 @@ footer {
 .p-fractal { background:#000; position:relative; overflow:hidden; }
 .p-fractal canvas { display:block; width:100%; height:100%; image-rendering:pixelated; }
 
+/* ════════════════════════  Ink ════════════════════════ */
+.p-ink { background:#f8f4ed; position:relative; overflow:hidden; }
+.p-ink canvas { display:block; width:100%; height:100%; }
+
 /* ── Responsive ── */
 @media (max-width: 680px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
@@ -489,8 +493,12 @@ footer {
         <div class="info"><div class="info-left"><div class="card-name">分形浏览器</div><div class="card-desc">Mandelbrot · 缩放漫游 · 五种配色</div></div><div class="card-arrow">→</div></div>
       </a>
 
-      <!-- 3 placeholders -->
-      <div class="card-ph"><div class="ph-icon">✦</div><div class="ph-text">新的在路上</div></div>
+      <a class="card" href="ink.html">
+        <div class="preview p-ink"><canvas id="inkCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">流体墨水</div><div class="card-desc">Navier-Stokes · 水墨纸上 · 五色颜料</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <!-- 2 placeholders -->
       <div class="card-ph"><div class="ph-icon">✦</div><div class="ph-text">新的在路上</div></div>
       <div class="card-ph"><div class="ph-icon">✦</div><div class="ph-text">新的在路上</div></div>
 
@@ -506,7 +514,7 @@ footer {
 const ALL_APPS = [
   '2048.html','breakout.html','minesweeper.html','rhythm.html','slots.html','adventure.html',
   'luckToday.html','tarot.html','energy.html','namescore.html','iching.html',
-  'instruments.html','pixel.html','fireworks.html','sand.html','fractal.html'
+  'instruments.html','pixel.html','fireworks.html','sand.html','fractal.html','ink.html'
 ];
 function goRandom() {
   const btn = document.querySelector('.explore-btn');
@@ -733,6 +741,42 @@ function goRandom() {
     d[p+3]=255;
   }
   ctx.putImageData(imgd,0,0);
+})();
+
+// ── Ink mini (static watercolor blobs) ──
+(function(){
+  const cv=document.getElementById('inkCanvas');
+  if(!cv)return;
+  const par=cv.parentElement;
+  cv.width=par.offsetWidth||240; cv.height=par.offsetHeight||200;
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  ctx.fillStyle='#f8f4ed';ctx.fillRect(0,0,W,H);
+  const INKS=[
+    {r:20,g:24,b:48},{r:180,g:40,b:30},{r:30,g:40,b:100},
+    {r:20,g:90,b:70},{r:160,g:110,b:20}
+  ];
+  function blob(x,y,rad,ink,alpha){
+    const g=ctx.createRadialGradient(x,y,0,x,y,rad);
+    g.addColorStop(0,`rgba(${ink.r},${ink.g},${ink.b},${alpha})`);
+    g.addColorStop(0.5,`rgba(${ink.r},${ink.g},${ink.b},${alpha*.6})`);
+    g.addColorStop(1,`rgba(${ink.r},${ink.g},${ink.b},0)`);
+    ctx.save();
+    ctx.scale(1,0.55+Math.random()*.5);
+    ctx.beginPath();ctx.arc(x,y/(.55+Math.random()*.5),rad,0,Math.PI*2);
+    ctx.fillStyle=g;ctx.fill();
+    ctx.restore();
+  }
+  // draw several ink strokes
+  const spots=[
+    {x:.28,y:.42,r:.18,i:0,a:.72},{x:.55,y:.35,r:.12,i:2,a:.6},
+    {x:.70,y:.60,r:.15,i:1,a:.55},{x:.38,y:.65,r:.10,i:3,a:.5},
+    {x:.60,y:.25,r:.08,i:4,a:.45},{x:.20,y:.28,r:.07,i:2,a:.4},
+    {x:.80,y:.40,r:.06,i:0,a:.35},{x:.45,y:.78,r:.09,i:1,a:.4},
+  ];
+  ctx.globalCompositeOperation='multiply';
+  spots.forEach(s=>blob(s.x*W,s.y*H,s.r*Math.min(W,H),INKS[s.i],s.a));
+  ctx.globalCompositeOperation='source-over';
 })();
 </script>
 </body>
