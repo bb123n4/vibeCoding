@@ -26,7 +26,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 14vh 24px 80px;
+  padding: 12vh 24px 80px;
 }
 
 /* paper grain */
@@ -37,10 +37,10 @@ body::before {
   opacity: 0.2; pointer-events: none; z-index: 0;
 }
 
-.wrap { position: relative; z-index: 1; width: 100%; max-width: 680px; }
+.wrap { position: relative; z-index: 1; width: 100%; max-width: 980px; }
 
 /* ── Header ── */
-header { margin-bottom: 52px; }
+header { margin-bottom: 48px; }
 .header-label {
   font-size: 0.68rem; font-weight: 500;
   letter-spacing: 0.45em; text-transform: uppercase;
@@ -48,22 +48,68 @@ header { margin-bottom: 52px; }
 }
 h1 {
   font-size: 1.75rem; font-weight: 300; letter-spacing: -0.01em;
-  color: var(--text); line-height: 1.2;
+  color: var(--text); line-height: 1.2; margin-bottom: 20px;
 }
 h1 strong { font-weight: 600; }
+
+/* ── Explore button ── */
+.explore-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 24px;
+  background: var(--text);
+  color: var(--bg);
+  border: none; border-radius: 100px;
+  font-family: 'Quicksand', sans-serif;
+  font-size: 0.9rem; font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: transform 0.25s cubic-bezier(0.22,1,0.36,1), box-shadow 0.25s ease, background 0.2s;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15), 0 1px 4px rgba(0,0,0,0.1);
+  position: relative; overflow: hidden;
+}
+.explore-btn::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.18) 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: transform 0.55s ease;
+}
+.explore-btn:hover::before { transform: translateX(100%); }
+.explore-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2), 0 2px 6px rgba(0,0,0,0.1);
+}
+.explore-btn:active { transform: translateY(0); }
+.explore-btn .dice { font-size: 1.1rem; transition: transform 0.3s; }
+.explore-btn:hover .dice { transform: rotate(20deg) scale(1.15); }
+
+/* ── Category section ── */
+.cat-section { margin-bottom: 36px; }
+.cat-label {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 14px;
+}
+.cat-label-text {
+  font-size: 0.65rem; font-weight: 600;
+  letter-spacing: 0.4em; text-transform: uppercase;
+  color: var(--muted); white-space: nowrap;
+}
+.cat-label-line {
+  flex: 1; height: 1px; background: var(--border);
+}
 
 /* ── Grid ── */
 .grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
 }
 
 /* ── Card ── */
 .card {
   text-decoration: none;
   background: var(--card-bg);
-  border-radius: 16px;
+  border-radius: 14px;
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
   overflow: hidden;
@@ -72,13 +118,13 @@ h1 strong { font-weight: 600; }
   cursor: pointer;
 }
 .card:hover {
-  transform: translateY(-5px);
+  transform: translateY(-4px);
   box-shadow: var(--shadow-h);
 }
 
 /* preview area */
 .preview {
-  height: 160px;
+  height: 120px;
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
@@ -86,26 +132,26 @@ h1 strong { font-weight: 600; }
 
 /* info bar */
 .info {
-  padding: 14px 18px 16px;
+  padding: 11px 14px 13px;
   display: flex; align-items: center; justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 .info-left { flex: 1; min-width: 0; }
 .card-name {
-  font-size: 0.95rem; font-weight: 600;
+  font-size: 0.83rem; font-weight: 600;
   color: var(--text); letter-spacing: 0.01em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .card-desc {
-  font-size: 0.68rem; color: var(--muted);
-  letter-spacing: 0.03em; margin-top: 3px;
+  font-size: 0.62rem; color: var(--muted);
+  letter-spacing: 0.02em; margin-top: 2px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .card-arrow {
-  width: 28px; height: 28px; border-radius: 50%;
+  width: 24px; height: 24px; border-radius: 50%;
   background: var(--bg); border: 1px solid var(--border);
   display: flex; align-items: center; justify-content: center;
-  font-size: 0.8rem; color: var(--muted);
+  font-size: 0.72rem; color: var(--muted);
   transition: background 0.2s, color 0.2s, transform 0.2s;
   flex-shrink: 0;
 }
@@ -123,15 +169,15 @@ h1 strong { font-weight: 600; }
 .tiles-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  padding: 18px;
+  gap: 5px;
+  padding: 12px;
   width: 100%;
 }
 .tile {
   aspect-ratio: 1;
-  border-radius: 5px;
+  border-radius: 4px;
   display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 0.75rem;
+  font-weight: 700; font-size: 0.65rem;
   font-family: 'Quicksand', sans-serif;
 }
 .t-empty  { background: rgba(205,193,180,0.35); }
@@ -141,11 +187,11 @@ h1 strong { font-weight: 600; }
 .t-16     { background: #f59563; color: #fff; }
 .t-32     { background: #f67c5f; color: #fff; }
 .t-64     { background: #f65e3b; color: #fff; }
-.t-128    { background: #edcf72; color: #fff; font-size: 0.62rem; }
-.t-256    { background: #edcc61; color: #fff; font-size: 0.62rem; }
-.t-512    { background: #edc850; color: #fff; font-size: 0.62rem; }
-.t-1024   { background: #edc53f; color: #fff; font-size: 0.52rem; }
-.t-2048   { background: #edc22e; color: #fff; font-size: 0.52rem; }
+.t-128    { background: #edcf72; color: #fff; font-size: 0.52rem; }
+.t-256    { background: #edcc61; color: #fff; font-size: 0.52rem; }
+.t-512    { background: #edc850; color: #fff; font-size: 0.52rem; }
+.t-1024   { background: #edc53f; color: #fff; font-size: 0.44rem; }
+.t-2048   { background: #edc22e; color: #fff; font-size: 0.44rem; }
 
 /* ════════════════════════
    Instruments preview
@@ -159,39 +205,38 @@ h1 strong { font-weight: 600; }
   overflow: hidden;
 }
 .inst-notes {
-  position: absolute; top: 0; left: 0; right: 0; bottom: 60px;
+  position: absolute; top: 0; left: 0; right: 0; bottom: 50px;
   display: flex; align-items: center; justify-content: center;
-  gap: 24px;
-  font-size: 1.4rem;
+  gap: 20px;
+  font-size: 1.2rem;
   color: rgba(180,140,255,0.5);
   pointer-events: none;
 }
 .inst-note { animation: floatNote ease-in-out infinite; }
 .inst-note:nth-child(1) { animation-duration: 3.2s; animation-delay: 0s; }
-.inst-note:nth-child(2) { animation-duration: 2.8s; animation-delay: 0.8s; font-size: 1rem; color: rgba(140,180,255,0.4); }
-.inst-note:nth-child(3) { animation-duration: 3.5s; animation-delay: 1.5s; font-size: 1.6rem; }
+.inst-note:nth-child(2) { animation-duration: 2.8s; animation-delay: 0.8s; font-size: 0.85rem; color: rgba(140,180,255,0.4); }
+.inst-note:nth-child(3) { animation-duration: 3.5s; animation-delay: 1.5s; font-size: 1.4rem; }
 @keyframes floatNote {
   0%,100% { transform: translateY(0) rotate(-5deg); opacity: 0.6; }
-  50%      { transform: translateY(-10px) rotate(5deg); opacity: 1; }
+  50%      { transform: translateY(-8px) rotate(5deg); opacity: 1; }
 }
 .piano-keys {
   display: flex; align-items: flex-end;
-  width: 100%; padding: 0 12px;
-  gap: 2px; height: 64px;
+  width: 100%; padding: 0 10px;
+  gap: 2px; height: 52px;
   position: relative;
 }
 .wkey {
-  flex: 1; height: 60px;
+  flex: 1; height: 48px;
   background: linear-gradient(180deg, #f8f8f8, #e8e8e8);
   border-radius: 0 0 4px 4px;
   border: 1px solid rgba(0,0,0,0.15);
   border-top: none;
   position: relative;
-  transition: background 0.15s;
 }
 .bkey {
   position: absolute;
-  width: 60%; height: 36px;
+  width: 60%; height: 30px;
   background: linear-gradient(180deg, #2a2840, #1a1628);
   border-radius: 0 0 3px 3px;
   top: 0; left: 55%;
@@ -199,7 +244,6 @@ h1 strong { font-weight: 600; }
   z-index: 2;
   box-shadow: 0 3px 6px rgba(0,0,0,0.4);
 }
-/* highlight one key */
 .wkey.active { background: linear-gradient(180deg, #d4a373, #c89060); }
 
 /* ════════════════════════
@@ -210,7 +254,6 @@ h1 strong { font-weight: 600; }
   display: flex; align-items: center; justify-content: center;
   position: relative; overflow: hidden;
 }
-/* falling petals */
 .luck-petal {
   position: absolute;
   border-radius: 50% 0 50% 0;
@@ -220,11 +263,11 @@ h1 strong { font-weight: 600; }
 @keyframes luckPetal {
   0%   { transform: translateY(-10px) rotate(0deg); opacity: 0; }
   10%  { opacity: 0.8; }
-  100% { transform: translateY(180px) rotate(var(--spin)); opacity: 0; }
+  100% { transform: translateY(140px) rotate(var(--spin)); opacity: 0; }
 }
-/* CSS cup */
 .luck-cup-wrap {
   position: relative; display: flex; flex-direction: column; align-items: center;
+  transform: scale(0.88);
 }
 .luck-cup {
   width: 56px; height: 62px;
@@ -268,8 +311,8 @@ h1 strong { font-weight: 600; }
 .pixel-grid {
   display: grid;
   grid-template-columns: repeat(16, 1fr);
-  gap: 2px;
-  padding: 18px;
+  gap: 1px;
+  padding: 12px;
   width: 100%;
 }
 .px {
@@ -296,8 +339,8 @@ h1 strong { font-weight: 600; }
   0%,100% { opacity: var(--op); } 50% { opacity: calc(var(--op)*0.2); }
 }
 .mini-card {
-  width: 62px; height: 100px;
-  border-radius: 7px;
+  width: 52px; height: 84px;
+  border-radius: 6px;
   background: linear-gradient(145deg, #1e1850, #130e38);
   border: 1px solid rgba(180,140,255,0.45);
   display: flex; align-items: center; justify-content: center;
@@ -306,12 +349,12 @@ h1 strong { font-weight: 600; }
 }
 .mini-card::before {
   content: '';
-  position: absolute; inset: 5px;
+  position: absolute; inset: 4px;
   border: 0.5px solid rgba(180,140,255,0.2);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 .mini-card-sym {
-  font-size: 1.6rem; color: rgba(200,170,255,0.6);
+  font-size: 1.4rem; color: rgba(200,170,255,0.6);
   animation: symPulse 3s ease-in-out infinite;
 }
 @keyframes symPulse {
@@ -352,29 +395,29 @@ footer {
   background: #0c0a08;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  gap: 10px; position: relative; overflow: hidden;
+  gap: 8px; position: relative; overflow: hidden;
 }
 .adv-title {
   font-family: "STKaiti","KaiTi","楷体",serif;
-  font-size: 1.3rem; letter-spacing: 0.3em;
+  font-size: 1.1rem; letter-spacing: 0.3em;
   color: rgba(200,168,100,0.85);
   text-shadow: 0 0 16px rgba(200,168,100,0.4);
   position: relative; z-index: 1;
 }
 .adv-choices {
-  display: flex; flex-direction: column; gap: 5px;
+  display: flex; flex-direction: column; gap: 4px;
   width: 80%; position: relative; z-index: 1;
 }
 .adv-choice {
-  font-size: 0.6rem; letter-spacing: 0.08em;
+  font-size: 0.55rem; letter-spacing: 0.08em;
   color: rgba(200,168,100,0.45);
   border: 1px solid rgba(200,168,100,0.12);
-  border-radius: 3px; padding: 4px 8px;
+  border-radius: 3px; padding: 3px 7px;
   background: rgba(200,168,100,0.03);
 }
 .adv-light {
   position: absolute;
-  width: 80px; height: 80px; border-radius: 50%;
+  width: 70px; height: 70px; border-radius: 50%;
   background: radial-gradient(circle, rgba(200,168,100,0.12), transparent 70%);
   top: 20%; left: 50%; transform: translateX(-50%);
   animation: advPulse 3s ease-in-out infinite;
@@ -402,25 +445,25 @@ footer {
 }
 .brk-inner {
   position: relative; z-index: 1;
-  width: 140px; height: 120px;
+  width: 130px; height: 105px;
   display: flex; flex-direction: column;
-  align-items: center; gap: 8px;
+  align-items: center; gap: 6px;
 }
 .brk-blocks {
   display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; width: 100%;
 }
 .brk-block {
-  height: 6px; border-radius: 1px;
+  height: 5px; border-radius: 1px;
 }
 .brk-ball {
-  width: 8px; height: 8px; border-radius: 50%;
+  width: 7px; height: 7px; border-radius: 50%;
   background: #fff;
   box-shadow: 0 0 8px #ffee60, 0 0 4px #fff;
-  position: absolute; top: 52px; left: 62px;
+  position: absolute; top: 48px; left: 58px;
 }
 .brk-paddle {
   position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
-  width: 52px; height: 6px; border-radius: 3px;
+  width: 46px; height: 5px; border-radius: 3px;
   background: #55ccff;
   box-shadow: 0 0 8px #33aaff;
 }
@@ -443,13 +486,13 @@ footer {
 }
 .mine-grid {
   display: grid; grid-template-columns: repeat(7, 1fr);
-  gap: 3px; padding: 12px;
+  gap: 3px; padding: 10px;
   position: relative; z-index: 1;
 }
 .mc {
-  width: 16px; height: 16px; border-radius: 2px;
+  width: 14px; height: 14px; border-radius: 2px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 8px; font-family: monospace;
+  font-size: 7px; font-family: monospace;
 }
 .mc-h  { background: rgba(0,200,100,0.12); border: 1px solid rgba(0,200,100,0.2); }
 .mc-r  { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07); }
@@ -473,37 +516,37 @@ footer {
 .name-cert-mini {
   position: relative; z-index: 1;
   border: 1px solid rgba(212,168,75,0.3);
-  border-radius: 8px; padding: 14px 20px;
+  border-radius: 7px; padding: 11px 16px;
   text-align: center;
   background: rgba(255,255,255,0.02);
-  width: 140px;
+  width: 120px;
 }
 .name-cert-mini::before {
   content: '';
-  position: absolute; inset: 4px;
+  position: absolute; inset: 3px;
   border: 1px solid rgba(212,168,75,0.1);
-  border-radius: 5px; pointer-events: none;
+  border-radius: 4px; pointer-events: none;
 }
 .name-cn {
   font-family: "STKaiti","KaiTi","楷体",serif;
-  font-size: 1.2rem; letter-spacing: 0.4em;
+  font-size: 1.05rem; letter-spacing: 0.4em;
   color: #f0e4c0; text-indent: 0.4em;
   text-shadow: 0 0 10px rgba(212,168,75,0.3);
-  margin-bottom: 8px;
+  margin-bottom: 7px;
 }
 .name-badge-row {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
 }
 .name-badge {
-  width: 28px; height: 28px; border-radius: 50%;
+  width: 24px; height: 24px; border-radius: 50%;
   border: 1.5px solid #ff9922;
   display: flex; align-items: center; justify-content: center;
-  font-size: 14px; font-weight: bold;
+  font-size: 12px; font-weight: bold;
   color: #ff9922; font-family: monospace;
   box-shadow: 0 0 8px rgba(255,153,34,0.3);
 }
 .name-score-txt {
-  font-size: 9px; letter-spacing: 0.1em;
+  font-size: 8px; letter-spacing: 0.1em;
   color: rgba(212,168,75,0.5); font-family: monospace;
   line-height: 1.5;
 }
@@ -523,26 +566,26 @@ footer {
 }
 .ich-inner {
   position: relative; z-index: 1;
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
 }
 .ich-hex {
-  display: flex; flex-direction: column-reverse; gap: 5px; align-items: center; margin-bottom: 8px;
+  display: flex; flex-direction: column-reverse; gap: 4px; align-items: center; margin-bottom: 6px;
 }
-.ich-yang { width: 56px; height: 5px; border-radius: 2px; background: linear-gradient(90deg,#8a6820,#c8a84e,#8a6820); box-shadow: 0 0 6px rgba(200,168,78,.35); }
-.ich-yl, .ich-yr { width: 22px; height: 5px; border-radius: 2px; background: linear-gradient(90deg,#8a6820,#c8a84e,#8a6820); box-shadow: 0 0 6px rgba(200,168,78,.3); }
+.ich-yang { width: 50px; height: 4px; border-radius: 2px; background: linear-gradient(90deg,#8a6820,#c8a84e,#8a6820); box-shadow: 0 0 6px rgba(200,168,78,.35); }
+.ich-yl, .ich-yr { width: 20px; height: 4px; border-radius: 2px; background: linear-gradient(90deg,#8a6820,#c8a84e,#8a6820); box-shadow: 0 0 6px rgba(200,168,78,.3); }
 .ich-line { display: flex; gap: 8px; align-items: center; }
 .ich-name {
   font-family: "STKaiti","KaiTi","楷体",serif;
-  font-size: 18px; letter-spacing: .3em; text-indent:.3em;
+  font-size: 15px; letter-spacing: .3em; text-indent:.3em;
   color: rgba(212,180,96,.8);
   text-shadow: 0 0 10px rgba(200,168,78,.4);
 }
-.ich-coins { display: flex; gap: 6px; }
+.ich-coins { display: flex; gap: 5px; }
 .ich-coin {
-  width: 16px; height: 16px; border-radius: 50%;
+  width: 14px; height: 14px; border-radius: 50%;
   border: 1px solid rgba(200,168,78,.4);
   display: flex; align-items: center; justify-content: center;
-  font-size: 8px; color: rgba(200,168,78,.6);
+  font-size: 7px; color: rgba(200,168,78,.6);
   background: rgba(200,168,78,.08);
 }
 
@@ -562,7 +605,7 @@ footer {
     linear-gradient(90deg, rgba(80,100,255,0.05) 1px, transparent 1px);
   background-size: 22px 22px;
 }
-.rhy-inner { position: relative; z-index: 1; width: 130px; height: 110px; }
+.rhy-inner { position: relative; z-index: 1; width: 120px; height: 96px; }
 .rhy-circle {
   position: absolute;
   border-radius: 50%;
@@ -591,10 +634,11 @@ footer {
 }
 .sl-machine {
   position: relative; z-index: 1;
-  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  transform: scale(0.88);
 }
 .sl-title {
-  font-size: 14px; font-weight: bold; letter-spacing: .3em; text-indent: .3em;
+  font-size: 12px; font-weight: bold; letter-spacing: .3em; text-indent: .3em;
   color: #ff0088; text-shadow: 0 0 8px #ff0088;
   font-family: monospace;
 }
@@ -604,24 +648,22 @@ footer {
   border: 1px solid rgba(255,0,136,.2);
 }
 .sl-reel {
-  width: 36px; height: 54px;
+  width: 32px; height: 48px;
   background: #030006; border-radius: 4px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 0;
   overflow: hidden;
   border: 1px solid rgba(255,255,255,.05);
 }
-.sl-sym { font-size: 18px; line-height: 1.5; }
+.sl-sym { font-size: 16px; line-height: 1.4; }
 .sl-line {
-  width: 140px; height: 1.5px;
+  width: 120px; height: 1.5px;
   background: rgba(255,220,50,.35);
-  margin-top: -2px;
 }
 .sl-btn {
   background: linear-gradient(180deg,#ff3399,#cc0066);
-  border: none; border-radius: 10px;
-  padding: 4px 20px; color: #fff;
-  font-family: monospace; font-size: 10px; letter-spacing: .15em;
+  border: none; border-radius: 8px;
+  padding: 3px 16px; color: #fff;
+  font-family: monospace; font-size: 9px; letter-spacing: .15em;
   box-shadow: 0 2px 8px rgba(255,0,136,.4);
 }
 
@@ -653,9 +695,13 @@ footer {
 .p-fractal canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
 
 /* ── Responsive ── */
-@media (max-width: 520px) {
+@media (max-width: 720px) {
+  .grid { grid-template-columns: repeat(2, 1fr); }
+  body { padding-top: 8vh; }
+}
+@media (max-width: 480px) {
   .grid { grid-template-columns: 1fr; }
-  body { padding-top: 10vh; }
+  body { padding-top: 6vh; }
 }
 </style>
 </head>
@@ -665,301 +711,338 @@ footer {
   <header>
     <div class="header-label">vibe coding</div>
     <h1><strong>Projects</strong> I made<br>for fun</h1>
+    <button class="explore-btn" onclick="goRandom()">
+      <span class="dice">🎲</span> 带我探索！
+    </button>
   </header>
 
-  <div class="grid">
+  <!-- ── 游戏 ── -->
+  <div class="cat-section">
+    <div class="cat-label">
+      <span class="cat-label-text">🎮 &nbsp;游戏</span>
+      <div class="cat-label-line"></div>
+    </div>
+    <div class="grid">
 
-    <!-- 2048 -->
-    <a class="card" href="2048.html">
-      <div class="preview p-2048">
-        <div class="tiles-grid" id="tilesGrid"></div>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">2048</div>
-          <div class="card-desc">数字消除 · 自动推演</div>
+      <!-- 2048 -->
+      <a class="card" href="2048.html">
+        <div class="preview p-2048">
+          <div class="tiles-grid" id="tilesGrid"></div>
         </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
-    <!-- Instruments -->
-    <a class="card" href="instruments.html">
-      <div class="preview p-instruments">
-        <div class="inst-notes">
-          <span class="inst-note">♩</span>
-          <span class="inst-note">♪</span>
-          <span class="inst-note">♫</span>
-        </div>
-        <div class="piano-keys" id="pianoKeys"></div>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">Software Instruments</div>
-          <div class="card-desc">虚拟钢琴 & 吉他 · 自动演奏</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
-    <!-- Lucky Today -->
-    <a class="card" href="luckToday.html">
-      <div class="preview p-luck" id="luckPreview">
-        <div class="luck-cup-wrap">
-          <div class="luck-sticks">
-            <div class="luck-stick"></div>
-            <div class="luck-stick"></div>
-            <div class="luck-stick"></div>
-            <div class="luck-stick"></div>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">2048</div>
+            <div class="card-desc">数字消除 · 自动推演</div>
           </div>
-          <div class="luck-cup-rim"></div>
-          <div class="luck-cup"><div class="luck-cup-char">籤</div></div>
+          <div class="card-arrow">→</div>
         </div>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">Your Luck Today</div>
-          <div class="card-desc">每日灵签 · 诚心求签</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
+      </a>
 
-    <!-- Pixel Board -->
-    <a class="card" href="pixel.html">
-      <div class="preview p-pixel">
-        <div class="pixel-grid" id="pixelGrid"></div>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">Pixel Board</div>
-          <div class="card-desc">像素画板 · 工具齐全 · 导出 PNG</div>
+      <!-- Breakout -->
+      <a class="card" href="breakout.html">
+        <div class="preview p-breakout">
+          <div class="brk-inner">
+            <div class="brk-blocks" id="brkBlocks"></div>
+            <div class="brk-ball"></div>
+            <div class="brk-paddle"></div>
+          </div>
         </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">无尽弹球</div>
+            <div class="card-desc">关卡无限 · 速度递增 · 挡板渐短</div>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </a>
 
-    <!-- Energy -->
-    <a class="card" href="energy.html">
-      <div class="preview p-energy">
-        <svg id="energyRadar" width="140" height="140" viewBox="0 0 140 140"></svg>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">今日能量值</div>
-          <div class="card-desc">八维能量扫描 · 专注 · 财运 · 爱情</div>
+      <!-- Minesweeper -->
+      <a class="card" href="minesweeper.html">
+        <div class="preview p-mine">
+          <div class="mine-grid" id="mineGrid"></div>
         </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">扫雷</div>
+            <div class="card-desc">三难度 · 计时 · 首点安全</div>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </a>
 
-    <!-- Adventure -->
-    <a class="card" href="adventure.html">
-      <div class="preview p-adventure">
-        <div class="adv-light"></div>
-        <div class="adv-title">深夜书店</div>
-        <div class="adv-choices">
-          <div class="adv-choice">▸ 推开那扇门</div>
-          <div class="adv-choice">▸ 继续向前走</div>
+      <!-- Rhythm -->
+      <a class="card" href="rhythm.html">
+        <div class="preview p-rhythm">
+          <div class="rhy-inner" id="rhyInner"></div>
         </div>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">深夜书店</div>
-          <div class="card-desc">文字冒险 · 四种结局 · 每次不同</div>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">节奏打击</div>
+            <div class="card-desc">点击节拍 · 三难度 · Perfect 判定</div>
+          </div>
+          <div class="card-arrow">→</div>
         </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
+      </a>
 
-    <!-- Tarot -->
-    <a class="card" href="tarot.html">
-      <div class="preview p-tarot">
-        <div class="tarot-stars" id="tarotStars"></div>
-        <div class="mini-card">
-          <div class="mini-card-sym">✦</div>
-        </div>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">Tarot</div>
-          <div class="card-desc">每日塔罗 · 爱情 · 事业 · 金钱</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
-    <!-- Breakout -->
-    <a class="card" href="breakout.html">
-      <div class="preview p-breakout">
-        <div class="brk-inner">
-          <div class="brk-blocks" id="brkBlocks"></div>
-          <div class="brk-ball"></div>
-          <div class="brk-paddle"></div>
-        </div>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">无尽弹球</div>
-          <div class="card-desc">关卡无限 · 速度递增 · 挡板渐短</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
-    <!-- Minesweeper -->
-    <a class="card" href="minesweeper.html">
-      <div class="preview p-mine">
-        <div class="mine-grid" id="mineGrid"></div>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">扫雷</div>
-          <div class="card-desc">三难度 · 计时 · 首点安全</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
-    <!-- Fireworks -->
-    <a class="card" href="fireworks.html">
-      <div class="preview p-fire">
-        <canvas id="fwCanvas"></canvas>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">烟花</div>
-          <div class="card-desc">点击发射 · 五种形态 · 城市夜景</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
-    <!-- Slots -->
-    <a class="card" href="slots.html">
-      <div class="preview p-slots">
-        <div class="sl-machine">
-          <div class="sl-title">LUCKY 777</div>
-          <div class="sl-reels">
-            <div class="sl-reel">
-              <div class="sl-sym">🍒</div>
-              <div class="sl-sym">7️⃣</div>
-              <div class="sl-sym">🍋</div>
+      <!-- Slots -->
+      <a class="card" href="slots.html">
+        <div class="preview p-slots">
+          <div class="sl-machine">
+            <div class="sl-title">LUCKY 777</div>
+            <div class="sl-reels">
+              <div class="sl-reel"><div class="sl-sym">🍒</div><div class="sl-sym">7️⃣</div><div class="sl-sym">🍋</div></div>
+              <div class="sl-reel"><div class="sl-sym">💎</div><div class="sl-sym">7️⃣</div><div class="sl-sym">🍊</div></div>
+              <div class="sl-reel"><div class="sl-sym">⭐</div><div class="sl-sym">7️⃣</div><div class="sl-sym">🔔</div></div>
             </div>
-            <div class="sl-reel">
-              <div class="sl-sym">💎</div>
-              <div class="sl-sym">7️⃣</div>
-              <div class="sl-sym">🍊</div>
-            </div>
-            <div class="sl-reel">
-              <div class="sl-sym">⭐</div>
-              <div class="sl-sym">7️⃣</div>
-              <div class="sl-sym">🔔</div>
-            </div>
-          </div>
-          <div class="sl-line"></div>
-          <div class="sl-btn">SPIN</div>
-        </div>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">老虎机</div>
-          <div class="card-desc">拉霸 · 777 · Jackpot 200×</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
-    <!-- I Ching -->
-    <a class="card" href="iching.html">
-      <div class="preview p-iching">
-        <div class="ich-inner">
-          <div class="ich-hex" id="ichHex"></div>
-          <div class="ich-name">周易占卦</div>
-          <div class="ich-coins">
-            <div class="ich-coin">阳</div>
-            <div class="ich-coin">阴</div>
-            <div class="ich-coin">阳</div>
+            <div class="sl-line"></div>
+            <div class="sl-btn">SPIN</div>
           </div>
         </div>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">周易占卦</div>
-          <div class="card-desc">摇铜钱起卦 · 六十四卦 · 卦辞解读</div>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">老虎机</div>
+            <div class="card-desc">拉霸 · 777 · Jackpot 200×</div>
+          </div>
+          <div class="card-arrow">→</div>
         </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
+      </a>
 
-    <!-- Rhythm -->
-    <a class="card" href="rhythm.html">
-      <div class="preview p-rhythm">
-        <div class="rhy-inner" id="rhyInner"></div>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">节奏打击</div>
-          <div class="card-desc">点击节拍 · 三难度 · Perfect 判定</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
-    <!-- Namescore -->
-    <a class="card" href="namescore.html">
-      <div class="preview p-name">
-        <div class="name-cert-mini">
-          <div class="name-cn">振宇</div>
-          <div class="name-badge-row">
-            <div class="name-badge">S</div>
-            <div class="name-score-txt">传世之名<br><span style="color:rgba(212,168,75,0.35)">SCORE 92</span></div>
+      <!-- Adventure -->
+      <a class="card" href="adventure.html">
+        <div class="preview p-adventure">
+          <div class="adv-light"></div>
+          <div class="adv-title">深夜书店</div>
+          <div class="adv-choices">
+            <div class="adv-choice">▸ 推开那扇门</div>
+            <div class="adv-choice">▸ 继续向前走</div>
           </div>
         </div>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">命名打分器</div>
-          <div class="card-desc">字形 · 音律 · 五行 · 数理能量</div>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">深夜书店</div>
+            <div class="card-desc">文字冒险 · 四种结局 · 每次不同</div>
+          </div>
+          <div class="card-arrow">→</div>
         </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
+      </a>
 
-    <!-- Sand -->
-    <a class="card" href="sand.html">
-      <div class="preview p-sand">
-        <canvas id="sandCanvas"></canvas>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">沙粒模拟</div>
-          <div class="card-desc">沙 · 水 · 火 · 油 · 元素交互</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
-    <!-- Fractal -->
-    <a class="card" href="fractal.html">
-      <div class="preview p-fractal">
-        <canvas id="fractalCanvas"></canvas>
-      </div>
-      <div class="info">
-        <div class="info-left">
-          <div class="card-name">分形浏览器</div>
-          <div class="card-desc">Mandelbrot · 缩放漫游 · 五种配色</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </div>
-    </a>
-
+    </div>
   </div>
+
+  <!-- ── 玄学 ── -->
+  <div class="cat-section">
+    <div class="cat-label">
+      <span class="cat-label-text">🔮 &nbsp;玄学</span>
+      <div class="cat-label-line"></div>
+    </div>
+    <div class="grid">
+
+      <!-- Lucky Today -->
+      <a class="card" href="luckToday.html">
+        <div class="preview p-luck" id="luckPreview">
+          <div class="luck-cup-wrap">
+            <div class="luck-sticks">
+              <div class="luck-stick"></div>
+              <div class="luck-stick"></div>
+              <div class="luck-stick"></div>
+              <div class="luck-stick"></div>
+            </div>
+            <div class="luck-cup-rim"></div>
+            <div class="luck-cup"><div class="luck-cup-char">籤</div></div>
+          </div>
+        </div>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">Your Luck Today</div>
+            <div class="card-desc">每日灵签 · 诚心求签</div>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </a>
+
+      <!-- Tarot -->
+      <a class="card" href="tarot.html">
+        <div class="preview p-tarot">
+          <div class="tarot-stars" id="tarotStars"></div>
+          <div class="mini-card">
+            <div class="mini-card-sym">✦</div>
+          </div>
+        </div>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">Tarot</div>
+            <div class="card-desc">每日塔罗 · 爱情 · 事业 · 金钱</div>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </a>
+
+      <!-- Energy -->
+      <a class="card" href="energy.html">
+        <div class="preview p-energy">
+          <svg id="energyRadar" width="120" height="120" viewBox="0 0 140 140"></svg>
+        </div>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">今日能量值</div>
+            <div class="card-desc">八维能量扫描 · 专注 · 财运 · 爱情</div>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </a>
+
+      <!-- Namescore -->
+      <a class="card" href="namescore.html">
+        <div class="preview p-name">
+          <div class="name-cert-mini">
+            <div class="name-cn">振宇</div>
+            <div class="name-badge-row">
+              <div class="name-badge">S</div>
+              <div class="name-score-txt">传世之名<br><span style="color:rgba(212,168,75,0.35)">SCORE 92</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">命名打分器</div>
+            <div class="card-desc">字形 · 音律 · 五行 · 数理能量</div>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </a>
+
+      <!-- I Ching -->
+      <a class="card" href="iching.html">
+        <div class="preview p-iching">
+          <div class="ich-inner">
+            <div class="ich-hex" id="ichHex"></div>
+            <div class="ich-name">周易占卦</div>
+            <div class="ich-coins">
+              <div class="ich-coin">阳</div>
+              <div class="ich-coin">阴</div>
+              <div class="ich-coin">阳</div>
+            </div>
+          </div>
+        </div>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">周易占卦</div>
+            <div class="card-desc">摇铜钱起卦 · 六十四卦 · 卦辞解读</div>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- ── 创作 ── -->
+  <div class="cat-section">
+    <div class="cat-label">
+      <span class="cat-label-text">🎨 &nbsp;创作</span>
+      <div class="cat-label-line"></div>
+    </div>
+    <div class="grid">
+
+      <!-- Instruments -->
+      <a class="card" href="instruments.html">
+        <div class="preview p-instruments">
+          <div class="inst-notes">
+            <span class="inst-note">♩</span>
+            <span class="inst-note">♪</span>
+            <span class="inst-note">♫</span>
+          </div>
+          <div class="piano-keys" id="pianoKeys"></div>
+        </div>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">Software Instruments</div>
+            <div class="card-desc">虚拟钢琴 & 吉他 · 自动演奏</div>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </a>
+
+      <!-- Pixel Board -->
+      <a class="card" href="pixel.html">
+        <div class="preview p-pixel">
+          <div class="pixel-grid" id="pixelGrid"></div>
+        </div>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">Pixel Board</div>
+            <div class="card-desc">像素画板 · 工具齐全 · 导出 PNG</div>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </a>
+
+      <!-- Fireworks -->
+      <a class="card" href="fireworks.html">
+        <div class="preview p-fire">
+          <canvas id="fwCanvas"></canvas>
+        </div>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">烟花</div>
+            <div class="card-desc">点击发射 · 五种形态 · 城市夜景</div>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </a>
+
+      <!-- Sand -->
+      <a class="card" href="sand.html">
+        <div class="preview p-sand">
+          <canvas id="sandCanvas"></canvas>
+        </div>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">沙粒模拟</div>
+            <div class="card-desc">沙 · 水 · 火 · 油 · 元素交互</div>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </a>
+
+      <!-- Fractal -->
+      <a class="card" href="fractal.html">
+        <div class="preview p-fractal">
+          <canvas id="fractalCanvas"></canvas>
+        </div>
+        <div class="info">
+          <div class="info-left">
+            <div class="card-name">分形浏览器</div>
+            <div class="card-desc">Mandelbrot · 缩放漫游 · 五种配色</div>
+          </div>
+          <div class="card-arrow">→</div>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
 </div>
 
 <footer>二 零 二 六</footer>
 
 <script>
+// ── Random explore ──
+const ALL_APPS = [
+  '2048.html','breakout.html','minesweeper.html','rhythm.html','slots.html','adventure.html',
+  'luckToday.html','tarot.html','energy.html','namescore.html','iching.html',
+  'instruments.html','pixel.html','fireworks.html','sand.html','fractal.html'
+];
+function goRandom(){
+  const btn = document.querySelector('.explore-btn');
+  btn.style.transform = 'scale(0.95)';
+  // spin the dice emoji a bit
+  setTimeout(()=>{
+    btn.style.transform = '';
+    window.location.href = ALL_APPS[Math.floor(Math.random()*ALL_APPS.length)];
+  }, 180);
+}
+
 // ── 2048 tiles ──
 (function(){
   const layout = [
@@ -980,7 +1063,6 @@ footer {
 // ── Piano keys ──
 (function(){
   const container = document.getElementById('pianoKeys');
-  // 8 white keys, black keys at positions 1,2 | 4,5,6 (0-indexed gaps)
   const hasBlack = [true,true,false,true,true,true,false,false];
   const activeKey = 2;
   for(let i=0;i<8;i++){
@@ -999,7 +1081,6 @@ footer {
 (function(){
   const _ = '000000', W = 'ffffff', G = 'aaaaaa', B = '222222',
         P = 'ffaacc', Y = 'ffdd88', O = 'ff9955';
-  // 16 wide × 10 tall pixel cat face
   const rows = [
     [_,_,_,Y,Y,_,_,_,_,_,Y,Y,_,_,_,_],
     [_,_,Y,Y,Y,Y,_,_,_,Y,Y,Y,Y,_,_,_],
@@ -1052,24 +1133,20 @@ footer {
   const angle = i => (-90 + i*360/n)*Math.PI/180;
   const pt = (i,r) => [cx+r*Math.cos(angle(i)), cy+r*Math.sin(angle(i))];
   const poly = pts => pts.map(p=>p.join(',')).join(' ');
-
-  // rings
   [0.4,0.7,1].forEach(f => {
     const pts = Array.from({length:n},(_,i)=>pt(i,maxR*f));
     svg.appendChild(mk('polygon',{points:poly(pts),fill:'none',stroke:'rgba(100,160,255,0.12)','stroke-width':'0.8'}));
   });
-  // axes
   for(let i=0;i<n;i++){
     const [x2,y2]=pt(i,maxR);
     svg.appendChild(mk('line',{x1:cx,y1:cy,x2,y2,stroke:'rgba(100,160,255,0.1)','stroke-width':'0.8'}));
   }
-  // sample scores
   const scores=[82,65,74,58,88,70,62,78];
   const colors=['#60b8f8','#f07090','#b080e8','#e8c040','#f08040','#50d0b0','#70c870','#f090c0'];
   const defs=mk('defs',{}); svg.appendChild(defs);
   const grad=mk('radialGradient',{id:'erg',cx:'50%',cy:'50%',r:'50%'});
-  grad.appendChild(Object.assign(mk('stop',{}),{}) && (() => { const s=mk('stop',{'offset':'0%','stop-color':'rgba(100,180,255,0.4)'}); return s; })());
-  grad.appendChild((() => { const s=mk('stop',{'offset':'100%','stop-color':'rgba(100,120,255,0.05)'}); return s; })());
+  grad.appendChild((() => mk('stop',{'offset':'0%','stop-color':'rgba(100,180,255,0.4)'}))());
+  grad.appendChild((() => mk('stop',{'offset':'100%','stop-color':'rgba(100,120,255,0.05)'}))());
   defs.appendChild(grad);
   const finalPts = scores.map((s,i)=>pt(i,(s/100)*maxR));
   svg.appendChild(mk('polygon',{points:poly(finalPts),fill:'url(#erg)',stroke:'rgba(120,180,255,0.6)','stroke-width':'1','stroke-linejoin':'round'}));
@@ -1084,25 +1161,24 @@ footer {
   const cv=document.getElementById('fwCanvas');
   if(!cv)return;
   const parent=cv.parentElement;
-  cv.width=parent.offsetWidth||320; cv.height=parent.offsetHeight||160;
+  cv.width=parent.offsetWidth||320; cv.height=parent.offsetHeight||120;
   const ctx=cv.getContext('2d');
   const W=cv.width,H=cv.height;
   const PALS=[['255,220,50','255,200,0'],['255,60,80','255,130,60'],['60,220,255','130,180,255'],['210,80,255','255,140,255'],['80,255,180','50,220,140']];
   let pts=[];
   function burst(x,y){
     const pal=PALS[Math.floor(Math.random()*PALS.length)];
-    const n=28+Math.floor(Math.random()*16);
-    const spd=2+Math.random()*1.5;
+    const n=24+Math.floor(Math.random()*14);
+    const spd=2+Math.random()*1.4;
     for(let i=0;i<n;i++){
       const a=(i/n)*Math.PI*2+Math.random()*.2;
-      pts.push({x,y,px:x,py:y,vx:Math.cos(a)*spd*(0.7+Math.random()*.6),vy:Math.sin(a)*spd*(0.7+Math.random()*.6),life:1,decay:.018+Math.random()*.01,col:pal[Math.floor(Math.random()*pal.length)],sz:1+Math.random()});
+      pts.push({x,y,px:x,py:y,vx:Math.cos(a)*spd*(0.7+Math.random()*.6),vy:Math.sin(a)*spd*(0.7+Math.random()*.6),life:1,decay:.02+Math.random()*.01,col:pal[Math.floor(Math.random()*pal.length)],sz:1+Math.random()*.8});
     }
   }
-  // Auto-fire
   let nextFire=0;
   function tick(t){
     ctx.fillStyle='rgba(0,0,8,0.2)';ctx.fillRect(0,0,W,H);
-    if(t>nextFire){burst(W*(.15+Math.random()*.7),H*(.1+Math.random()*.55));nextFire=t+700+Math.random()*900;}
+    if(t>nextFire){burst(W*(.15+Math.random()*.7),H*(.1+Math.random()*.5));nextFire=t+700+Math.random()*900;}
     ctx.save();ctx.globalCompositeOperation='lighter';
     pts=pts.filter(p=>p.life>0);
     for(const p of pts){
@@ -1112,21 +1188,19 @@ footer {
       ctx.strokeStyle=`rgba(${p.col},${a*.7})`;ctx.lineWidth=p.sz;ctx.lineCap='round';ctx.stroke();
     }
     ctx.restore();
-    // Skyline
-    ctx.fillStyle='#060210';ctx.fillRect(0,H-22,W,22);
-    ctx.fillRect(0,H-38,30,38);ctx.fillRect(34,H-28,22,28);ctx.fillRect(60,H-44,18,44);
-    ctx.fillRect(82,H-26,28,26);ctx.fillRect(114,H-50,16,50);ctx.fillRect(134,H-30,24,30);
-    ctx.fillRect(W-60,H-40,20,40);ctx.fillRect(W-36,H-28,36,28);
+    ctx.fillStyle='#060210';ctx.fillRect(0,H-18,W,18);
+    ctx.fillRect(0,H-30,24,30);ctx.fillRect(28,H-22,18,22);ctx.fillRect(50,H-36,14,36);
+    ctx.fillRect(68,H-20,22,20);ctx.fillRect(94,H-40,12,40);ctx.fillRect(110,H-24,20,24);
+    ctx.fillRect(W-50,H-32,16,32);ctx.fillRect(W-30,H-22,30,22);
     requestAnimationFrame(tick);
   }
-  // Initial burst
-  setTimeout(()=>burst(W*.5,H*.35),300);
+  setTimeout(()=>burst(W*.5,H*.32),300);
   requestAnimationFrame(tick);
 })();
 
-// ── I Ching hex preview (乾 = 111111) ──
+// ── I Ching hex preview ──
 (function(){
-  const lines=[1,1,0,1,1,0]; // a visually interesting hexagram
+  const lines=[1,1,0,1,1,0];
   const el=document.getElementById('ichHex');
   lines.forEach(yang=>{
     const row=document.createElement('div');
@@ -1140,9 +1214,9 @@ footer {
 (function(){
   const inner=document.getElementById('rhyInner');
   const circles=[
-    {x:30,y:28,r:18,ar:38,done:true},
-    {x:90,y:55,r:18,ar:32,done:false},
-    {x:52,y:82,r:18,ar:44,done:false},
+    {x:28,y:24,r:16,ar:34,done:true},
+    {x:82,y:50,r:16,ar:28,done:false},
+    {x:48,y:76,r:16,ar:40,done:false},
   ];
   circles.forEach(c=>{
     if(!c.done){
@@ -1182,7 +1256,6 @@ footer {
     ['h','h','h','h','h','h','h'],
     ['h','h','h','h','h','h','h'],
   ];
-  const nums = {'1':'1','2':'2'};
   layout.forEach(row => row.forEach(v => {
     const d = document.createElement('div');
     if (v==='h') d.className='mc mc-h';
@@ -1202,14 +1275,7 @@ footer {
     const s = document.createElement('div');
     s.className = 'tstar';
     const size = Math.random() < 0.8 ? 1 : 2;
-    s.style.cssText = `
-      width:${size}px; height:${size}px;
-      left:${Math.random()*100}%;
-      top:${Math.random()*100}%;
-      --op:${0.2+Math.random()*0.6};
-      animation-duration:${2+Math.random()*3}s;
-      animation-delay:${Math.random()*4}s;
-    `;
+    s.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--op:${0.2+Math.random()*0.6};animation-duration:${2+Math.random()*3}s;animation-delay:${Math.random()*4}s;`;
     container.appendChild(s);
   }
 })();
@@ -1220,18 +1286,17 @@ footer {
   if(!cv)return;
   const par=cv.parentElement;
   const CELL=3;
-  const GW=Math.floor((par.offsetWidth||320)/CELL);
-  const GH=Math.floor((par.offsetHeight||160)/CELL);
+  const GW=Math.floor((par.offsetWidth||300)/CELL);
+  const GH=Math.floor((par.offsetHeight||120)/CELL);
   cv.width=GW*CELL; cv.height=GH*CELL;
   const ctx=cv.getContext('2d');
   const N=GW*GH;
-  const EMPTY=0,SAND=1,WATER=2,FIRE=3,OIL=4;
-  const grid=new Uint8Array(N),vx=new Float32Array(N),vy=new Float32Array(N);
+  const EMPTY=0,SAND=1,WATER=2,FIRE=3;
+  const grid=new Uint8Array(N);
   const cr=new Uint8Array(N),cg=new Uint8Array(N),cb=new Uint8Array(N);
   const moved=new Uint8Array(N);
   const imgd=ctx.createImageData(GW*CELL,GH*CELL);
   for(let i=3;i<imgd.data.length;i+=4)imgd.data[i]=255;
-  // init bg color
   for(let i=0;i<N;i++){cr[i]=10;cg[i]=10;cb[i]=15;}
 
   function set(i,m){
@@ -1239,18 +1304,16 @@ footer {
     if(m===SAND){cr[i]=200+Math.random()*20|0;cg[i]=160+Math.random()*20|0;cb[i]=70+Math.random()*15|0;}
     else if(m===WATER){cr[i]=40+Math.random()*15|0;cg[i]=110+Math.random()*20|0;cb[i]=220+Math.random()*20|0;}
     else if(m===FIRE){cr[i]=255;cg[i]=80+Math.random()*60|0;cb[i]=10+Math.random()*20|0;}
-    else if(m===OIL){cr[i]=150+Math.random()*15|0;cg[i]=110+Math.random()*15|0;cb[i]=45+Math.random()*10|0;}
     else{cr[i]=10;cg[i]=10;cb[i]=15;}
   }
   function clr(i){grid[i]=0;cr[i]=10;cg[i]=10;cb[i]=15;}
   function swap(a,b){[grid[a],grid[b]]=[grid[b],grid[a]];[cr[a],cr[b]]=[cr[b],cr[a]];[cg[a],cg[b]]=[cg[b],cg[a]];[cb[a],cb[b]]=[cb[b],cb[a]];moved[a]=moved[b]=1;}
 
-  // seed some initial material
   const cx2=GW>>1;
   for(let c=cx2-2;c<=cx2+2;c++) for(let r=GH>>2;r<=(GH>>2)+3;r++) set(r*GW+c,SAND);
   const cx3=Math.floor(GW*.3);
-  for(let c=cx3-1;c<=cx3+1;c++) for(let r=2;r<=5;r++) set(r*GW+c,WATER);
-  const cx4=Math.floor(GW*.7);
+  for(let c=cx3-1;c<=cx3+1;c++) for(let r=2;r<=4;r++) set(r*GW+c,WATER);
+  const cx4=Math.floor(GW*.72);
   for(let c=cx4-1;c<=cx4+1;c++) set(2*GW+c,FIRE);
 
   let tick2=0;
@@ -1268,22 +1331,19 @@ footer {
           if(grid[dn]===WATER){swap(i,dn);continue;}
           const d1=dir,d2=-dir;
           const cl=c+d1,cr2=c+d2;
-          const dl=i+GW+d1,dr2=i+GW+d2;
-          if(cl>=0&&cl<GW&&!grid[dl])swap(i,dl);
-          else if(cr2>=0&&cr2<GW&&!grid[dr2])swap(i,dr2);
+          if(cl>=0&&cl<GW&&!grid[i+GW+d1])swap(i,i+GW+d1);
+          else if(cr2>=0&&cr2<GW&&!grid[i+GW+d2])swap(i,i+GW+d2);
         } else if(m===WATER&&r<GH-1){
           const dn=i+GW;
           if(!grid[dn]){swap(i,dn);continue;}
           for(const dc of[dir,-dir,1,-1]){const nc=c+dc;if(nc>=0&&nc<GW&&!grid[i+dc]){swap(i,i+dc);break;}}
         } else if(m===FIRE){
-          // flicker color
           if(Math.random()<.3){cr[i]=255;cg[i]=60+Math.random()*80|0;cb[i]=Math.random()*15|0;}
           if(r>0&&!grid[i-GW]&&Math.random()<.3)swap(i,i-GW);
           if(Math.random()<.004)clr(i);
         }
       }
     }
-    // auto-spawn to keep it interesting
     if(tick2%22===0){const c=Math.floor(Math.random()*GW);if(!grid[c])set(c,Math.random()<.6?SAND:WATER);}
     if(tick2%55===0){const c=Math.floor(GW*.5+Math.random()*GW*.3-GW*.15);if(!grid[c])set(c,FIRE);}
   }
@@ -1291,12 +1351,11 @@ footer {
   function render2(){
     const d=imgd.data;
     for(let r=0;r<GH;r++) for(let c=0;c<GW;c++){
-      const i=r*GW+c, R=cr[i],G=cg[i],B=cb[i];
+      const i=r*GW+c,R=cr[i],G=cg[i],B=cb[i];
       for(let dr=0;dr<CELL;dr++){const row=(r*CELL+dr)*GW*CELL+c*CELL;for(let dc=0;dc<CELL;dc++){const p=(row+dc)*4;d[p]=R;d[p+1]=G;d[p+2]=B;}}
     }
     ctx.putImageData(imgd,0,0);
   }
-
   function loop2(){requestAnimationFrame(loop2);step2();step2();render2();}
   requestAnimationFrame(loop2);
 })();
@@ -1306,36 +1365,27 @@ footer {
   const cv=document.getElementById('fractalCanvas');
   if(!cv)return;
   const par=cv.parentElement;
-  const W=Math.floor((par.offsetWidth||320)/3);
-  const H=Math.floor((par.offsetHeight||160)/3);
+  const W=Math.floor((par.offsetWidth||300)/3);
+  const H=Math.floor((par.offsetHeight||120)/3);
   cv.width=W; cv.height=H;
   const ctx=cv.getContext('2d');
   const imgd=ctx.createImageData(W,H);
   const d=imgd.data;
-
-  // IQ electric palette: a+b*cos(2π(c*t+offset))
   function pal(t){
     const r=0.5+0.5*Math.cos(6.283*(1.0*t+0.0));
     const g=0.5+0.5*Math.cos(6.283*(1.0*t+0.33));
     const b=0.5+0.5*Math.cos(6.283*(1.0*t+0.67));
     return[r*255|0,g*255|0,b*255|0];
   }
-
   const MAX=80, cx=-0.5, cy=0, zoom=0.38;
   for(let py=0;py<H;py++){
     for(let px=0;px<W;px++){
-      const x0=(px-W/2)/(W*zoom)+cx;
-      const y0=(py-H/2)/(W*zoom)+cy;
+      const x0=(px-W/2)/(W*zoom)+cx, y0=(py-H/2)/(W*zoom)+cy;
       let x=x0,y=y0,i=0,len2=0;
       for(;i<MAX;i++){const x2=x*x,y2=y*y;len2=x2+y2;if(len2>256)break;const xt=x2-y2+x0;y=2*x*y+y0;x=xt;}
       const p=(py*W+px)*4;
       if(i>=MAX){d[p]=d[p+1]=d[p+2]=0;}
-      else{
-        const fi=i+1-Math.log(Math.log(Math.sqrt(len2)))/Math.log(2);
-        const t=((fi/MAX)*4+0.5)%1;
-        const[r,g,b]=pal(t);
-        d[p]=r;d[p+1]=g;d[p+2]=b;
-      }
+      else{const fi=i+1-Math.log(Math.log(Math.sqrt(len2)))/Math.log(2);const t=((fi/MAX)*4+0.5)%1;const[r,g,b]=pal(t);d[p]=r;d[p+1]=g;d[p+2]=b;}
       d[p+3]=255;
     }
   }
