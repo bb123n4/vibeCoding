@@ -508,6 +508,74 @@ footer {
   line-height: 1.5;
 }
 
+/* ════════════════════════
+   I Ching preview
+════════════════════════ */
+.p-iching {
+  background: #0c0806;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.p-iching::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 70% 60% at 50% 40%, rgba(180,130,40,0.08) 0%, transparent 70%);
+}
+.ich-inner {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.ich-hex {
+  display: flex; flex-direction: column-reverse; gap: 5px; align-items: center; margin-bottom: 8px;
+}
+.ich-yang { width: 56px; height: 5px; border-radius: 2px; background: linear-gradient(90deg,#8a6820,#c8a84e,#8a6820); box-shadow: 0 0 6px rgba(200,168,78,.35); }
+.ich-yl, .ich-yr { width: 22px; height: 5px; border-radius: 2px; background: linear-gradient(90deg,#8a6820,#c8a84e,#8a6820); box-shadow: 0 0 6px rgba(200,168,78,.3); }
+.ich-line { display: flex; gap: 8px; align-items: center; }
+.ich-name {
+  font-family: "STKaiti","KaiTi","楷体",serif;
+  font-size: 18px; letter-spacing: .3em; text-indent:.3em;
+  color: rgba(212,180,96,.8);
+  text-shadow: 0 0 10px rgba(200,168,78,.4);
+}
+.ich-coins { display: flex; gap: 6px; }
+.ich-coin {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 1px solid rgba(200,168,78,.4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; color: rgba(200,168,78,.6);
+  background: rgba(200,168,78,.08);
+}
+
+/* ════════════════════════
+   Rhythm preview
+════════════════════════ */
+.p-rhythm {
+  background: #060610;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.p-rhythm::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(80,100,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(80,100,255,0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.rhy-inner { position: relative; z-index: 1; width: 130px; height: 110px; }
+.rhy-circle {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(102,238,255,.8);
+  background: rgba(30,30,60,.85);
+  box-shadow: 0 0 10px rgba(102,238,255,.3);
+  display: flex; align-items: center; justify-content: center;
+}
+.rhy-approach {
+  position: absolute; border-radius: 50%;
+  border: 1.5px solid rgba(102,238,255,.35);
+}
+
 /* ── Responsive ── */
 @media (max-width: 520px) {
   .grid { grid-template-columns: 1fr; }
@@ -677,6 +745,42 @@ footer {
       </div>
     </a>
 
+    <!-- I Ching -->
+    <a class="card" href="iching.html">
+      <div class="preview p-iching">
+        <div class="ich-inner">
+          <div class="ich-hex" id="ichHex"></div>
+          <div class="ich-name">周易占卦</div>
+          <div class="ich-coins">
+            <div class="ich-coin">阳</div>
+            <div class="ich-coin">阴</div>
+            <div class="ich-coin">阳</div>
+          </div>
+        </div>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">周易占卦</div>
+          <div class="card-desc">摇铜钱起卦 · 六十四卦 · 卦辞解读</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
+    <!-- Rhythm -->
+    <a class="card" href="rhythm.html">
+      <div class="preview p-rhythm">
+        <div class="rhy-inner" id="rhyInner"></div>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">节奏打击</div>
+          <div class="card-desc">点击节拍 · 三难度 · Perfect 判定</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
     <!-- Namescore -->
     <a class="card" href="namescore.html">
       <div class="preview p-name">
@@ -819,6 +923,40 @@ footer {
   scores.forEach((s,i) => {
     const [x,y]=finalPts[i];
     svg.appendChild(mk('circle',{cx:x,cy:y,r:'2.5',fill:colors[i],'opacity':'0.9'}));
+  });
+})();
+
+// ── I Ching hex preview (乾 = 111111) ──
+(function(){
+  const lines=[1,1,0,1,1,0]; // a visually interesting hexagram
+  const el=document.getElementById('ichHex');
+  lines.forEach(yang=>{
+    const row=document.createElement('div');
+    row.className='ich-line';
+    row.innerHTML=yang?'<div class="ich-yang"></div>':'<div class="ich-yl"></div><div class="ich-yr"></div>';
+    el.appendChild(row);
+  });
+})();
+
+// ── Rhythm circles preview ──
+(function(){
+  const inner=document.getElementById('rhyInner');
+  const circles=[
+    {x:30,y:28,r:18,ar:38,done:true},
+    {x:90,y:55,r:18,ar:32,done:false},
+    {x:52,y:82,r:18,ar:44,done:false},
+  ];
+  circles.forEach(c=>{
+    if(!c.done){
+      const ap=document.createElement('div');
+      ap.className='rhy-approach';
+      ap.style.cssText=`width:${c.ar*2}px;height:${c.ar*2}px;left:${c.x-c.ar}px;top:${c.y-c.ar}px`;
+      inner.appendChild(ap);
+    }
+    const circle=document.createElement('div');
+    circle.className='rhy-circle';
+    circle.style.cssText=`width:${c.r*2}px;height:${c.r*2}px;left:${c.x-c.r}px;top:${c.y-c.r}px;${c.done?'opacity:.35;border-color:rgba(102,238,255,.3)':''}`;
+    inner.appendChild(circle);
   });
 })();
 

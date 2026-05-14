@@ -18,6 +18,8 @@
 | 🎯 | [breakout.html](breakout.html) | 无尽弹球 — endless breakout with increasing speed and shrinking paddle |
 | 💣 | [minesweeper.html](minesweeper.html) | 扫雷 — classic minesweeper with 3 difficulties, timer, and safe first click |
 | ✦ | [namescore.html](namescore.html) | 命名打分器 — name appraisal oracle scoring字形, 音律, 五行 & 数理 |
+| ☯ | [iching.html](iching.html) | 周易占卦 — I Ching oracle with animated coin throws and all 64 hexagrams |
+| 🎵 | [rhythm.html](rhythm.html) | 节奏打击 — rhythm click game with approach circles, combos, and 3 difficulties |
 
 ## 🚀 Run locally
 

@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>节奏打击</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#060610;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:monospace;overflow:hidden;user-select:none}
+#canvas{position:fixed;inset:0;width:100%;height:100%;cursor:crosshair;touch-action:none}
+
+/* Title */
+#title{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;background:#060610}
+#title h1{font-size:30px;letter-spacing:.5em;text-indent:.5em;color:#66eeff;text-shadow:0 0 20px rgba(102,238,255,.5);margin-bottom:6px}
+.t-sub{font-size:11px;letter-spacing:.35em;color:rgba(255,255,255,.2);margin-bottom:48px}
+.mode-row{display:flex;gap:12px}
+.mbtn{background:rgba(102,238,255,.05);border:1px solid rgba(102,238,255,.22);border-radius:8px;padding:16px 26px;color:rgba(102,238,255,.55);font-family:monospace;font-size:13px;letter-spacing:.15em;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:5px}
+.mbtn:hover{background:rgba(102,238,255,.12);border-color:#66eeff;color:#66eeff;box-shadow:0 0 18px rgba(102,238,255,.15)}
+.msub{font-size:9px;color:rgba(255,255,255,.22);letter-spacing:.1em}
+
+/* HUD */
+#hud{position:fixed;top:0;left:0;right:0;padding:16px 24px;display:none;justify-content:space-between;align-items:flex-start;z-index:5;pointer-events:none}
+.hstat{display:flex;flex-direction:column;gap:2px}
+.hlbl{font-size:9px;letter-spacing:.2em;color:rgba(255,255,255,.22)}
+.hval{font-size:22px;color:#66eeff;font-weight:bold}
+#combo-big{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);font-size:28px;font-weight:bold;letter-spacing:.1em;color:#ffcc44;text-shadow:0 0 16px rgba(255,200,60,.5);z-index:5;pointer-events:none;opacity:0;transition:opacity .3s}
+
+/* Hit feedback */
+#hitfb{position:fixed;top:45%;left:50%;transform:translate(-50%,-50%);font-size:22px;font-weight:bold;letter-spacing:.2em;pointer-events:none;z-index:6;opacity:0}
+
+/* Result */
+#result{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(6,6,16,.92);z-index:10}
+.rgrade{font-size:72px;margin-bottom:4px;text-shadow:0 0 24px currentColor}
+.rtitle{font-size:22px;letter-spacing:.25em;color:#66eeff;margin-bottom:28px;text-shadow:0 0 14px rgba(102,238,255,.4)}
+.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 40px;margin-bottom:32px}
+.ritem{text-align:center}
+.rlbl{font-size:9px;letter-spacing:.2em;color:rgba(255,255,255,.28);margin-bottom:4px}
+.rval{font-size:26px;color:#e0e0ff}
+#ragain{background:rgba(102,238,255,.1);border:1px solid rgba(102,238,255,.4);border-radius:6px;color:#66eeff;font-family:monospace;font-size:13px;letter-spacing:.2em;padding:12px 32px;cursor:pointer;transition:all .2s}
+#ragain:hover{background:rgba(102,238,255,.2);box-shadow:0 0 14px rgba(102,238,255,.2)}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+
+<div id="title">
+  <h1>节奏打击</h1>
+  <p class="t-sub">RHYTHM STRIKE</p>
+  <div class="mode-row">
+    <button class="mbtn" data-m="easy">休 闲<span class="msub">BPM 90 · 宽松判定</span></button>
+    <button class="mbtn" data-m="normal">普 通<span class="msub">BPM 120 · 标准判定</span></button>
+    <button class="mbtn" data-m="hard">疾 风<span class="msub">BPM 150 · 严格判定</span></button>
+  </div>
+</div>
+
+<div id="hud">
+  <div class="hstat"><div class="hlbl">SCORE</div><div class="hval" id="hscore">0</div></div>
+  <div class="hstat" style="align-items:center"><div class="hlbl">COMBO</div><div class="hval" id="hcombo"></div></div>
+  <div class="hstat" style="align-items:flex-end"><div class="hlbl">ACC</div><div class="hval" id="hacc">—</div></div>
+</div>
+<div id="combo-big"></div>
+<div id="hitfb"></div>
+
+<div id="result">
+  <div class="rgrade" id="rgrade"></div>
+  <div class="rtitle" id="rtitle"></div>
+  <div class="rgrid">
+    <div class="ritem"><div class="rlbl">SCORE</div><div class="rval" id="rscore"></div></div>
+    <div class="ritem"><div class="rlbl">ACCURACY</div><div class="rval" id="racc"></div></div>
+    <div class="ritem"><div class="rlbl">PERFECT</div><div class="rval" id="rperf"></div></div>
+    <div class="ritem"><div class="rlbl">GOOD</div><div class="rval" id="rgood"></div></div>
+    <div class="ritem"><div class="rlbl">MISS</div><div class="rval" id="rmiss"></div></div>
+    <div class="ritem"><div class="rlbl">MAX COMBO</div><div class="rval" id="rmaxc"></div></div>
+  </div>
+  <button id="ragain">再来一局</button>
+</div>
+
+<script>
+const canvas=document.getElementById('canvas');
+const ctx=canvas.getContext('2d');
+function resize(){canvas.width=window.innerWidth;canvas.height=window.innerHeight}
+resize(); window.addEventListener('resize',resize);
+
+// Audio
+let ac;
+function AC(){if(!ac)ac=new(window.AudioContext||window.webkitAudioContext)();return ac}
+function beep(freq,dur,type='sine',vol=0.18){
+  try{const a=AC(),o=a.createOscillator(),g=a.createGain();
+  o.connect(g);g.connect(a.destination);o.type=type;o.frequency.value=freq;
+  g.gain.setValueAtTime(vol,a.currentTime);g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+dur);
+  o.start();o.stop(a.currentTime+dur)}catch(e){}
+}
+function hihat(){
+  try{const a=AC(),buf=a.createBuffer(1,a.sampleRate*.04,a.sampleRate),d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length);
+  const s=a.createBufferSource(),g=a.createGain(),f=a.createBiquadFilter();
+  s.buffer=buf;s.connect(f);f.connect(g);g.connect(a.destination);
+  f.type='highpass';f.frequency.value=7000;g.gain.value=0.1;s.start()}catch(e){}
+}
+function kick(){
+  try{const a=AC(),o=a.createOscillator(),g=a.createGain();
+  o.connect(g);g.connect(a.destination);o.type='sine';
+  o.frequency.setValueAtTime(110,a.currentTime);o.frequency.exponentialRampToValueAtTime(40,a.currentTime+.1);
+  g.gain.setValueAtTime(0.35,a.currentTime);g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+.12);
+  o.start();o.stop(a.currentTime+.15)}catch(e){}
+}
+
+// Game
+const MODES={
+  easy:  {bpm:90, ni:2.0,approach:1100,total:18,pwin:140,gwin:280},
+  normal:{bpm:120,ni:1.0,approach:850, total:28,pwin:100,gwin:200},
+  hard:  {bpm:150,ni:.75,approach:620, total:38,pwin:65, gwin:130},
+};
+
+let mode,notes,score,combo,maxCombo,perfects,goods,misses,gameState='title';
+let ripples=[],fbTimer,beatTimer;
+
+function startGame(mname){
+  mode=MODES[mname];
+  notes=[];score=0;combo=0;maxCombo=0;perfects=0;goods=0;misses=0;ripples=[];
+  document.getElementById('title').style.display='none';
+  document.getElementById('hud').style.display='flex';
+  document.getElementById('result').style.display='none';
+  gameState='playing';
+
+  const beatMs=60000/mode.bpm;
+  const niMs=beatMs*mode.ni;
+  const now=performance.now();
+  const start=now+1200;
+  const mx=canvas.width, my=canvas.height;
+  const mg=70;
+
+  for(let i=0;i<mode.total;i++){
+    const spawnTime=start+i*niMs;
+    const hitTime=spawnTime+mode.approach;
+    notes.push({
+      spawnTime,hitTime,
+      x:mg+Math.random()*(mx-2*mg),
+      y:mg+Math.random()*(my-2*mg),
+      hit:null,fade:1
+    });
+  }
+
+  // Beat metronome
+  let beatN=0;
+  function scheduleBeat(t){
+    const delay=t-performance.now();
+    beatTimer=setTimeout(()=>{
+      if(gameState!=='playing')return;
+      beatN%2===0?kick():hihat();
+      beatN++;
+      scheduleBeat(t+beatMs);
+    },Math.max(0,delay));
+  }
+  scheduleBeat(start);
+
+  updateHUD();
+  requestAnimationFrame(loop);
+}
+
+function updateHUD(){
+  document.getElementById('hscore').textContent=score;
+  document.getElementById('hcombo').textContent=combo>1?combo+'x':'';
+  const tot=perfects+goods+misses;
+  const acc=tot>0?Math.round((perfects+goods*.5)/tot*100):100;
+  document.getElementById('hacc').textContent=tot>0?acc+'%':'—';
+  const cb=document.getElementById('combo-big');
+  if(combo>=8){cb.textContent=combo+'x COMBO';cb.style.opacity='1';
+  }else{cb.style.opacity='0';}
+}
+
+function showFB(text,color){
+  const fb=document.getElementById('hitfb');
+  fb.textContent=text;fb.style.color=color;fb.style.textShadow=`0 0 14px ${color}`;
+  fb.style.opacity='1';fb.style.transform='translate(-50%,-50%) scale(1.15)';
+  clearTimeout(fbTimer);
+  fbTimer=setTimeout(()=>{
+    fb.style.transition='opacity .25s,transform .25s';
+    fb.style.opacity='0';fb.style.transform='translate(-50%,-58%) scale(.9)';
+    setTimeout(()=>fb.style.transition='none',260);
+  },380);
+}
+
+function handleInput(cx,cy){
+  if(gameState!=='playing')return;
+  AC();
+  const now=performance.now();
+  for(const n of notes){
+    if(n.hit!==null)continue;
+    if(now<n.spawnTime)continue;
+    const dist=Math.hypot(cx-n.x,cy-n.y);
+    if(dist>46)continue;
+    const dt=Math.abs(now-n.hitTime);
+    if(dt<mode.pwin){
+      n.hit='perfect';perfects++;combo++;
+      score+=300*Math.min(combo,10);
+      showFB('PERFECT','#66ffcc');beep(880,.14);
+    }else if(dt<mode.gwin){
+      n.hit='good';goods++;combo++;
+      score+=100*Math.min(combo,5);
+      showFB('GOOD','#88ccff');beep(660,.12);
+    }else continue;
+    maxCombo=Math.max(maxCombo,combo);
+    ripples.push({x:n.x,y:n.y,r:30,alpha:.8,color:n.hit==='perfect'?'102,255,204':'136,204,255'});
+    updateHUD();
+    return;
+  }
+}
+
+canvas.addEventListener('click',e=>handleInput(e.clientX,e.clientY));
+canvas.addEventListener('touchstart',e=>{e.preventDefault();handleInput(e.touches[0].clientX,e.touches[0].clientY)},{passive:false});
+
+function drawGrid(){
+  ctx.strokeStyle='rgba(80,100,255,0.04)';ctx.lineWidth=1;
+  const gs=44;
+  for(let x=0;x<canvas.width;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke()}
+  for(let y=0;y<canvas.height;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke()}
+}
+
+function loop(){
+  if(gameState!=='playing')return;
+  const now=performance.now();
+
+  ctx.fillStyle='#060610';ctx.fillRect(0,0,canvas.width,canvas.height);
+  drawGrid();
+
+  // Ripples
+  ripples=ripples.filter(r=>r.alpha>0);
+  for(const r of ripples){
+    r.r+=4;r.alpha-=.04;
+    ctx.save();ctx.globalAlpha=Math.max(0,r.alpha);
+    ctx.beginPath();ctx.arc(r.x,r.y,r.r,0,Math.PI*2);
+    ctx.strokeStyle=`rgb(${r.color})`;ctx.lineWidth=2;ctx.stroke();
+    ctx.restore();
+  }
+
+  // Notes
+  let allDone=true;
+  for(const n of notes){
+    const elapsed=now-n.spawnTime;
+    if(elapsed<0){allDone=false;continue;}
+    const dt=now-n.hitTime;
+
+    if(n.hit===null){
+      allDone=false;
+      // Miss detection
+      if(dt>mode.gwin){
+        n.hit='miss';misses++;combo=0;
+        showFB('MISS','#ff4466');beep(120,.18,'sawtooth',.08);
+        updateHUD();continue;
+      }
+      const prog=Math.min(elapsed/mode.approach,1);
+      const R=28;
+      const approachR=R+(110-R)*(1-prog);
+      const alpha=.12+prog*.55;
+
+      // Approach ring
+      ctx.beginPath();ctx.arc(n.x,n.y,approachR,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(102,238,255,${alpha})`;ctx.lineWidth=2;ctx.stroke();
+      // Circle body
+      ctx.beginPath();ctx.arc(n.x,n.y,R,0,Math.PI*2);
+      ctx.fillStyle='rgba(30,30,60,0.88)';ctx.fill();
+      // Glow ring
+      ctx.save();ctx.shadowBlur=14;ctx.shadowColor='rgba(102,238,255,.4)';
+      ctx.beginPath();ctx.arc(n.x,n.y,R,0,Math.PI*2);
+      ctx.strokeStyle='rgba(102,238,255,.85)';ctx.lineWidth=2.5;ctx.stroke();
+      ctx.restore();
+      // Inner pulse when close
+      if(prog>.75){
+        const p=(prog-.75)/.25;
+        ctx.beginPath();ctx.arc(n.x,n.y,R*.5*p,0,Math.PI*2);
+        ctx.fillStyle=`rgba(102,238,255,${p*.35})`;ctx.fill();
+      }
+    } else if(n.hit!=='miss'){
+      n.fade=(n.fade||1)-.06;
+      if(n.fade<=0)continue;
+      allDone=false;
+      ctx.save();ctx.globalAlpha=n.fade;
+      ctx.beginPath();ctx.arc(n.x,n.y,28+(1-n.fade)*22,0,Math.PI*2);
+      ctx.fillStyle=n.hit==='perfect'?'rgba(102,255,204,.18)':'rgba(136,204,255,.18)';ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  const last=notes[notes.length-1];
+  if(last&&now>last.hitTime+1800){endGame();return;}
+  requestAnimationFrame(loop);
+}
+
+function endGame(){
+  gameState='over';
+  clearTimeout(beatTimer);
+  document.getElementById('hud').style.display='none';
+  document.getElementById('combo-big').style.opacity='0';
+  const tot=perfects+goods+misses;
+  const acc=tot>0?Math.round((perfects+goods*.5)/tot*100):0;
+  let grade,color,title;
+  if(acc>=95&&misses===0){grade='S';color='#ffcc44';title='完美无瑕';}
+  else if(acc>=90){grade='A';color='#66ffcc';title='技艺精湛';}
+  else if(acc>=75){grade='B';color='#66aaff';title='稳扎稳打';}
+  else if(acc>=60){grade='C';color='#aa99ff';title='尚需磨砺';}
+  else{grade='D';color='#ff8888';title='再试一次';}
+  const rg=document.getElementById('rgrade');
+  rg.textContent=grade;rg.style.color=color;
+  document.getElementById('rtitle').textContent=title;
+  document.getElementById('rscore').textContent=score;
+  document.getElementById('racc').textContent=acc+'%';
+  document.getElementById('rperf').textContent=perfects;
+  document.getElementById('rgood').textContent=goods;
+  document.getElementById('rmiss').textContent=misses;
+  document.getElementById('rmaxc').textContent=maxCombo;
+  document.getElementById('result').style.display='flex';
+  if(acc>=90){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.18,'sine',.15),i*120));}
+}
+
+document.querySelectorAll('.mbtn').forEach(b=>b.addEventListener('click',()=>{AC();startGame(b.dataset.m)}));
+document.getElementById('ragain').addEventListener('click',()=>{
+  document.getElementById('result').style.display='none';
+  document.getElementById('title').style.display='flex';
+  gameState='title';
+});
+
+// Idle background draw
+(function idle(){
+  if(gameState==='title'){
+    ctx.fillStyle='#060610';ctx.fillRect(0,0,canvas.width,canvas.height);
+    drawGrid();
+  }
+  requestAnimationFrame(idle);
+})();
+</script>
+</body>
+</html>
