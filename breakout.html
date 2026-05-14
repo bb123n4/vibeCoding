@@ -132,7 +132,11 @@ function blockHit(b) {
 function update() {
   if (state !== S.PLAYING) return;
 
-  // paddle follows mouse
+  // keyboard moves paddle
+  if (keys['ArrowLeft'])  mouseX = Math.max(paddle.w/2,           mouseX - KEY_SPD);
+  if (keys['ArrowRight']) mouseX = Math.min(W - paddle.w/2,       mouseX + KEY_SPD);
+
+  // paddle follows mouse / keyboard
   paddle.x = Math.max(0, Math.min(W-paddle.w, mouseX - paddle.w/2));
 
   // trail
@@ -252,7 +256,7 @@ function renderTitle() {
     ctx.fillText('无尽弹球', W/2, H/2-60);
   },'#ffaa00',20);
   ctx.fillStyle='rgba(255,255,255,0.45)'; ctx.font='13px monospace';
-  ctx.fillText('移动鼠标 / 触摸控制挡板', W/2, H/2-10);
+  ctx.fillText('鼠标 / 方向键 / 触摸控制挡板', W/2, H/2-10);
   ctx.fillText('每关速度加快，挡板变短', W/2, H/2+16);
   ctx.fillStyle='rgba(255,255,255,0.25)'; ctx.font='11px monospace';
   ctx.fillText('CLICK TO START', W/2, H/2+58);
@@ -279,6 +283,9 @@ function renderGameOver() {
 }
 
 // ── Input ──
+const keys = {};
+const KEY_SPD = 7;
+
 function getCanvasX(clientX) {
   const r = canvas.getBoundingClientRect();
   return (clientX - r.left) * (W / r.width);
@@ -294,6 +301,15 @@ canvas.addEventListener('touchstart', e => {
   mouseX = getCanvasX(e.touches[0].clientX);
   if (state===S.TITLE||state===S.GAMEOVER) { initGame(); }
 }, {passive:false});
+
+window.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (e.code==='ArrowLeft'||e.code==='ArrowRight') e.preventDefault();
+  if ((e.code==='Space'||e.code==='Enter') && (state===S.TITLE||state===S.GAMEOVER)) {
+    getAudio(); initGame();
+  }
+});
+window.addEventListener('keyup', e => { keys[e.code] = false; });
 
 // ── Loop ──
 state = S.TITLE;
