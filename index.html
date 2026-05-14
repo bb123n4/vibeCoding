@@ -576,6 +576,55 @@ footer {
   border: 1.5px solid rgba(102,238,255,.35);
 }
 
+/* ════════════════════════
+   Slots preview
+════════════════════════ */
+.p-slots {
+  background: linear-gradient(160deg, #280d28, #18061a);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+}
+.p-slots::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(200,0,100,.07) 0%, transparent 70%);
+}
+.sl-machine {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.sl-title {
+  font-size: 14px; font-weight: bold; letter-spacing: .3em; text-indent: .3em;
+  color: #ff0088; text-shadow: 0 0 8px #ff0088;
+  font-family: monospace;
+}
+.sl-reels {
+  display: flex; gap: 4px;
+  background: #050008; border-radius: 6px; padding: 4px;
+  border: 1px solid rgba(255,0,136,.2);
+}
+.sl-reel {
+  width: 36px; height: 54px;
+  background: #030006; border-radius: 4px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.05);
+}
+.sl-sym { font-size: 18px; line-height: 1.5; }
+.sl-line {
+  width: 140px; height: 1.5px;
+  background: rgba(255,220,50,.35);
+  margin-top: -2px;
+}
+.sl-btn {
+  background: linear-gradient(180deg,#ff3399,#cc0066);
+  border: none; border-radius: 10px;
+  padding: 4px 20px; color: #fff;
+  font-family: monospace; font-size: 10px; letter-spacing: .15em;
+  box-shadow: 0 2px 8px rgba(255,0,136,.4);
+}
+
 /* ── Responsive ── */
 @media (max-width: 520px) {
   .grid { grid-template-columns: 1fr; }
@@ -740,6 +789,41 @@ footer {
         <div class="info-left">
           <div class="card-name">扫雷</div>
           <div class="card-desc">三难度 · 计时 · 首点安全</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
+    <!-- Slots -->
+    <a class="card" href="slots.html">
+      <div class="preview p-slots">
+        <div class="sl-machine">
+          <div class="sl-title">LUCKY 777</div>
+          <div class="sl-reels">
+            <div class="sl-reel">
+              <div class="sl-sym">🍒</div>
+              <div class="sl-sym">7️⃣</div>
+              <div class="sl-sym">🍋</div>
+            </div>
+            <div class="sl-reel">
+              <div class="sl-sym">💎</div>
+              <div class="sl-sym">7️⃣</div>
+              <div class="sl-sym">🍊</div>
+            </div>
+            <div class="sl-reel">
+              <div class="sl-sym">⭐</div>
+              <div class="sl-sym">7️⃣</div>
+              <div class="sl-sym">🔔</div>
+            </div>
+          </div>
+          <div class="sl-line"></div>
+          <div class="sl-btn">SPIN</div>
+        </div>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">老虎机</div>
+          <div class="card-desc">拉霸 · 777 · Jackpot 200×</div>
         </div>
         <div class="card-arrow">→</div>
       </div>
