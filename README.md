@@ -21,6 +21,7 @@
 | ☯ | [iching.html](iching.html) | 周易占卦 — I Ching oracle with animated coin throws and all 64 hexagrams |
 | 🎵 | [rhythm.html](rhythm.html) | 节奏打击 — rhythm click game with approach circles, combos, and 3 difficulties |
 | 🎰 | [slots.html](slots.html) | 老虎机 — neon slot machine with animated reels, jackpots, and Web Audio |
+| 🎆 | [fireworks.html](fireworks.html) | 烟花 — interactive fireworks over a city skyline, 5 burst types, auto mode |
 
 ## 🚀 Run locally
 

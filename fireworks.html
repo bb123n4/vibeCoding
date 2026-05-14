@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>烟花</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#000008;overflow:hidden;width:100vw;height:100vh}
+canvas{display:block;width:100%;height:100%;cursor:crosshair;touch-action:none}
+#ui{position:fixed;bottom:22px;left:0;right:0;display:flex;justify-content:center;gap:10px;z-index:10}
+.btn{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:20px;color:rgba(255,255,255,.5);font-family:monospace;font-size:12px;letter-spacing:.15em;padding:8px 18px;cursor:pointer;transition:all .2s;backdrop-filter:blur(4px)}
+.btn:hover{background:rgba(255,255,255,.13);color:#fff}
+.btn.on{background:rgba(255,220,50,.12);border-color:rgba(255,220,50,.35);color:#ffdd50}
+#hint{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:rgba(255,255,255,.18);font-family:monospace;font-size:13px;letter-spacing:.2em;pointer-events:none;transition:opacity 1.2s;line-height:1.8}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <button class="btn" id="autoBtn">自动模式</button>
+  <button class="btn" id="finaleBtn">🎆 盛大烟花</button>
+</div>
+<div id="hint">点击屏幕发射烟花<br><span style="font-size:10px;opacity:.7;letter-spacing:.3em">CLICK TO LAUNCH</span></div>
+
+<script>
+const cv=document.getElementById('c');
+const ctx=cv.getContext('2d');
+let W,H,skyline=[];
+
+function resize(){
+  W=cv.width=window.innerWidth;
+  H=cv.height=window.innerHeight;
+  buildSkyline();
+}
+
+// ── Skyline ──
+function buildSkyline(){
+  skyline=[];
+  let x=0;
+  while(x<W){
+    const bw=30+Math.random()*80;
+    const bh=40+Math.random()*Math.min(160,H*.22);
+    const wins=[];
+    for(let wx=5;wx<bw-8;wx+=11){
+      for(let wy=8;wy<bh-6;wy+=14){
+        if(Math.random()<.4) wins.push({x:wx,y:wy,lit:Math.random()>.3,br:.06+Math.random()*.12});
+      }
+    }
+    skyline.push({x,w:bw,h:bh,wins});
+    x+=bw+2;
+  }
+}
+resize();
+window.addEventListener('resize',resize);
+
+// ── Audio ──
+let ac;
+function AC(){if(!ac)ac=new(window.AudioContext||window.webkitAudioContext)();return ac}
+function playLaunch(){
+  try{const a=AC(),o=a.createOscillator(),g=a.createGain();
+  o.connect(g);g.connect(a.destination);o.type='sawtooth';
+  o.frequency.setValueAtTime(80,a.currentTime);
+  o.frequency.exponentialRampToValueAtTime(600+Math.random()*400,a.currentTime+.35);
+  g.gain.setValueAtTime(.04,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.35);
+  o.start();o.stop(a.currentTime+.35)}catch(e){}
+}
+function playBoom(vol=1){
+  try{const a=AC();
+  // thump
+  const o=a.createOscillator(),g=a.createGain();
+  o.connect(g);g.connect(a.destination);o.type='sine';
+  o.frequency.setValueAtTime(90,a.currentTime);
+  o.frequency.exponentialRampToValueAtTime(28,a.currentTime+.3);
+  g.gain.setValueAtTime(.45*vol,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.35);
+  o.start();o.stop(a.currentTime+.35);
+  // crack
+  const buf=a.createBuffer(1,a.sampleRate*.12,a.sampleRate),d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/d.length,1.5);
+  const s=a.createBufferSource(),g2=a.createGain();
+  s.buffer=buf;s.connect(g2);g2.connect(a.destination);g2.gain.value=.3*vol;s.start()}catch(e){}
+}
+
+// ── Color palettes ──
+const PALS=[
+  ['255,220,50','255,240,130','255,200,0'],     // gold
+  ['255,60,80','255,130,60','255,220,100'],     // crimson
+  ['60,220,255','130,180,255','210,245,255'],   // cyan
+  ['210,80,255','255,140,255','170,80,255'],    // violet
+  ['80,255,180','50,220,140','200,255,225'],    // emerald
+  ['255,140,50','255,205,80','255,100,30'],     // amber
+  ['255,120,160','255,190,210','255,80,130'],   // rose
+  ['230,245,255','180,215,255','255,255,255'],  // silver
+  // rainbow: random mix
+];
+
+function randPal(){return PALS[Math.floor(Math.random()*PALS.length)]}
+
+// ── Stars ──
+const STARS=Array.from({length:220},()=>({
+  x:Math.random(),y:Math.random()*.78,r:Math.random()<.8?.5:1.2,
+  a:.1+Math.random()*.5,ph:Math.random()*Math.PI*2,sp:.4+Math.random()*1.8
+}));
+
+// ── State ──
+let rockets=[],particles=[],flashes=[];
+
+// ── Rocket ──
+class Rocket{
+  constructor(tx,ty){
+    this.x=(W*.1+Math.random()*W*.8);
+    this.y=H;
+    this.tx=tx; this.ty=ty;
+    const dx=tx-this.x,dy=ty-this.y;
+    const fr=55+Math.random()*20;
+    this.vx=dx/fr; this.vy=dy/fr;
+    this.trail=[];
+    this.pal=randPal();
+    this.type=Math.floor(Math.random()*5);
+    this.alive=true;
+    playLaunch();
+  }
+  update(){
+    this.trail.unshift({x:this.x,y:this.y});
+    if(this.trail.length>18)this.trail.pop();
+    this.x+=this.vx; this.y+=this.vy;
+    if(Math.hypot(this.x-this.tx,this.y-this.ty)<Math.abs(this.vy)*1.8){
+      this.alive=false;
+      explode(this.x,this.y,this.pal,this.type);
+    }
+  }
+  draw(){
+    for(let i=0;i<this.trail.length;i++){
+      const a=(1-i/this.trail.length)*.9;
+      const r=2.2*(1-i/this.trail.length*.6);
+      ctx.beginPath();ctx.arc(this.trail[i].x,this.trail[i].y,r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(255,235,160,${a})`;ctx.fill();
+    }
+    ctx.beginPath();ctx.arc(this.x,this.y,2.5,0,Math.PI*2);
+    ctx.fillStyle='#fff';ctx.fill();
+  }
+}
+
+// ── Particle ──
+class Particle{
+  constructor(x,y,angle,speed,color,grav=0.065,decayBase=null){
+    this.x=x;this.y=y;this.px=x;this.py=y;
+    this.vx=Math.cos(angle)*speed;
+    this.vy=Math.sin(angle)*speed;
+    this.color=color;
+    this.life=1;
+    this.decay=(decayBase||.011)+Math.random()*.007;
+    this.grav=grav;
+    this.sz=1.4+Math.random()*1.6;
+    this.sp=Math.random()<.28; // sparkle
+    this.sph=Math.random()*Math.PI*2;
+  }
+  update(){
+    this.px=this.x;this.py=this.y;
+    this.vx*=.986;this.vy*=.986;
+    this.vy+=this.grav;
+    this.x+=this.vx;this.y+=this.vy;
+    this.life-=this.decay;
+    this.sph+=.45;
+  }
+  draw(){
+    const a=Math.max(0,this.life);
+    const sa=this.sp?a*(0.4+.6*Math.sin(this.sph)):a;
+    ctx.beginPath();ctx.moveTo(this.px,this.py);ctx.lineTo(this.x,this.y);
+    ctx.strokeStyle=`rgba(${this.color},${sa*.7})`;
+    ctx.lineWidth=this.sz;ctx.lineCap='round';ctx.stroke();
+    ctx.beginPath();ctx.arc(this.x,this.y,this.sz*.7,0,Math.PI*2);
+    ctx.fillStyle=`rgba(${this.color},${sa})`;ctx.fill();
+  }
+}
+
+// ── Explosion types ──
+function explode(x,y,pal,type){
+  playBoom(Math.min(1,.7+particles.length/800));
+  flashes.push({x,y,r:0,life:1});
+  const cnt=55+Math.floor(Math.random()*30);
+  const spd=3.5+Math.random()*2.2;
+
+  const rand=(lo,hi)=>lo+Math.random()*(hi-lo);
+  const col=()=>pal[Math.floor(Math.random()*pal.length)];
+
+  if(type===0){
+    // Classic burst
+    for(let i=0;i<cnt;i++){
+      const a=(i/cnt)*Math.PI*2+rand(-.15,.15);
+      particles.push(new Particle(x,y,a,spd*rand(.65,1.15),col()));
+    }
+  } else if(type===1){
+    // Double ring
+    [.6,1].forEach(rf=>{
+      for(let i=0;i<cnt*.55;i++){
+        const a=(i/(cnt*.55))*Math.PI*2;
+        particles.push(new Particle(x,y,a,spd*rf,pal[Math.floor(i/(cnt*.55)*pal.length)],0.04));
+      }
+    });
+  } else if(type===2){
+    // Star spoke pattern
+    const arms=5+Math.floor(Math.random()*4);
+    const pp=Math.floor(cnt/arms);
+    for(let a=0;a<arms;a++){
+      const ba=(a/arms)*Math.PI*2;
+      for(let j=0;j<pp;j++){
+        const s=spd*.4+(j/pp)*spd*.75;
+        particles.push(new Particle(x,y,ba+rand(-.25,.25),s,pal[a%pal.length],.07));
+      }
+    }
+  } else if(type===3){
+    // Willow — heavy gravity, long droop
+    for(let i=0;i<cnt;i++){
+      const a=(i/cnt)*Math.PI*2;
+      particles.push(new Particle(x,y,a,spd*rand(.5,1)  ,col(),.2,.007));
+    }
+  } else {
+    // Chrysanthemum — 3 dense rings
+    for(let ring=0;ring<3;ring++){
+      const c=Math.floor(cnt/3);
+      for(let i=0;i<c;i++){
+        const a=(i/c)*Math.PI*2+ring*.25;
+        particles.push(new Particle(x,y,a,spd*(.5+ring*.28),pal[ring%pal.length],.065,.007+ring*.003));
+      }
+    }
+    // Center sparkle burst
+    for(let i=0;i<12;i++){
+      particles.push(new Particle(x,y,Math.random()*Math.PI*2,spd*1.4+Math.random(),pal[0],.04,.02));
+    }
+  }
+}
+
+// ── Input ──
+let hinted=false;
+function launch(lx,ly){
+  AC();
+  if(!hinted){hinted=true;document.getElementById('hint').style.opacity='0';}
+  rockets.push(new Rocket(lx,ly));
+}
+cv.addEventListener('click',e=>launch(e.clientX,e.clientY));
+cv.addEventListener('touchstart',e=>{e.preventDefault();launch(e.touches[0].clientX,e.touches[0].clientY)},{passive:false});
+
+// Auto mode
+let auto=false,autoT=null;
+function schedAuto(){
+  if(!auto)return;
+  autoT=setTimeout(()=>{
+    if(auto){launch(W*(.08+Math.random()*.84),H*(.06+Math.random()*.44));schedAuto();}
+  },500+Math.random()*1300);
+}
+document.getElementById('autoBtn').addEventListener('click',()=>{
+  auto=!auto;
+  document.getElementById('autoBtn').classList.toggle('on',auto);
+  document.getElementById('autoBtn').textContent=auto?'⏸ 停止自动':'自动模式';
+  if(auto)schedAuto(); else clearTimeout(autoT);
+});
+document.getElementById('finaleBtn').addEventListener('click',()=>{
+  AC();hinted=true;document.getElementById('hint').style.opacity='0';
+  for(let i=0;i<10;i++){
+    setTimeout(()=>rockets.push(new Rocket(W*(.06+Math.random()*.88),H*(.05+Math.random()*.4))),i*160);
+  }
+});
+
+// ── Draw loop ──
+const NOW=()=>performance.now()/1000;
+function frame(){
+  // Fade trail
+  ctx.fillStyle='rgba(0,0,8,0.17)';
+  ctx.fillRect(0,0,W,H);
+
+  // Stars
+  const t=NOW();
+  for(const s of STARS){
+    const tw=.5+.5*Math.sin(t*s.sp+s.ph);
+    ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(215,228,255,${s.a*tw})`;ctx.fill();
+  }
+
+  // Explosion flashes (before particles, behind them)
+  flashes=flashes.filter(f=>f.life>0);
+  for(const f of flashes){
+    f.r+=(150-f.r)*.3;f.life-=.1;
+    const g=ctx.createRadialGradient(f.x,f.y,0,f.x,f.y,f.r);
+    g.addColorStop(0,`rgba(255,255,220,${f.life*.25})`);
+    g.addColorStop(.4,`rgba(255,200,80,${f.life*.12})`);
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g;ctx.fillRect(f.x-f.r,f.y-f.r,f.r*2,f.r*2);
+  }
+
+  // Rockets + particles with additive blending for glow
+  ctx.save();
+  ctx.globalCompositeOperation='lighter';
+
+  rockets=rockets.filter(r=>r.alive);
+  for(const r of rockets){r.update();r.draw();}
+
+  particles=particles.filter(p=>p.life>0);
+  for(const p of particles){p.update();p.draw();}
+
+  ctx.restore();
+
+  // Skyline over everything (drawn last, normal blend)
+  ctx.fillStyle='#070310';
+  for(const b of skyline){
+    ctx.fillRect(b.x,H-b.h,b.w,b.h);
+    for(const w of b.wins){
+      if(w.lit){ctx.fillStyle=`rgba(255,240,180,${w.br})`;ctx.fillRect(b.x+w.x,H-b.h+w.y,7,9);}
+    }
+    ctx.fillStyle='#070310';
+  }
+  // Ground strip
+  ctx.fillStyle='#040210';
+  ctx.fillRect(0,H-6,W,6);
+
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+</body>
+</html>

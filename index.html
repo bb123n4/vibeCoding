@@ -625,6 +625,15 @@ footer {
   box-shadow: 0 2px 8px rgba(255,0,136,.4);
 }
 
+/* ════════════════════════
+   Fireworks preview
+════════════════════════ */
+.p-fire {
+  background: #000008;
+  position: relative; overflow: hidden;
+}
+.p-fire canvas { display: block; width: 100%; height: 100%; }
+
 /* ── Responsive ── */
 @media (max-width: 520px) {
   .grid { grid-template-columns: 1fr; }
@@ -789,6 +798,20 @@ footer {
         <div class="info-left">
           <div class="card-name">扫雷</div>
           <div class="card-desc">三难度 · 计时 · 首点安全</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </div>
+    </a>
+
+    <!-- Fireworks -->
+    <a class="card" href="fireworks.html">
+      <div class="preview p-fire">
+        <canvas id="fwCanvas"></canvas>
+      </div>
+      <div class="info">
+        <div class="info-left">
+          <div class="card-name">烟花</div>
+          <div class="card-desc">点击发射 · 五种形态 · 城市夜景</div>
         </div>
         <div class="card-arrow">→</div>
       </div>
@@ -1008,6 +1031,51 @@ footer {
     const [x,y]=finalPts[i];
     svg.appendChild(mk('circle',{cx:x,cy:y,r:'2.5',fill:colors[i],'opacity':'0.9'}));
   });
+})();
+
+// ── Fireworks mini preview ──
+(function(){
+  const cv=document.getElementById('fwCanvas');
+  if(!cv)return;
+  const parent=cv.parentElement;
+  cv.width=parent.offsetWidth||320; cv.height=parent.offsetHeight||160;
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  const PALS=[['255,220,50','255,200,0'],['255,60,80','255,130,60'],['60,220,255','130,180,255'],['210,80,255','255,140,255'],['80,255,180','50,220,140']];
+  let pts=[];
+  function burst(x,y){
+    const pal=PALS[Math.floor(Math.random()*PALS.length)];
+    const n=28+Math.floor(Math.random()*16);
+    const spd=2+Math.random()*1.5;
+    for(let i=0;i<n;i++){
+      const a=(i/n)*Math.PI*2+Math.random()*.2;
+      pts.push({x,y,px:x,py:y,vx:Math.cos(a)*spd*(0.7+Math.random()*.6),vy:Math.sin(a)*spd*(0.7+Math.random()*.6),life:1,decay:.018+Math.random()*.01,col:pal[Math.floor(Math.random()*pal.length)],sz:1+Math.random()});
+    }
+  }
+  // Auto-fire
+  let nextFire=0;
+  function tick(t){
+    ctx.fillStyle='rgba(0,0,8,0.2)';ctx.fillRect(0,0,W,H);
+    if(t>nextFire){burst(W*(.15+Math.random()*.7),H*(.1+Math.random()*.55));nextFire=t+700+Math.random()*900;}
+    ctx.save();ctx.globalCompositeOperation='lighter';
+    pts=pts.filter(p=>p.life>0);
+    for(const p of pts){
+      p.px=p.x;p.py=p.y;p.vx*=.986;p.vy*=.986;p.vy+=.05;p.x+=p.vx;p.y+=p.vy;p.life-=p.decay;
+      const a=Math.max(0,p.life);
+      ctx.beginPath();ctx.moveTo(p.px,p.py);ctx.lineTo(p.x,p.y);
+      ctx.strokeStyle=`rgba(${p.col},${a*.7})`;ctx.lineWidth=p.sz;ctx.lineCap='round';ctx.stroke();
+    }
+    ctx.restore();
+    // Skyline
+    ctx.fillStyle='#060210';ctx.fillRect(0,H-22,W,22);
+    ctx.fillRect(0,H-38,30,38);ctx.fillRect(34,H-28,22,28);ctx.fillRect(60,H-44,18,44);
+    ctx.fillRect(82,H-26,28,26);ctx.fillRect(114,H-50,16,50);ctx.fillRect(134,H-30,24,30);
+    ctx.fillRect(W-60,H-40,20,40);ctx.fillRect(W-36,H-28,36,28);
+    requestAnimationFrame(tick);
+  }
+  // Initial burst
+  setTimeout(()=>burst(W*.5,H*.35),300);
+  requestAnimationFrame(tick);
 })();
 
 // ── I Ching hex preview (乾 = 111111) ──
