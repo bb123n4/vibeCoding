@@ -3,97 +3,90 @@
 <head>
 <meta charset="UTF-8">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>元素炼成</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#0D0B18;display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden;touch-action:none}
-canvas{display:block;touch-action:none}
+body{background:#1A1830;display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden}
+canvas{display:block}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <script>
-const W=420, H=640;
+// ── Canvas & DPR ──
+const W=1120, H=720;
+const dpr=Math.min(window.devicePixelRatio||1,2);
 const cv=document.getElementById('c');
-cv.width=W; cv.height=H;
+cv.width=W*dpr; cv.height=H*dpr;
+cv.style.width=W+'px'; cv.style.height=H+'px';
 const ctx=cv.getContext('2d');
+ctx.scale(dpr,dpr);
 
-// ── Persist discovered set ──
-const SAVE_KEY='alchemy_v1';
-function loadDisc(){
-  try{return new Set(JSON.parse(localStorage.getItem(SAVE_KEY))||[]);}catch(e){return new Set();}
-}
-function saveDisc(){
-  try{localStorage.setItem(SAVE_KEY,JSON.stringify([...discovered]));}catch(e){}
-}
+// ── Persist ──
+const SAVE_KEY='alchemy_v2';
+function loadDisc(){try{return new Set(JSON.parse(localStorage.getItem(SAVE_KEY))||[]);}catch(e){return new Set();}}
+function saveDisc(){try{localStorage.setItem(SAVE_KEY,JSON.stringify([...discovered]));}catch(e){}}
 
-// ── Element definitions  [name, emoji, baseColor] ──
+// ── Element definitions ──
+// {n:名称, e:emoji, c:color, d:description}
 const E={
-  fire:     ['火',   '🔥','#D04828'],
-  water:    ['水',   '💧','#3878B0'],
-  earth:    ['土',   '🟫','#806030'],
-  wind:     ['风',   '🌬','#6888A0'],
-  // tier-1
-  steam:    ['蒸汽', '♨', '#7888A0'],
-  lava:     ['熔岩', '🌋','#C03818'],
-  smoke:    ['烟',   '💨','#606068'],
-  mud:      ['泥',   '🤎','#604818'],
-  wave:     ['浪',   '🌊','#2068A0'],
-  dust:     ['尘',   '🌫','#A08858'],
-  // tier-2
-  cloud:    ['云',   '☁', '#7888A0'],
-  stone:    ['石',   '🪨','#586070'],
-  volcano:  ['火山', '🗻','#A02810'],
-  brick:    ['砖',   '🧱','#B05828'],
-  typhoon:  ['台风', '🌀','#2860A0'],
-  fog:      ['雾',   '🌫','#6878A0'],
-  rain:     ['雨',   '🌧','#2058A0'],
-  lightning:['闪电', '⚡','#C8B818'],
-  sand:     ['沙',   '🏜','#C0A058'],
-  metal:    ['金属', '⚙', '#586888'],
-  // tier-3
-  rainbow:  ['彩虹', '🌈','#B05898'],
-  plant:    ['植物', '🌱','#409030'],
-  glass:    ['玻璃', '🔮','#509898'],
-  steel:    ['钢',   '🔩','#487080'],
-  tool:     ['工具', '🔧','#607888'],
-  charcoal: ['炭',   '◼', '#282830'],
-  tree:     ['树',   '🌳','#287030'],
-  algae:    ['藻',   '🌿','#208858'],
-  seed:     ['种子', '🌰','#886830'],
-  // tier-4
-  forest:   ['森林', '🌲','#186020'],
-  mirror:   ['镜子', '🪞','#6898A8'],
-  wall:     ['砖墙', '🧱','#907050'],
-  life:     ['生命', '✨','#9030A0'],
-  // tier-5
-  fish:     ['鱼',   '🐟','#2870A8'],
-  worm:     ['虫',   '🐛','#608828'],
-  bird:     ['鸟',   '🐦','#3880B8'],
-  phoenix:  ['凤凰', '🦅','#C06010'],
-  silk:     ['丝绸', '🧵','#C0A0B8'],
-  ocean:    ['海洋', '🌊','#085080'],
-  sky:      ['天空', '🌤','#4080B8'],
-  // tier-6
-  house:    ['房屋', '🏠','#B06820'],
-  paper:    ['纸',   '📄','#C8C0A8'],
-  ink:      ['墨',   '🖋','#202028'],
-  // tier-7
-  human:    ['人',   '👤','#B87848'],
-  tea:      ['茶',   '🍵','#489048'],
-  book:     ['书',   '📖','#503888'],
-  harvest:  ['收获', '🌾','#B09018'],
-  // tier-8
-  knowledge:['知识', '💡','#A08010'],
-  // myth
-  dragon:   ['龙',   '🐉','#203878'],
-  immortal: ['仙',   '🌟','#B8B028'],
-  universe: ['宇宙', '🌌','#0C1018'],
+  fire:     {n:'火',   e:'🔥',c:'#D04828',d:'万物之源，燃烧与创造并存。'},
+  water:    {n:'水',   e:'💧',c:'#3878B0',d:'生命的摇篮，柔弱而无坚不摧。'},
+  earth:    {n:'土',   e:'🟫',c:'#806030',d:'大地承载万物，厚德载物。'},
+  wind:     {n:'风',   e:'🌬',c:'#6888A0',d:'看不见却无处不在，带来变化与流动。'},
+  steam:    {n:'蒸汽', e:'♨', c:'#7888A0',d:'火与水交融，化为无形的力量。'},
+  lava:     {n:'熔岩', e:'🌋',c:'#C03818',d:'地球内部的炽热之血。'},
+  smoke:    {n:'烟',   e:'💨',c:'#606068',d:'燃烧的痕迹，飘散于天地之间。'},
+  mud:      {n:'泥',   e:'🤎',c:'#604818',d:'水与土的融合，孕育生机。'},
+  wave:     {n:'浪',   e:'🌊',c:'#2068A0',d:'风推水涌，力量在水面奔腾。'},
+  dust:     {n:'尘',   e:'🌫',c:'#A08858',d:'土随风而起，微小而无处不在。'},
+  cloud:    {n:'云',   e:'☁', c:'#7888A0',d:'蒸汽随风升腾，悬于天际。'},
+  stone:    {n:'石',   e:'🪨',c:'#586070',d:'熔岩冷却后凝固的记忆。'},
+  volcano:  {n:'火山', e:'🗻',c:'#A02810',d:'大地的伤口，喷涌着原始力量。'},
+  brick:    {n:'砖',   e:'🧱',c:'#B05828',d:'泥土经火淬炼，成为建造文明的基石。'},
+  typhoon:  {n:'台风', e:'🌀',c:'#2860A0',d:'浪与风旋转激荡，形成巨大漩涡。'},
+  fog:      {n:'雾',   e:'🌫',c:'#6878A0',d:'烟与水混合，朦胧遮蔽了世界。'},
+  rain:     {n:'雨',   e:'🌧',c:'#2058A0',d:'云积水重，化作甘霖降落大地。'},
+  lightning:{n:'闪电', e:'⚡',c:'#C8B818',d:'云与火碰撞，瞬间释放天地之力。'},
+  sand:     {n:'沙',   e:'🏜',c:'#C0A058',d:'石被风磨碎，铺成无边沙漠。'},
+  metal:    {n:'金属', e:'⚙', c:'#586888',d:'石在烈火中涅槃，化为坚硬的金属。'},
+  rainbow:  {n:'彩虹', e:'🌈',c:'#B05898',d:'雨后阳光折射，七色横挂天际。'},
+  plant:    {n:'植物', e:'🌱',c:'#409030',d:'雨水润泽大地，生命萌发。'},
+  glass:    {n:'玻璃', e:'🔮',c:'#509898',d:'沙在高温中熔化，变成透明的奇迹。'},
+  steel:    {n:'钢',   e:'🔩',c:'#487080',d:'金属在火中精炼，强度倍增。'},
+  tool:     {n:'工具', e:'🔧',c:'#607888',d:'金属与石结合，人类掌握改造世界的力量。'},
+  charcoal: {n:'炭',   e:'◼', c:'#282830',d:'植物经火不完全燃烧的遗存。'},
+  tree:     {n:'树',   e:'🌳',c:'#287030',d:'植物扎根大地，向天空生长。'},
+  algae:    {n:'藻',   e:'🌿',c:'#208858',d:'植物与水相融，在水中悄然生长。'},
+  seed:     {n:'种子', e:'🌰',c:'#886830',d:'植物借风传播，携带生命的密码。'},
+  forest:   {n:'森林', e:'🌲',c:'#186020',d:'树连树，生命繁茂，形成大地的肺。'},
+  mirror:   {n:'镜子', e:'🪞',c:'#6898A8',d:'玻璃与沙磨砺，映出真实的倒影。'},
+  wall:     {n:'砖墙', e:'🧱',c:'#907050',d:'砖与砖叠合，隔开了内与外。'},
+  life:     {n:'生命', e:'✨',c:'#9030A0',d:'电光石火之间，奇迹在水中诞生。'},
+  fish:     {n:'鱼',   e:'🐟',c:'#2870A8',d:'生命进入水中，长出鳍与鳞片。'},
+  worm:     {n:'虫',   e:'🐛',c:'#608828',d:'生命扎入土里，蠕动于泥土之间。'},
+  bird:     {n:'鸟',   e:'🐦',c:'#3880B8',d:'生命随风而起，展翅翱翔天际。'},
+  phoenix:  {n:'凤凰', e:'🦅',c:'#C06010',d:'生命与火合一，浴火重生的神鸟。'},
+  silk:     {n:'丝绸', e:'🧵',c:'#C0A0B8',d:'虫在树上吐丝结茧，织出柔滑的奇迹。'},
+  ocean:    {n:'海洋', e:'🌊',c:'#085080',d:'无数条鱼汇聚，形成深不可测的海。'},
+  sky:      {n:'天空', e:'🌤',c:'#4080B8',d:'群鸟高飞，广阔无垠的蓝色领域。'},
+  house:    {n:'房屋', e:'🏠',c:'#B06820',d:'墙与墙相连，为生命遮风挡雨。'},
+  paper:    {n:'纸',   e:'📄',c:'#C8C0A8',d:'树木削薄铺平，成为记录思想的媒介。'},
+  ink:      {n:'墨',   e:'🖋',c:'#202028',d:'炭溶于水，变成书写文明的黑色液体。'},
+  human:    {n:'人',   e:'👤',c:'#B87848',d:'生命走进房屋，演化出智慧与情感。'},
+  tea:      {n:'茶',   e:'🍵',c:'#489048',d:'树叶落入水中，飘散出清雅的香气。'},
+  book:     {n:'书',   e:'📖',c:'#503888',d:'纸上有了墨迹，思想得以传承万代。'},
+  harvest:  {n:'收获', e:'🌾',c:'#B09018',d:'种子在雨水滋养下，结出丰硕果实。'},
+  knowledge:{n:'知识', e:'💡',c:'#A08010',d:'书与人交汇，智慧之光照亮前路。'},
+  dragon:   {n:'龙',   e:'🐉',c:'#203878',d:'凤凰穿越海洋，化身传说中的神龙。'},
+  immortal: {n:'仙',   e:'🌟',c:'#B8B028',d:'龙飞天际，超脱凡尘，得道成仙。'},
+  universe: {n:'宇宙', e:'🌌',c:'#0C1018',d:'海洋与天空合而为一，一切的起点与终点。'},
 };
-const TOTAL=Object.keys(E).length;
+const ALL_IDS=Object.keys(E);
+const TOTAL=ALL_IDS.length; // 51
 
-// ── Recipes: sorted(a+b) → result ──
+// ── Recipes ──
 const R={};
 function rec(a,b,c){R[[a,b].sort().join('+')]=c;}
 rec('fire','water','steam');
@@ -144,68 +137,100 @@ rec('phoenix','ocean','dragon');
 rec('dragon','sky','immortal');
 rec('ocean','sky','universe');
 
+// ── Origin reverse lookup ──
+const ORIGIN={};
+for(const [k,v] of Object.entries(R)){
+  const [a,b]=k.split('+');
+  ORIGIN[v]=[a,b];
+}
+
 // ── State ──
 const STARTERS=['fire','water','earth','wind'];
 let discovered=loadDisc();
 if(discovered.size===0) STARTERS.forEach(id=>discovered.add(id));
 let slotA=null, slotB=null;
-let libScroll=0;
-let shakePhase=0, shakeDamp=0; // slot shake on fail
-let combAnim=null;   // {type:'fail'|'known'|'new', timer, id}
-let revealAnim=null; // {id, t, hold}  full-screen reveal
-let combLocked=false; // prevent double-fire
+let shakePhase=0, shakeDamp=0;
+let combAnim=null;
+let revealAnim=null;
+let combLocked=false;
+let selectedEnc=null; // selected element in encyclopedia
 
 // ── Layout ──
-const HDR_H=54;
-const SLOT_CY=HDR_H+82;
-const SLOT_R=40;
-const SLT_AX=W*0.28, SLT_BX=W*0.72;
-const RES_Y=SLOT_CY+SLOT_R+22;
-const DIV_Y=270;
-const LIB_Y=DIV_Y+18;
-const LIB_H=H-LIB_Y-4;
-const CW=72,CH=78,CGAP=9;
-const COLS=5;
-const ROW_H=CH+6;
-function cardX(col){return CGAP+col*(CW+CGAP);}
-function cardY(row){return LIB_Y+row*ROW_H-libScroll;}
-function maxScroll(){
-  return Math.max(0,Math.ceil(discList().length/COLS)*ROW_H - LIB_H);
-}
-function discList(){return Object.keys(E).filter(id=>discovered.has(id));}
+const LP=544;        // left panel width
+const DIV_X=LP;      // divider x
 
-// ── Draw element card ──
-function drawCard(id,x,y,w,h,alpha,glowing,scale){
-  const [n,e,c]=E[id]||['?','?','#888'];
+// Left panel — combo zone
+const SL_CY=155;     // slot center Y
+const SL_R=40;       // slot radius
+const SL_AX=148;     // slot A center X
+const SL_BX=396;     // slot B center X
+const RES_CY=242;    // result card center Y
+const CZ_BOT=278;    // combo zone bottom
+
+// Left panel — element grid
+const EG_TOP=316;
+const EG_SZ=52;      // card size  (7 rows × 57px = 399 → ends at 715, fits H=720)
+const EG_GAP=5;
+const EG_COLS=8;
+const EG_X0=Math.round((LP - (EG_COLS*(EG_SZ+EG_GAP)-EG_GAP))/2); // ≈19
+
+// Right panel — encyclopedia
+const RP_X=LP+1;
+const RP_W=W-LP-1;
+const EN_HDR_H=56;
+const EN_COLS=8;
+const EN_CSZ=54;
+const EN_GAP=6;
+const EN_X0=RP_X+Math.round((RP_W-(EN_COLS*(EN_CSZ+EN_GAP)-EN_GAP))/2);
+const EN_TOP=EN_HDR_H+14;
+const EN_ROWS=7;
+// detail panel below grid
+const EN_DET_Y=EN_TOP+EN_ROWS*(EN_CSZ+EN_GAP)+10;
+
+// ── Draw helpers ──
+function roundRect(x,y,w,h,r){
+  ctx.beginPath(); ctx.roundRect(x,y,w,h,r);
+}
+
+function drawCard(id,x,y,sz,alpha,glowing,locked){
+  const el=E[id]||{n:'?',e:'?',c:'#888',d:''};
+  const {n,e,c}=el;
   ctx.save();
   ctx.globalAlpha=alpha??1;
-  if(scale&&scale!==1){
-    ctx.translate(x+w/2,y+h/2);
-    ctx.scale(scale,scale);
-    ctx.translate(-w/2,-h/2);
-    x=0;y=0;
+  if(locked){
+    // locked card — dark with ?
+    roundRect(x,y,sz,sz,8);
+    ctx.fillStyle='rgba(255,255,255,0.04)'; ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=1;
+    roundRect(x,y,sz,sz,8); ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.12)';
+    ctx.font=`${Math.round(sz*0.36)}px serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('?', x+sz/2, y+sz*0.44);
+    ctx.restore(); return;
   }
   // bg
-  ctx.beginPath(); ctx.roundRect(x,y,w,h,9);
+  roundRect(x,y,sz,sz,8);
   ctx.fillStyle=c+'20'; ctx.fill();
-  // glow border
+  // border
   if(glowing){
-    ctx.shadowBlur=14; ctx.shadowColor=c;
-    ctx.strokeStyle=c+'CC'; ctx.lineWidth=1.8;
+    ctx.shadowBlur=16; ctx.shadowColor=c;
+    ctx.strokeStyle=c+'CC'; ctx.lineWidth=2;
   } else {
-    ctx.strokeStyle=c+'60'; ctx.lineWidth=1;
+    ctx.shadowBlur=0;
+    ctx.strokeStyle=c+'55'; ctx.lineWidth=1;
   }
-  ctx.beginPath(); ctx.roundRect(x,y,w,h,9); ctx.stroke();
+  roundRect(x,y,sz,sz,8); ctx.stroke();
   ctx.shadowBlur=0;
   // emoji
-  ctx.font=`${Math.round(w*0.4)}px serif`;
+  ctx.font=`${Math.round(sz*0.38)}px serif`;
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillStyle='#fff';
-  ctx.fillText(e, x+w/2, y+h*0.41);
+  ctx.fillText(e, x+sz/2, y+sz*0.40);
   // name
-  ctx.font=`300 ${Math.max(9,Math.round(w*0.175))}px "Hiragino Sans","Yu Gothic",sans-serif`;
-  ctx.fillStyle='rgba(255,255,255,0.72)';
-  ctx.fillText(n, x+w/2, y+h*0.79);
+  ctx.font=`300 ${Math.max(8,Math.round(sz*0.165))}px "Hiragino Sans","Yu Gothic",sans-serif`;
+  ctx.fillStyle='rgba(255,255,255,0.68)';
+  ctx.fillText(n, x+sz/2, y+sz*0.79);
   ctx.restore();
 }
 
@@ -238,145 +263,265 @@ function tryCombine(){
 function draw(ts){
   ctx.clearRect(0,0,W,H);
 
-  // background
-  const bg=ctx.createRadialGradient(W/2,H*0.4,0,W/2,H*0.4,400);
-  bg.addColorStop(0,'#111020'); bg.addColorStop(1,'#090810');
+  // === Background ===
+  const bg=ctx.createRadialGradient(W*0.35,H*0.45,0,W*0.35,H*0.45,600);
+  bg.addColorStop(0,'#1E1B38'); bg.addColorStop(1,'#111024');
   ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
 
   // subtle dot grid
-  ctx.fillStyle='rgba(255,255,255,0.022)';
-  for(let x=18;x<W;x+=30) for(let y=18;y<H;y+=30){
-    ctx.beginPath();ctx.arc(x,y,0.9,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.018)';
+  for(let x=18;x<W;x+=28) for(let y=18;y<H;y+=28){
+    ctx.beginPath();ctx.arc(x,y,0.8,0,Math.PI*2);ctx.fill();
   }
 
-  // ── Header ──
+  // === Left Panel ===
+  drawLeftPanel(ts);
+
+  // === Divider ===
+  ctx.strokeStyle='rgba(255,255,255,0.07)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(DIV_X,0); ctx.lineTo(DIV_X,H); ctx.stroke();
+
+  // === Right Panel ===
+  drawRightPanel();
+
+  // === Reveal overlay (full-screen) ===
+  if(revealAnim) drawReveal();
+}
+
+function drawLeftPanel(ts){
+  // Header
   ctx.textAlign='center';
-  ctx.fillStyle='rgba(255,255,255,0.80)';
-  ctx.font='300 15px "Hiragino Sans","Yu Gothic",sans-serif';
-  ctx.fillText('元  素  炼  成', W/2, 24);
-  const dl=discList();
-  ctx.fillStyle='rgba(255,255,255,0.22)';
+  ctx.fillStyle='rgba(255,255,255,0.75)';
+  ctx.font='300 16px "Hiragino Sans","Yu Gothic",sans-serif';
+  ctx.fillText('元  素  炼  成', LP/2, 30);
+
+  const dl=[...discovered];
+  ctx.fillStyle='rgba(255,255,255,0.20)';
   ctx.font='300 10px "Helvetica Neue",Arial,sans-serif';
-  ctx.fillText(`${dl.length} / ${TOTAL}  已发现`, W/2, 42);
-  // thin progress bar
-  const pbw=120,pbx=(W-pbw)/2,pby=48;
-  ctx.fillStyle='rgba(255,255,255,0.07)';
-  ctx.beginPath();ctx.roundRect(pbx,pby,pbw,2.5,1.5);ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,0.28)';
-  ctx.beginPath();ctx.roundRect(pbx,pby,pbw*(dl.length/TOTAL),2.5,1.5);ctx.fill();
+  ctx.fillText(`${dl.length} / ${TOTAL}  已发现`, LP/2, 48);
+  // progress bar
+  const pbw=140,pbx=(LP-pbw)/2,pby=56;
+  ctx.fillStyle='rgba(255,255,255,0.06)';
+  ctx.beginPath();ctx.roundRect(pbx,pby,pbw,2,1);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.25)';
+  ctx.beginPath();ctx.roundRect(pbx,pby,pbw*(dl.length/TOTAL),2,1);ctx.fill();
 
-  // ── Slots ──
-  const sOff= shakeDamp>0.01 ? Math.sin(shakePhase)*shakeDamp*10 : 0;
+  // ── Combo zone background ──
+  ctx.fillStyle='rgba(255,255,255,0.022)';
+  ctx.beginPath();ctx.roundRect(14,88,LP-28,CZ_BOT-88,12);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=0.5;
+  ctx.beginPath();ctx.roundRect(14,88,LP-28,CZ_BOT-88,12);ctx.stroke();
 
-  [[SLT_AX+sOff, slotA],[SLT_BX+sOff, slotB]].forEach(([sx,id])=>{
+  // slot shake offset
+  const sOff=shakeDamp>0.01?Math.sin(shakePhase)*shakeDamp*10:0;
+
+  // Draw two slots
+  [[SL_AX+sOff,slotA],[SL_BX+sOff,slotB]].forEach(([sx,id])=>{
     ctx.save();
-    ctx.beginPath(); ctx.arc(sx,SLOT_CY,SLOT_R,0,Math.PI*2);
+    ctx.beginPath();ctx.arc(sx,SL_CY,SL_R,0,Math.PI*2);
     if(id){
-      const c=E[id][2];
-      ctx.fillStyle=c+'18'; ctx.fill();
+      const c=E[id].c;
+      ctx.fillStyle=c+'15'; ctx.fill();
       ctx.strokeStyle=c+'70'; ctx.lineWidth=1.5;
     } else {
-      ctx.fillStyle='rgba(255,255,255,0.03)'; ctx.fill();
-      ctx.strokeStyle='rgba(255,255,255,0.10)';
+      ctx.fillStyle='rgba(255,255,255,0.025)'; ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.08)';
       ctx.setLineDash([4,6]); ctx.lineWidth=1;
     }
-    ctx.beginPath(); ctx.arc(sx,SLOT_CY,SLOT_R,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath();ctx.arc(sx,SL_CY,SL_R,0,Math.PI*2);ctx.stroke();
     ctx.setLineDash([]);
     if(id){
-      drawCard(id, sx-CW/2*0.88, SLOT_CY-CH/2*0.88, CW*0.88, CH*0.88, 1, true);
+      const csz=EG_SZ*0.92;
+      drawCard(id, sx-csz/2, SL_CY-csz/2, csz, 1, true);
     } else {
-      ctx.fillStyle='rgba(255,255,255,0.10)';
-      ctx.font='18px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText('◇', sx, SLOT_CY);
+      ctx.fillStyle='rgba(255,255,255,0.08)';
+      ctx.font='20px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('◇', sx, SL_CY);
     }
     ctx.restore();
   });
 
-  // "+" between slots
-  ctx.fillStyle='rgba(255,255,255,0.18)';
-  ctx.font='300 20px "Helvetica Neue",Arial,sans-serif';
+  // "+" label
+  ctx.fillStyle='rgba(255,255,255,0.15)';
+  ctx.font='300 22px "Helvetica Neue",Arial,sans-serif';
   ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText('+', W/2, SLOT_CY);
+  ctx.fillText('+', LP/2, SL_CY);
 
-  // ── Combine result area ──
+  // Result area
   if(combAnim){
     const t=combAnim.timer;
     if(combAnim.type==='fail'){
-      ctx.fillStyle=`rgba(220,80,60,${t*0.75})`;
-      ctx.font='300 11px "Helvetica Neue",Arial,sans-serif';
-      ctx.textAlign='center'; ctx.textBaseline='top';
-      ctx.fillText('无法合成', W/2, RES_Y);
+      ctx.fillStyle=`rgba(220,80,60,${t*0.8})`;
+      ctx.font='300 12px "Helvetica Neue",Arial,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('无法合成', LP/2, RES_CY);
     } else if(combAnim.id){
+      const csz=EG_SZ;
       const sc=0.8+0.2*(1-t);
-      drawCard(combAnim.id, W/2-CW/2, RES_Y, CW, CH, Math.min(1,t*2), false, sc);
-      if(combAnim.type==='new'){
-        ctx.fillStyle=`rgba(200,180,50,${Math.min(1,t*2)*0.85})`;
-        ctx.font='300 9px "Helvetica Neue",Arial,sans-serif';
-        ctx.textAlign='center';
-        ctx.fillText('✦  新发现  ✦', W/2, RES_Y+CH+6);
-      } else {
-        ctx.fillStyle=`rgba(255,255,255,${t*0.3})`;
-        ctx.font='300 9px "Helvetica Neue",Arial,sans-serif';
-        ctx.textAlign='center';
-        ctx.fillText('已知', W/2, RES_Y+CH+6);
-      }
+      ctx.save();
+      ctx.translate(LP/2, RES_CY);
+      ctx.scale(sc,sc);
+      drawCard(combAnim.id, -csz/2, -csz/2, csz, Math.min(1,t*2), false);
+      ctx.restore();
+      const lbl=combAnim.type==='new'?'✦  新发现  ✦':'已知';
+      ctx.fillStyle=combAnim.type==='new'
+        ?`rgba(210,185,60,${Math.min(1,t*2)*0.9})`
+        :`rgba(255,255,255,${t*0.3})`;
+      ctx.font=`300 9px "Helvetica Neue",Arial,sans-serif`;
+      ctx.textAlign='center';
+      ctx.fillText(lbl, LP/2, RES_CY+csz/2+13);
     }
+  } else if(!slotA&&!slotB){
+    ctx.fillStyle='rgba(255,255,255,0.06)';
+    ctx.font='300 10px "Helvetica Neue",Arial,sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('点击下方元素放入槽中', LP/2, RES_CY);
   }
 
-  // ── Divider ──
+  // ── Divider between combo and grid ──
   ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=0.5;
-  ctx.beginPath(); ctx.moveTo(14,DIV_Y); ctx.lineTo(W-14,DIV_Y); ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,0.16)';
+  ctx.beginPath();ctx.moveTo(14,CZ_BOT+6);ctx.lineTo(LP-14,CZ_BOT+6);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,0.14)';
   ctx.font='300 9px "Helvetica Neue",Arial,sans-serif';
   ctx.textAlign='left';
-  ctx.fillText('已发现', 14, DIV_Y+11);
+  ctx.fillText('已发现', 14, CZ_BOT+20);
 
-  // ── Library ──
+  // ── Element grid ──
+  const orderedDisc=ALL_IDS.filter(id=>discovered.has(id));
   ctx.save();
-  ctx.beginPath(); ctx.rect(0,LIB_Y,W,LIB_H); ctx.clip();
-  dl.forEach((id,i)=>{
-    const col=i%COLS, row=Math.floor(i/COLS);
-    const cx=cardX(col), cy=cardY(row);
-    if(cy+CH<LIB_Y||cy>H) return;
+  ctx.beginPath();ctx.rect(0,CZ_BOT+24,LP,H-(CZ_BOT+24));ctx.clip();
+  orderedDisc.forEach((id,i)=>{
+    const col=i%EG_COLS, row=Math.floor(i/EG_COLS);
+    const cx=EG_X0+col*(EG_SZ+EG_GAP);
+    const cy=EG_TOP+row*(EG_SZ+EG_GAP);
+    if(cy>H) return;
     const sel=(id===slotA||id===slotB);
-    drawCard(id,cx,cy,CW,CH,1,sel);
+    drawCard(id,cx,cy,EG_SZ,1,sel);
   });
   ctx.restore();
+}
 
-  // fade bottom edge of library
-  const fg=ctx.createLinearGradient(0,H-36,0,H);
-  fg.addColorStop(0,'rgba(9,8,16,0)'); fg.addColorStop(1,'rgba(9,8,16,1)');
-  ctx.fillStyle=fg; ctx.fillRect(0,H-36,W,36);
+function drawRightPanel(){
+  // Header
+  ctx.textAlign='center';
+  ctx.fillStyle='rgba(255,255,255,0.70)';
+  ctx.font='300 14px "Hiragino Sans","Yu Gothic",sans-serif';
+  ctx.fillText('图  鉴', RP_X+RP_W/2, 30);
 
-  // ── Reveal overlay ──
-  if(revealAnim){
-    const t=Math.min(1,revealAnim.t);
-    const ease=t<0.5?2*t*t:(1-Math.pow(-2*t+2,2)/2);
-    ctx.fillStyle=`rgba(9,8,16,${ease*0.94})`; ctx.fillRect(0,0,W,H);
-    const id=revealAnim.id;
-    const [n,e,c]=E[id];
-    // glow orb
-    ctx.save();
-    ctx.globalAlpha=ease*0.4;
-    ctx.shadowBlur=80; ctx.shadowColor=c;
-    ctx.beginPath(); ctx.arc(W/2,H/2-10,70,0,Math.PI*2);
-    ctx.fillStyle=c+'18'; ctx.fill();
-    ctx.restore();
-    // big card
-    const bw=160,bh=170;
-    drawCard(id,(W-bw)/2,(H-bh)/2-24,bw,bh,ease,true,0.7+ease*0.3);
-    // badges
-    ctx.globalAlpha=ease;
-    ctx.fillStyle='rgba(200,180,50,0.90)';
-    ctx.font='300 11px "Helvetica Neue",Arial,sans-serif';
+  const cnt=discovered.size;
+  ctx.fillStyle='rgba(255,255,255,0.18)';
+  ctx.font='300 10px "Helvetica Neue",Arial,sans-serif';
+  ctx.fillText(`${cnt} / ${TOTAL}`, RP_X+RP_W/2, 46);
+
+  // Grid — all 51 in order (locked vs unlocked)
+  ALL_IDS.forEach((id,i)=>{
+    const col=i%EN_COLS, row=Math.floor(i/EN_COLS);
+    const x=EN_X0+col*(EN_CSZ+EN_GAP);
+    const y=EN_TOP+row*(EN_CSZ+EN_GAP);
+    const isDisc=discovered.has(id);
+    const isSel=(id===selectedEnc);
+    drawCard(id,x,y,EN_CSZ,1,isSel,!isDisc);
+    // selection highlight ring
+    if(isSel&&isDisc){
+      ctx.save();
+      ctx.strokeStyle=E[id].c+'AA';
+      ctx.lineWidth=2;
+      ctx.shadowBlur=12; ctx.shadowColor=E[id].c;
+      ctx.beginPath();ctx.roundRect(x-1,y-1,EN_CSZ+2,EN_CSZ+2,9);ctx.stroke();
+      ctx.restore();
+    }
+  });
+
+  // Detail panel
+  if(selectedEnc&&discovered.has(selectedEnc)){
+    drawDetailPanel(selectedEnc);
+  } else {
+    ctx.fillStyle='rgba(255,255,255,0.07)';
+    ctx.font='300 10px "Helvetica Neue",Arial,sans-serif';
     ctx.textAlign='center';
-    ctx.fillText('✦   新发现   ✦', W/2, (H-bh)/2-40);
-    ctx.fillStyle='rgba(255,255,255,0.28)';
-    ctx.font='300 9px "Helvetica Neue",Arial,sans-serif';
-    ctx.fillText(revealAnim.hold?'点击继续':'', W/2, (H+bh)/2-2);
-    ctx.globalAlpha=1;
-    if(!revealAnim.hold&&t>=1) revealAnim.hold=true;
+    ctx.fillText('点击已发现的元素查看详情', RP_X+RP_W/2, EN_DET_Y+26);
   }
+}
+
+function drawDetailPanel(id){
+  const el=E[id];
+  const {n,e,c,d}=el;
+  const x=RP_X+10, y=EN_DET_Y, w=RP_W-20, h=H-EN_DET_Y-10;
+
+  // panel bg
+  ctx.save();
+  ctx.fillStyle=c+'12';
+  ctx.beginPath();ctx.roundRect(x,y,w,h,10);ctx.fill();
+  ctx.strokeStyle=c+'30'; ctx.lineWidth=0.8;
+  ctx.beginPath();ctx.roundRect(x,y,w,h,10);ctx.stroke();
+
+  // emoji + name row
+  ctx.font=`${Math.round(h*0.40)}px serif`;
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillStyle='#fff';
+  const emojY=y+h*0.32;
+  ctx.fillText(e, x+14, emojY);
+
+  ctx.font=`300 18px "Hiragino Sans","Yu Gothic",sans-serif`;
+  ctx.fillStyle=c;
+  ctx.fillText(n, x+14+h*0.38, emojY-8);
+
+  // recipe
+  const orig=ORIGIN[id];
+  if(orig){
+    const [ra,rb]=orig;
+    const recipeStr=`${E[ra].e} ${E[ra].n}  ＋  ${E[rb].e} ${E[rb].n}`;
+    ctx.font=`300 10px "Hiragino Sans","Yu Gothic",sans-serif`;
+    ctx.fillStyle='rgba(255,255,255,0.35)';
+    ctx.fillText(recipeStr, x+14+h*0.38, emojY+10);
+  } else {
+    ctx.font=`300 10px "Helvetica Neue",Arial,sans-serif`;
+    ctx.fillStyle='rgba(255,255,255,0.22)';
+    ctx.fillText('起源元素', x+14+h*0.38, emojY+10);
+  }
+
+  // description
+  ctx.font=`300 11px "Hiragino Sans","Yu Gothic",sans-serif`;
+  ctx.fillStyle='rgba(255,255,255,0.52)';
+  ctx.textBaseline='top';
+  ctx.fillText(d, x+14, y+h*0.65);
+
+  ctx.restore();
+}
+
+function drawReveal(){
+  const t=Math.min(1,revealAnim.t);
+  const ease=t<0.5?2*t*t:(1-Math.pow(-2*t+2,2)/2);
+  ctx.fillStyle=`rgba(9,8,16,${ease*0.95})`; ctx.fillRect(0,0,W,H);
+  const id=revealAnim.id;
+  const {n,e,c}=E[id];
+
+  // glow orb
+  ctx.save();
+  ctx.globalAlpha=ease*0.45;
+  ctx.shadowBlur=100; ctx.shadowColor=c;
+  ctx.beginPath();ctx.arc(W/2,H/2-10,80,0,Math.PI*2);
+  ctx.fillStyle=c+'18';ctx.fill();
+  ctx.restore();
+
+  // big card
+  const bsz=180;
+  ctx.save();
+  ctx.translate(W/2,H/2-14);
+  ctx.scale(0.65+ease*0.35,0.65+ease*0.35);
+  drawCard(id,-bsz/2,-bsz/2,bsz,ease,true);
+  ctx.restore();
+
+  ctx.globalAlpha=ease;
+  ctx.fillStyle='rgba(210,185,55,0.92)';
+  ctx.font='300 12px "Helvetica Neue",Arial,sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('✦   新发现   ✦', W/2, H/2-bsz/2*0.72-22);
+  ctx.fillStyle='rgba(255,255,255,0.25)';
+  ctx.font='300 9px "Helvetica Neue",Arial,sans-serif';
+  ctx.fillText(revealAnim.hold?'点击继续':'', W/2, H/2+bsz/2*0.72+22);
+  ctx.globalAlpha=1;
+  if(!revealAnim.hold&&t>=1) revealAnim.hold=true;
 }
 
 // ── Loop ──
@@ -386,17 +531,29 @@ function loop(ts){
   const dt=Math.min(ts-last,50)/1000; last=ts;
   shakePhase+=dt*55; shakeDamp=Math.max(0,shakeDamp-dt*4);
   if(combAnim) combAnim.timer=Math.max(0,combAnim.timer-dt*1.8);
-  if(revealAnim) revealAnim.t=Math.min(1,revealAnim.t+dt*3.5);
+  if(revealAnim) revealAnim.t=Math.min(1,revealAnim.t+dt*3.2);
   draw(ts);
 }
 requestAnimationFrame(loop);
 
-// ── Input ──
-function hitCard(x,y){
-  const dl=discList();
-  for(let i=0;i<dl.length;i++){
-    const cx=cardX(i%COLS), cy=cardY(Math.floor(i/COLS));
-    if(x>=cx&&x<=cx+CW&&y>=cy&&y<=cy+CH) return dl[i];
+// ── Hit testing ──
+function hitLeftCard(x,y){
+  const disc=ALL_IDS.filter(id=>discovered.has(id));
+  for(let i=0;i<disc.length;i++){
+    const col=i%EG_COLS, row=Math.floor(i/EG_COLS);
+    const cx=EG_X0+col*(EG_SZ+EG_GAP);
+    const cy=EG_TOP+row*(EG_SZ+EG_GAP);
+    if(x>=cx&&x<=cx+EG_SZ&&y>=cy&&y<=cy+EG_SZ) return disc[i];
+  }
+  return null;
+}
+
+function hitEncCard(x,y){
+  for(let i=0;i<ALL_IDS.length;i++){
+    const col=i%EN_COLS, row=Math.floor(i/EN_COLS);
+    const cx=EN_X0+col*(EN_CSZ+EN_GAP);
+    const cy=EN_TOP+row*(EN_CSZ+EN_GAP);
+    if(x>=cx&&x<=cx+EN_CSZ&&y>=cy&&y<=cy+EN_CSZ) return ALL_IDS[i];
   }
   return null;
 }
@@ -405,12 +562,23 @@ function onTap(x,y){
   if(revealAnim&&revealAnim.hold){ revealAnim=null; return; }
   if(revealAnim) return;
   if(combLocked) return;
-  // click slot to deselect
-  if(Math.hypot(x-SLT_AX,y-SLOT_CY)<=SLOT_R){ slotA=null; return; }
-  if(Math.hypot(x-SLT_BX,y-SLOT_CY)<=SLOT_R){ slotB=null; return; }
-  // click library
-  if(y<LIB_Y) return;
-  const id=hitCard(x,y);
+
+  // Click slot to clear
+  if(Math.hypot(x-SL_AX,y-SL_CY)<=SL_R){ slotA=null; return; }
+  if(Math.hypot(x-SL_BX,y-SL_CY)<=SL_R){ slotB=null; return; }
+
+  // Right panel — encyclopedia
+  if(x>=RP_X){
+    const id=hitEncCard(x,y);
+    if(id&&discovered.has(id)){
+      selectedEnc=(selectedEnc===id)?null:id;
+    }
+    return;
+  }
+
+  // Left panel — element grid
+  if(y<EG_TOP) return;
+  const id=hitLeftCard(x,y);
   if(!id) return;
   if(!slotA){ slotA=id; }
   else if(!slotB){ slotB=id; setTimeout(tryCombine,120); }
@@ -421,33 +589,6 @@ cv.addEventListener('click',e=>{
   const r=cv.getBoundingClientRect();
   onTap((e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height);
 });
-cv.addEventListener('wheel',e=>{
-  e.preventDefault();
-  libScroll=Math.max(0,Math.min(maxScroll(),libScroll+e.deltaY*0.8));
-},{passive:false});
-
-let _ty=0,_ts=0,_moved=false;
-cv.addEventListener('touchstart',e=>{
-  e.preventDefault();
-  const r=cv.getBoundingClientRect();
-  _ty=(e.touches[0].clientY-r.top)*H/r.height;
-  _ts=libScroll; _moved=false;
-},{passive:false});
-cv.addEventListener('touchmove',e=>{
-  e.preventDefault();
-  const r=cv.getBoundingClientRect();
-  const y=(e.touches[0].clientY-r.top)*H/r.height;
-  const dy=_ty-y;
-  if(Math.abs(dy)>4){_moved=true; libScroll=Math.max(0,Math.min(maxScroll(),_ts+dy));}
-},{passive:false});
-cv.addEventListener('touchend',e=>{
-  e.preventDefault();
-  if(!_moved){
-    const r=cv.getBoundingClientRect();
-    const t=e.changedTouches[0];
-    onTap((t.clientX-r.left)*W/r.width,(t.clientY-r.top)*H/r.height);
-  }
-},{passive:false});
 </script>
 </body>
 </html>
