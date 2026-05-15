@@ -357,6 +357,9 @@ footer {
 .p-ink { background:#f8f4ed; position:relative; overflow:hidden; }
 .p-ink canvas { display:block; width:100%; height:100%; }
 
+.p-tower { background:#0f1520; position:relative; overflow:hidden; }
+.p-tower canvas { display:block; width:100%; height:100%; }
+
 /* ── Responsive ── */
 @media (max-width: 680px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
@@ -417,8 +420,10 @@ footer {
         <div class="info"><div class="info-left"><div class="card-name">钓鱼</div><div class="card-desc">等待咬钩 · 六种鱼 · 月夜垂钓</div></div><div class="card-arrow">→</div></div>
       </a>
 
-      <!-- 1 placeholder to complete the row -->
-      <div class="card-ph"><div class="ph-icon">✦</div><div class="ph-text">新的在路上</div></div>
+      <a class="card" href="tower.html">
+        <div class="preview p-tower"><canvas id="towerCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">塔防</div><div class="card-desc">四种炮塔 · 无尽波次 · 路径守卫</div></div><div class="card-arrow">→</div></div>
+      </a>
 
     </div>
   </div>
@@ -518,7 +523,7 @@ footer {
 const ALL_APPS = [
   '2048.html','breakout.html','minesweeper.html','rhythm.html','slots.html','adventure.html',
   'luckToday.html','tarot.html','energy.html','namescore.html','iching.html',
-  'instruments.html','pixel.html','fireworks.html','sand.html','fractal.html','ink.html','fishing.html'
+  'instruments.html','pixel.html','fireworks.html','sand.html','fractal.html','ink.html','tower.html','fishing.html'
 ];
 function goRandom() {
   const btn = document.querySelector('.explore-btn');
@@ -830,6 +835,44 @@ function goRandom() {
   ctx.globalCompositeOperation='multiply';
   spots.forEach(s=>blob(s.x*W,s.y*H,s.r*Math.min(W,H),INKS[s.i],s.a));
   ctx.globalCompositeOperation='source-over';
+})();
+
+// ── Tower mini (static map thumbnail) ──
+(function(){
+  const cv=document.getElementById('towerCanvas');
+  if(!cv) return;
+  const par=cv.parentElement;
+  const W=par.offsetWidth||200, H=par.offsetHeight||160;
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  // mini map: scale path to canvas
+  const WPS=[[0,2],[3,2],[3,5],[7,5],[7,2],[11,2],[11,8],[5,8],[5,12],[15,12],[15,7],[19,7]];
+  const COLS=20,ROWS=15,CL=W/COLS,RH=H/ROWS;
+  ctx.fillStyle='#0f1520'; ctx.fillRect(0,0,W,H);
+  // grid
+  ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=0.5;
+  for(let c=0;c<=COLS;c++){ctx.beginPath();ctx.moveTo(c*CL,0);ctx.lineTo(c*CL,H);ctx.stroke();}
+  for(let r=0;r<=ROWS;r++){ctx.beginPath();ctx.moveTo(0,r*RH);ctx.lineTo(W,r*RH);ctx.stroke();}
+  // path
+  ctx.strokeStyle='rgba(255,190,60,0.5)'; ctx.lineWidth=CL*0.6; ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.beginPath(); ctx.moveTo(WPS[0][0]*CL+CL/2, WPS[0][1]*RH+RH/2);
+  for(let i=1;i<WPS.length;i++) ctx.lineTo(WPS[i][0]*CL+CL/2, WPS[i][1]*RH+RH/2);
+  ctx.stroke();
+  // towers
+  const twrs=[[2,4,'#55ccff'],[6,3,'#55ccff'],[9,6,'#ff8844'],[8,10,'#88eeff'],[13,10,'#ffff44'],[14,9,'#55ccff']];
+  twrs.forEach(([c,r,col])=>{
+    ctx.save(); ctx.shadowBlur=6; ctx.shadowColor=col;
+    ctx.fillStyle=col;
+    ctx.beginPath(); ctx.roundRect(c*CL+CL*.2,r*RH+RH*.2,CL*.6,RH*.6,2); ctx.fill();
+    ctx.restore();
+  });
+  // enemies
+  [[4,2],[9,5],[7,8]].forEach(([c,r])=>{
+    ctx.save(); ctx.shadowBlur=5; ctx.shadowColor='#ff5566';
+    ctx.fillStyle='#ff5566';
+    ctx.beginPath(); ctx.arc(c*CL+CL/2,r*RH+RH/2,CL*.35,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+  });
 })();
 </script>
 </body>
