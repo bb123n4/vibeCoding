@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>合成水果</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f0ebe3;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:monospace;overflow:hidden;touch-action:none}
+canvas{display:block;touch-action:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<script>
+const W=380, H=580;
+const WALL_X0=14, WALL_X1=366;   // visible inner edges
+const FLOOR_Y=562;
+const DANGER_Y=72;
+const DROP_Y=44;
+
+const cv=document.getElementById('c');
+cv.width=W; cv.height=H;
+const ctx=cv.getContext('2d');
+
+// ── Hi-score ──
+const HS_KEY='merge_hi';
+let hiScore=+localStorage.getItem(HS_KEY)||0;
+
+// ── Audio ──
+let _ac;
+function ac(){if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)();return _ac;}
+function tone(freq,dur,type='sine',vol=0.12){
+  try{const a=ac(),o=a.createOscillator(),g=a.createGain();
+    o.connect(g);g.connect(a.destination);o.type=type;o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,a.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,a.currentTime+dur);
+    o.start();o.stop(a.currentTime+dur);}catch(e){}
+}
+function sfxDrop(){tone(280,0.06,'triangle',0.09);}
+function sfxMerge(tier){
+  const freqs=[330,370,415,466,523,587,659,740,830,932];
+  tone(freqs[tier]||660,0.18,'sine',0.18);
+  setTimeout(()=>tone((freqs[tier]||660)*1.5,0.12,'sine',0.12),80);
+}
+function sfxOver(){[220,180,140,100].forEach((f,i)=>setTimeout(()=>tone(f,0.2,'sawtooth',0.12),i*90));}
+
+// ── Fruit defs ──
+const FRUITS=[
+  {r:15,  col:'#e85d7a', emoji:'🍒', name:'樱桃',  pts:10},
+  {r:22,  col:'#e83a6a', emoji:'🍓', name:'草莓',  pts:30},
+  {r:30,  col:'#8844bb', emoji:'🍇', name:'葡萄',  pts:60},
+  {r:38,  col:'#ff7722', emoji:'🍊', name:'橘子',  pts:100},
+  {r:46,  col:'#f5c500', emoji:'🍋', name:'柠檬',  pts:160},
+  {r:55,  col:'#cc1a00', emoji:'🍎', name:'苹果',  pts:250},
+  {r:65,  col:'#88bb22', emoji:'🍐', name:'梨',    pts:360},
+  {r:77,  col:'#ff9944', emoji:'🍑', name:'桃子',  pts:500},
+  {r:91,  col:'#cc8800', emoji:'🍍', name:'菠萝',  pts:660},
+  {r:107, col:'#22aa44', emoji:'🍉', name:'西瓜',  pts:1000},
+];
+
+// ── Matter.js ──
+const {Engine,Bodies,Body,World,Events,Composite}=Matter;
+const engine=Engine.create({gravity:{y:2.2}});
+const world=engine.world;
+
+// Static walls & floor
+const STATIC=[
+  Bodies.rectangle(W/2,   H+12,  W+60,  24,  {isStatic:true,label:'wall',friction:0.4}),
+  Bodies.rectangle(-10,   H/2,   20,    H+60,{isStatic:true,label:'wall',friction:0.3}),
+  Bodies.rectangle(W+10,  H/2,   20,    H+60,{isStatic:true,label:'wall',friction:0.3}),
+];
+World.add(world, STATIC);
+
+// ── State ──
+let score=0;
+let fruits=[];          // active Matter bodies
+let pendingMerges=[];
+let mergingIds=new Set();
+let particles=[];
+let popAnims=[];        // {x,y,r,col,t} merge pop animations
+
+let curTier, nextTier;
+let dropX=W/2, canDrop=true;
+let gameState='playing'; // 'playing','dead'
+let gameOverTimer=0;
+
+function randTier(){return Math.floor(Math.random()*5);}
+function reset(){
+  for(const b of fruits) World.remove(world,b);
+  fruits=[];pendingMerges=[];mergingIds.clear();particles=[];popAnims=[];
+  score=0;dropX=W/2;canDrop=true;gameState='playing';gameOverTimer=0;
+  curTier=randTier();nextTier=randTier();
+}
+reset();
+
+// ── Fruit bodies ──
+function makeFruitBody(x,y,tier){
+  const f=FRUITS[tier];
+  const b=Bodies.circle(
+    Math.max(WALL_X0+f.r, Math.min(WALL_X1-f.r, x)),
+    Math.max(DROP_Y, y),
+    f.r,
+    {restitution:0.22, friction:0.55, frictionAir:0.008, density:0.0015, label:'fruit'}
+  );
+  b.fruitTier=tier;
+  b.spawnTime=Date.now();
+  return b;
+}
+
+function drop(x){
+  if(!canDrop||gameState!=='playing') return;
+  canDrop=false;
+  const b=makeFruitBody(x, DROP_Y, curTier);
+  World.add(world,b);
+  fruits.push(b);
+  sfxDrop();
+  setTimeout(()=>{
+    if(gameState==='playing'){canDrop=true;curTier=nextTier;nextTier=randTier();}
+  }, 550);
+}
+
+// ── Merge detection ──
+Events.on(engine,'collisionStart',({pairs})=>{
+  for(const {bodyA,bodyB} of pairs){
+    if(bodyA.label!=='fruit'||bodyB.label!=='fruit') continue;
+    if(bodyA.fruitTier!==bodyB.fruitTier) continue;
+    if(bodyA.fruitTier>=FRUITS.length-1) continue;
+    if(mergingIds.has(bodyA.id)||mergingIds.has(bodyB.id)) continue;
+    mergingIds.add(bodyA.id);
+    mergingIds.add(bodyB.id);
+    pendingMerges.push([bodyA,bodyB]);
+  }
+});
+
+function processMerges(){
+  for(const [a,b] of pendingMerges){
+    if(!fruits.includes(a)||!fruits.includes(b)) continue;
+    const mx=(a.position.x+b.position.x)/2;
+    const my=(a.position.y+b.position.y)/2;
+    const tier=a.fruitTier+1;
+    const f=FRUITS[tier];
+
+    World.remove(world,a); World.remove(world,b);
+    fruits=fruits.filter(x=>x!==a&&x!==b);
+
+    const nb=makeFruitBody(mx,my,tier);
+    // give slight upward push so it doesn't sink
+    Body.setVelocity(nb,{x:(a.velocity.x+b.velocity.x)*0.3,y:-2});
+    World.add(world,nb);
+    fruits.push(nb);
+
+    score+=f.pts;
+    if(score>hiScore){hiScore=score;localStorage.setItem(HS_KEY,hiScore);}
+    sfxMerge(tier);
+
+    // pop animation
+    popAnims.push({x:mx,y:my,r:f.r,col:f.col,t:1});
+    // particles
+    for(let i=0;i<10;i++){
+      const a2=Math.random()*Math.PI*2,s=1.5+Math.random()*3;
+      particles.push({x:mx,y:my,vx:Math.cos(a2)*s,vy:Math.sin(a2)*s-1,
+        r:2+Math.random()*2.5,life:1,col:f.col});
+    }
+  }
+  pendingMerges=[];
+  mergingIds.clear();
+}
+
+function checkGameOver(){
+  const now=Date.now();
+  for(const b of fruits){
+    if(now-b.spawnTime<1200) continue;           // grace period after spawn
+    const spd=Math.hypot(b.velocity.x,b.velocity.y);
+    if(spd<0.4 && b.position.y-FRUITS[b.fruitTier].r < DANGER_Y){
+      gameState='dead'; sfxOver(); return;
+    }
+  }
+}
+
+// ── Draw ──
+function drawFruit(x,y,f,angle,alpha){
+  ctx.save();
+  ctx.globalAlpha=alpha??1;
+  // shadow
+  ctx.shadowBlur=10; ctx.shadowColor=f.col+'55';
+  // circle
+  ctx.translate(x,y); ctx.rotate(angle||0);
+  ctx.beginPath(); ctx.arc(0,0,f.r,0,Math.PI*2);
+  const g=ctx.createRadialGradient(-f.r*.3,-f.r*.3,0,0,0,f.r);
+  g.addColorStop(0,'#fff9'); g.addColorStop(1,f.col+'ee');
+  ctx.fillStyle=g; ctx.fill();
+  // emoji (no rotation — stays upright)
+  ctx.rotate(-(angle||0));
+  ctx.shadowBlur=0;
+  ctx.font=`${Math.round(f.r*1.55)}px serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(f.emoji,0,f.r*0.06);
+  ctx.restore();
+}
+
+function draw(){
+  // background
+  ctx.fillStyle='#faf6ef'; ctx.fillRect(0,0,W,H);
+
+  // danger zone tint
+  ctx.fillStyle='rgba(220,80,60,0.06)'; ctx.fillRect(0,0,W,DANGER_Y);
+  ctx.strokeStyle='rgba(220,80,60,0.28)'; ctx.lineWidth=1.5; ctx.setLineDash([5,5]);
+  ctx.beginPath(); ctx.moveTo(WALL_X0,DANGER_Y); ctx.lineTo(WALL_X1,DANGER_Y); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // walls
+  ctx.fillStyle='#e2dbd0';
+  ctx.fillRect(0,       DANGER_Y, WALL_X0,      H-DANGER_Y);
+  ctx.fillRect(WALL_X1, DANGER_Y, W-WALL_X1,    H-DANGER_Y);
+  ctx.fillRect(0,       FLOOR_Y,  W,             H-FLOOR_Y);
+  // wall inner edge highlight
+  ctx.strokeStyle='rgba(0,0,0,0.06)'; ctx.lineWidth=1; ctx.setLineDash([]);
+  ctx.beginPath(); ctx.moveTo(WALL_X0,DANGER_Y); ctx.lineTo(WALL_X0,FLOOR_Y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(WALL_X1,DANGER_Y); ctx.lineTo(WALL_X1,FLOOR_Y); ctx.stroke();
+
+  // drop guide
+  if(gameState==='playing'&&canDrop){
+    ctx.strokeStyle='rgba(0,0,0,0.07)'; ctx.lineWidth=1; ctx.setLineDash([4,6]);
+    ctx.beginPath(); ctx.moveTo(dropX,DANGER_Y); ctx.lineTo(dropX,FLOOR_Y); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // pop rings
+  for(const p of popAnims){
+    ctx.save();
+    ctx.globalAlpha=p.t*0.6;
+    ctx.strokeStyle=p.col;ctx.lineWidth=3;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r*(2-p.t),0,Math.PI*2);ctx.stroke();
+    ctx.restore();
+  }
+
+  // particles
+  for(const p of particles){
+    ctx.save();ctx.globalAlpha=p.life;ctx.fillStyle=p.col;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();ctx.restore();
+  }
+
+  // fruits
+  for(const b of fruits) drawFruit(b.position.x,b.position.y,FRUITS[b.fruitTier],b.angle);
+
+  // ghost preview
+  if(gameState==='playing'&&canDrop){
+    const x=Math.max(WALL_X0+FRUITS[curTier].r+2, Math.min(WALL_X1-FRUITS[curTier].r-2, dropX));
+    drawFruit(x, DROP_Y, FRUITS[curTier], 0, 0.5);
+  }
+
+  // HUD
+  ctx.fillStyle='#3a342c'; ctx.font='bold 16px monospace'; ctx.textAlign='left';
+  ctx.fillText(String(score).padStart(7,'0'), WALL_X0+6, 24);
+  ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.font='10px monospace';
+  ctx.fillText(`最高 ${hiScore}`, WALL_X0+6, 40);
+  // next
+  ctx.textAlign='right'; ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.font='10px monospace';
+  ctx.fillText('NEXT', WALL_X1-6, 24);
+  const nf=FRUITS[nextTier];
+  ctx.font=`${Math.round(nf.r*1.4)}px serif`; ctx.textAlign='center';
+  ctx.fillText(nf.emoji, WALL_X1-20, 50);
+
+  if(gameState==='dead') drawGameOver();
+}
+
+function drawGameOver(){
+  ctx.fillStyle='rgba(250,246,239,0.82)'; ctx.fillRect(0,0,W,H);
+  ctx.textAlign='center';
+  ctx.save();ctx.shadowBlur=14;ctx.shadowColor='#e85d7a44';
+  ctx.fillStyle='#c84060';ctx.font='bold 30px monospace';
+  ctx.fillText('GAME OVER',W/2,H/2-30);ctx.restore();
+  ctx.fillStyle='#5a4a3a';ctx.font='16px monospace';
+  ctx.fillText(`得分  ${score}`,W/2,H/2+10);
+  if(score>0&&score>=hiScore){ctx.fillStyle='#cc8800';ctx.fillText('🏆 最高分！',W/2,H/2+36);}
+  ctx.fillStyle=`rgba(0,0,0,${0.3+0.15*Math.sin(Date.now()*0.004)})`;
+  ctx.font='12px monospace';ctx.fillText('点击 / SPACE 重试',W/2,H/2+72);
+}
+
+// ── Loop ──
+let last=0;
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt=Math.min(ts-last,50); last=ts;
+
+  if(gameState==='playing'){
+    Engine.update(engine,dt);
+    processMerges();
+    checkGameOver();
+  }
+
+  // update particles & anims
+  for(const p of particles){p.x+=p.vx;p.y+=p.vy;p.vy+=0.12;p.life-=0.035;}
+  particles=particles.filter(p=>p.life>0);
+  for(const p of popAnims) p.t-=0.06;
+  popAnims=popAnims.filter(p=>p.t>0);
+
+  draw();
+}
+requestAnimationFrame(loop);
+
+// ── Input ──
+function getX(clientX){
+  const r=cv.getBoundingClientRect();
+  return (clientX-r.left)*W/r.width;
+}
+cv.addEventListener('mousemove',e=>{ dropX=getX(e.clientX); });
+cv.addEventListener('click',e=>{
+  ac();
+  if(gameState==='dead'){reset();return;}
+  drop(getX(e.clientX));
+});
+cv.addEventListener('touchmove',e=>{e.preventDefault();dropX=getX(e.touches[0].clientX);},{passive:false});
+cv.addEventListener('touchend',e=>{
+  e.preventDefault();ac();
+  if(gameState==='dead'){reset();return;}
+  drop(getX(e.changedTouches[0].clientX));
+},{passive:false});
+window.addEventListener('keydown',e=>{
+  if(e.code==='Space'){
+    e.preventDefault();ac();
+    if(gameState==='dead'){reset();return;}
+    drop(dropX);
+  }
+  if(e.code==='ArrowLeft')  dropX=Math.max(WALL_X0+FRUITS[curTier].r+2, dropX-8);
+  if(e.code==='ArrowRight') dropX=Math.min(WALL_X1-FRUITS[curTier].r-2, dropX+8);
+});
+</script>
+</body>
+</html>

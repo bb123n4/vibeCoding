@@ -363,6 +363,10 @@ footer {
 .p-invaders { background:#000; position:relative; overflow:hidden; }
 .p-invaders canvas { display:block; width:100%; height:100%; }
 
+/* ════════════════════════  Merge ════════════════════════ */
+.p-merge { background:#faf6ef; position:relative; overflow:hidden; }
+.p-merge canvas { display:block; width:100%; height:100%; }
+
 /* ── Responsive ── */
 @media (max-width: 680px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
@@ -433,8 +437,12 @@ footer {
         <div class="info"><div class="info-left"><div class="card-name">太空侵略者</div><div class="card-desc">经典街机 · UFO · 护盾防线</div></div><div class="card-arrow">→</div></div>
       </a>
 
-      <!-- 3 placeholders to fill row -->
-      <div class="card-ph"><div class="ph-icon">✦</div><div class="ph-text">新的在路上</div></div>
+      <a class="card" href="merge.html">
+        <div class="preview p-merge"><canvas id="mergeCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">合成水果</div><div class="card-desc">物理合并 · 西瓜游戏 · 越大越爽</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <!-- 2 placeholders to fill row -->
       <div class="card-ph"><div class="ph-icon">✦</div><div class="ph-text">新的在路上</div></div>
       <div class="card-ph"><div class="ph-icon">✦</div><div class="ph-text">新的在路上</div></div>
 
@@ -536,7 +544,7 @@ footer {
 const ALL_APPS = [
   '2048.html','breakout.html','minesweeper.html','rhythm.html','slots.html','adventure.html',
   'luckToday.html','tarot.html','energy.html','namescore.html','iching.html',
-  'instruments.html','pixel.html','fireworks.html','sand.html','fractal.html','ink.html','tower.html','invaders.html','fishing.html'
+  'instruments.html','pixel.html','fireworks.html','sand.html','fractal.html','ink.html','tower.html','invaders.html','fishing.html','merge.html'
 ];
 function goRandom() {
   const btn = document.querySelector('.explore-btn');
@@ -882,6 +890,59 @@ function goRandom() {
   ctx.globalCompositeOperation='multiply';
   spots.forEach(s=>blob(s.x*W,s.y*H,s.r*Math.min(W,H),INKS[s.i],s.a));
   ctx.globalCompositeOperation='source-over';
+})();
+
+// ── Merge mini (animated falling fruits) ──
+(function(){
+  const cv=document.getElementById('mergeCanvas');
+  if(!cv)return;
+  const par=cv.parentElement;
+  cv.width=par.offsetWidth||200; cv.height=par.offsetHeight||160;
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+  const FRUITS=[
+    {r:9,  col:'#e85d7a', emoji:'🍒'},
+    {r:13, col:'#e83a6a', emoji:'🍓'},
+    {r:18, col:'#8844bb', emoji:'🍇'},
+    {r:23, col:'#ff7722', emoji:'🍊'},
+    {r:28, col:'#f5c500', emoji:'🍋'},
+    {r:33, col:'#cc1a00', emoji:'🍎'},
+    {r:40, col:'#88bb22', emoji:'🍐'},
+  ];
+  // static display: arrange a few fruits at rest
+  const display=[
+    {x:W*.22,y:H*.78,t:3},{x:W*.42,y:H*.82,t:1},{x:W*.62,y:H*.76,t:4},
+    {x:W*.80,y:H*.80,t:2},{x:W*.32,y:H*.62,t:2},{x:W*.58,y:H*.60,t:1},
+    {x:W*.50,y:H*.44,t:5},{x:W*.70,y:H*.62,t:0},{x:W*.18,y:H*.64,t:0},
+  ];
+  function drawFruit(x,y,f){
+    ctx.save();
+    ctx.shadowBlur=6; ctx.shadowColor=f.col+'66';
+    ctx.beginPath(); ctx.arc(x,y,f.r,0,Math.PI*2);
+    const g=ctx.createRadialGradient(x-f.r*.3,y-f.r*.3,0,x,y,f.r);
+    g.addColorStop(0,'#fff8'); g.addColorStop(1,f.col+'ee');
+    ctx.fillStyle=g; ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.font=`${Math.round(f.r*1.6)}px serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(f.emoji,x,y+f.r*.06);
+    ctx.restore();
+  }
+  // background
+  ctx.fillStyle='#faf6ef'; ctx.fillRect(0,0,W,H);
+  // walls
+  ctx.fillStyle='#e2dbd0';
+  ctx.fillRect(0,0,8,H); ctx.fillRect(W-8,0,8,H); ctx.fillRect(0,H-8,W,8);
+  display.forEach(d=>drawFruit(d.x,d.y,FRUITS[d.t]));
+  // drop ghost at top
+  const top=FRUITS[3];
+  ctx.globalAlpha=0.45;
+  drawFruit(W*.5,top.r+10,top);
+  ctx.globalAlpha=1;
+  // drop line
+  ctx.strokeStyle='rgba(0,0,0,0.07)'; ctx.lineWidth=1; ctx.setLineDash([3,5]);
+  ctx.beginPath(); ctx.moveTo(W*.5,top.r*2+10); ctx.lineTo(W*.5,H-8); ctx.stroke();
+  ctx.setLineDash([]);
 })();
 
 // ── Tower mini (static map thumbnail) ──
