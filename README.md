@@ -25,6 +25,7 @@
 | 🏖️ | [sand.html](sand.html) | 沙粒模拟 — falling sand simulation with sand, water, fire, oil & wood physics |
 | 🔮 | [fractal.html](fractal.html) | 分形浏览器 — Mandelbrot browser with WebGL, smooth coloring, 5 palettes, zoom & pan |
 | 🖋️ | [ink.html](ink.html) | 流体墨水 — real-time Navier-Stokes fluid ink on paper, 5 ink colors, mouse & touch |
+| 🎣 | [fishing.html](fishing.html) | 钓鱼 — moonlit fishing with 6 fish species, bite timing, and catch log |
 
 ## 🚀 Run locally
 
