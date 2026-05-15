@@ -368,7 +368,7 @@ footer {
 .p-merge canvas { display:block; width:100%; height:100%; }
 
 /* ════════════════════════  Alchemy ════════════════════════ */
-.p-alchemy { background:#0D0B18; position:relative; overflow:hidden; }
+.p-alchemy { background:#EDE8DE; position:relative; overflow:hidden; }
 .p-alchemy canvas { display:block; width:100%; height:100%; }
 
 /* ── Responsive ── */
@@ -900,60 +900,58 @@ function goRandom() {
   ctx.globalCompositeOperation='source-over';
 })();
 
-// ── Merge mini (animated falling fruits) ──
+// ── Merge mini — flat SVG-style fruits on white ──
 (function(){
   const cv=document.getElementById('mergeCanvas');
   if(!cv)return;
   const par=cv.parentElement;
   cv.width=par.offsetWidth||200; cv.height=par.offsetHeight||160;
   const ctx=cv.getContext('2d');
-  const W=cv.width,H=cv.height;
+  const W=cv.width, H=cv.height;
+  // match actual game FRUITS ring colors
   const FRUITS=[
-    {r:9,  col:'#e85d7a', emoji:'🍒'},
-    {r:13, col:'#e83a6a', emoji:'🍓'},
-    {r:18, col:'#8844bb', emoji:'🍇'},
-    {r:23, col:'#ff7722', emoji:'🍊'},
-    {r:28, col:'#f5c500', emoji:'🍋'},
-    {r:33, col:'#cc1a00', emoji:'🍎'},
-    {r:40, col:'#88bb22', emoji:'🍐'},
+    {r:9,  ring:'#D4A0A8', emoji:'🍒'},
+    {r:13, ring:'#E0A8A8', emoji:'🍓'},
+    {r:18, ring:'#C0B0D8', emoji:'🍇'},
+    {r:23, ring:'#E8C898', emoji:'🍊'},
+    {r:28, ring:'#E0D898', emoji:'🍋'},
+    {r:33, ring:'#D8A898', emoji:'🍎'},
+    {r:40, ring:'#B8CCA0', emoji:'🍐'},
   ];
-  // static display: arrange a few fruits at rest
-  const display=[
-    {x:W*.22,y:H*.78,t:3},{x:W*.42,y:H*.82,t:1},{x:W*.62,y:H*.76,t:4},
-    {x:W*.80,y:H*.80,t:2},{x:W*.32,y:H*.62,t:2},{x:W*.58,y:H*.60,t:1},
-    {x:W*.50,y:H*.44,t:5},{x:W*.70,y:H*.62,t:0},{x:W*.18,y:H*.64,t:0},
-  ];
-  function drawFruit(x,y,f){
+  function drawFruit(x,y,f,alpha){
     ctx.save();
-    ctx.shadowBlur=6; ctx.shadowColor=f.col+'66';
+    ctx.globalAlpha=alpha??1;
     ctx.beginPath(); ctx.arc(x,y,f.r,0,Math.PI*2);
-    const g=ctx.createRadialGradient(x-f.r*.3,y-f.r*.3,0,x,y,f.r);
-    g.addColorStop(0,'#fff8'); g.addColorStop(1,f.col+'ee');
-    ctx.fillStyle=g; ctx.fill();
-    ctx.shadowBlur=0;
-    ctx.font=`${Math.round(f.r*1.6)}px serif`;
+    ctx.fillStyle='#FFFFFF'; ctx.fill();
+    ctx.strokeStyle=f.ring; ctx.lineWidth=1.2; ctx.stroke();
+    ctx.font=`${Math.round(f.r*1.55)}px serif`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(f.emoji,x,y+f.r*.06);
+    ctx.fillText(f.emoji, x, y+f.r*.05);
     ctx.restore();
   }
-  // background
-  ctx.fillStyle='#faf6ef'; ctx.fillRect(0,0,W,H);
-  // walls
-  ctx.fillStyle='#e2dbd0';
-  ctx.fillRect(0,0,8,H); ctx.fillRect(W-8,0,8,H); ctx.fillRect(0,H-8,W,8);
-  display.forEach(d=>drawFruit(d.x,d.y,FRUITS[d.t]));
-  // drop ghost at top
-  const top=FRUITS[3];
-  ctx.globalAlpha=0.45;
-  drawFruit(W*.5,top.r+10,top);
-  ctx.globalAlpha=1;
-  // drop line
-  ctx.strokeStyle='rgba(0,0,0,0.07)'; ctx.lineWidth=1; ctx.setLineDash([3,5]);
-  ctx.beginPath(); ctx.moveTo(W*.5,top.r*2+10); ctx.lineTo(W*.5,H-8); ctx.stroke();
+  // background + walls
+  ctx.fillStyle='#FFFFFF'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#F2F2F2';
+  ctx.fillRect(0,0,10,H); ctx.fillRect(W-10,0,10,H); ctx.fillRect(0,H-10,W,10);
+  ctx.strokeStyle='rgba(0,0,0,0.07)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(10,H-10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W-10,0); ctx.lineTo(W-10,H-10); ctx.stroke();
+  // stacked fruits
+  const items=[
+    {x:W*.22,y:H*.80,t:3},{x:W*.44,y:H*.83,t:1},{x:W*.65,y:H*.78,t:4},
+    {x:W*.82,y:H*.81,t:2},{x:W*.31,y:H*.63,t:2},{x:W*.57,y:H*.62,t:1},
+    {x:W*.50,y:H*.46,t:5},{x:W*.72,y:H*.63,t:0},{x:W*.16,y:H*.65,t:0},
+  ];
+  items.forEach(d=>drawFruit(d.x,d.y,FRUITS[d.t]));
+  // ghost drop preview
+  const top=FRUITS[2];
+  drawFruit(W*.5, top.r+8, top, 0.35);
+  ctx.strokeStyle='rgba(0,0,0,0.06)'; ctx.lineWidth=1; ctx.setLineDash([3,6]);
+  ctx.beginPath(); ctx.moveTo(W*.5, top.r*2+8); ctx.lineTo(W*.5, H-10); ctx.stroke();
   ctx.setLineDash([]);
 })();
 
-// ── Alchemy mini (static dark thumbnail with element cards) ──
+// ── Alchemy mini — 米色宣纸风格 ──
 (function(){
   const cv=document.getElementById('alchCanvas');
   if(!cv)return;
@@ -961,12 +959,18 @@ function goRandom() {
   const W=par.offsetWidth||200, H=par.offsetHeight||160;
   cv.width=W; cv.height=H;
   const ctx=cv.getContext('2d');
-  const bg=ctx.createRadialGradient(W/2,H*.4,0,W/2,H*.4,W*.9);
-  bg.addColorStop(0,'#111020'); bg.addColorStop(1,'#090810');
+  // warm beige background
+  ctx.fillStyle='#EDE8DE'; ctx.fillRect(0,0,W,H);
+  const bg=ctx.createRadialGradient(W*.4,H*.4,0,W*.4,H*.4,W);
+  bg.addColorStop(0,'#F5F0E6'); bg.addColorStop(1,'#E4DED2');
   ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+  // ink wash blob
+  const b=ctx.createRadialGradient(W*.2,H*.25,0,W*.2,H*.25,W*.55);
+  b.addColorStop(0,'rgba(160,130,90,0.10)'); b.addColorStop(1,'rgba(160,130,90,0)');
+  ctx.fillStyle=b; ctx.fillRect(0,0,W,H);
   // dot grid
-  ctx.fillStyle='rgba(255,255,255,0.025)';
-  for(let x=14;x<W;x+=22) for(let y=14;y<H;y+=22){ctx.beginPath();ctx.arc(x,y,0.8,0,Math.PI*2);ctx.fill();}
+  ctx.fillStyle='rgba(150,120,80,0.06)';
+  for(let x=12;x<W;x+=20) for(let y=12;y<H;y+=20){ctx.beginPath();ctx.arc(x,y,0.6,0,Math.PI*2);ctx.fill();}
   // element cards
   const cards=[
     {e:'🔥',c:'#D04828',n:'火'},{e:'💧',c:'#3878B0',n:'水'},
@@ -974,30 +978,29 @@ function goRandom() {
     {e:'🌱',c:'#409030',n:'植物'},{e:'⚡',c:'#C8B818',n:'闪电'},
     {e:'✨',c:'#9030A0',n:'生命'},{e:'🐉',c:'#203878',n:'龙'},
   ];
-  const cw=Math.floor((W-10)/4-4), ch=Math.floor(cw*1.1);
+  const cw=Math.floor((W-10)/4-4), ch=Math.floor(cw*1.12);
   const gapX=Math.floor((W-4*cw)/5);
   const startY=Math.floor(H*.22);
   cards.forEach((c,i)=>{
     const col=i%4, row=Math.floor(i/4);
-    const x=gapX+col*(cw+gapX), y=startY+row*(ch+5);
+    const x=gapX+col*(cw+gapX), y=startY+row*(ch+6);
     ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(x,y,cw,ch,4); else ctx.rect(x,y,cw,ch);
-    ctx.fillStyle=c.c+'20'; ctx.fill();
-    ctx.strokeStyle=c.c+'55'; ctx.lineWidth=0.8;
+    ctx.fillStyle=c.c+'18'; ctx.fill();
+    ctx.strokeStyle=c.c+'50'; ctx.lineWidth=0.8;
     ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(x,y,cw,ch,4); else ctx.rect(x,y,cw,ch);
     ctx.stroke();
     ctx.font=`${Math.round(cw*.38)}px serif`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillStyle='#fff';
     ctx.fillText(c.e, x+cw/2, y+ch*.40);
     ctx.font=`${Math.max(7,Math.round(cw*.17))}px sans-serif`;
-    ctx.fillStyle='rgba(255,255,255,0.6)';
-    ctx.fillText(c.n, x+cw/2, y+ch*.78);
+    ctx.fillStyle='rgba(40,28,16,0.55)';
+    ctx.fillText(c.n, x+cw/2, y+ch*.80);
   });
   // title
-  ctx.fillStyle='rgba(255,255,255,0.35)';
-  ctx.font=`300 ${Math.round(W*.055)}px sans-serif`;
+  ctx.fillStyle='rgba(80,55,25,0.40)';
+  ctx.font=`300 ${Math.round(W*.052)}px sans-serif`;
   ctx.textAlign='center';
-  ctx.fillText('元 素 炼 成', W/2, Math.round(H*.1));
+  ctx.fillText('元 素 炼 成', W/2, Math.round(H*.11));
 })();
 
 // ── Tower mini (static map thumbnail) ──
