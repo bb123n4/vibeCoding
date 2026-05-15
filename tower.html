@@ -48,6 +48,7 @@ canvas{display:block;border:1px solid rgba(255,255,255,0.08);border-radius:4px;c
     <div class="stat">💰 <span id="s-gold">150</span></div>
     <div class="stat">❤️ <span id="s-lives">20</span></div>
     <div class="stat">🌊 波次 <span id="s-wave">0</span></div>
+    <div class="stat">💀 击杀 <span id="s-kills">0</span></div>
     <div class="sep"></div>
 
     <!-- Tower shop (default view) -->
@@ -57,6 +58,8 @@ canvas{display:block;border:1px solid rgba(255,255,255,0.08);border-radius:4px;c
       <button class="twr-btn" data-type="cannon">💣 炮塔<br><span style="color:rgba(255,255,255,0.38)">100金 · 溅射</span></button>
       <button class="twr-btn" data-type="slow">❄️ 冰塔<br><span style="color:rgba(255,255,255,0.38)">80金 · 减速</span></button>
       <button class="twr-btn" data-type="laser">⚡ 电塔<br><span style="color:rgba(255,255,255,0.38)">120金 · 穿透</span></button>
+      <button class="twr-btn" data-type="sniper">🎯 狙击塔<br><span style="color:rgba(255,255,255,0.38)">90金 · 超远程</span></button>
+      <button class="twr-btn" data-type="mortar">💥 迫击炮<br><span style="color:rgba(255,255,255,0.38)">150金 · 最大范围</span></button>
     </div>
 
     <!-- Upgrade panel (shown when tower selected) -->
@@ -103,11 +106,26 @@ const onPath=new Set(PATH.map(p=>p.col+','+p.row));
 
 // ── Tower defs ──
 const TD={
-  gun:   {name:'枪塔', icon:'🔫', cost:50,  range:3,   dmg:8,  rate:28, col:'#55ccff',pcol:'#88ddff',splash:0,  slow:0,  pierce:false},
-  cannon:{name:'炮塔', icon:'💣', cost:100, range:3.5, dmg:40, rate:85, col:'#ff8844',pcol:'#ffcc44',splash:1.4,slow:0,  pierce:false},
-  slow:  {name:'冰塔', icon:'❄️', cost:80,  range:3.5, dmg:3,  rate:45, col:'#88eeff',pcol:'#bbffff',splash:0,  slow:0.5,pierce:false},
-  laser: {name:'电塔', icon:'⚡', cost:120, range:4,   dmg:14, rate:18, col:'#ffff44',pcol:'#ffff99',splash:0,  slow:0,  pierce:true},
+  gun:   {name:'枪塔',  icon:'🔫', cost:50,  range:3,   dmg:8,   rate:28,  col:'#55ccff',pcol:'#88ddff',splash:0,  slow:0,   pierce:false, targeting:'first'},
+  cannon:{name:'炮塔',  icon:'💣', cost:100, range:3.5, dmg:40,  rate:85,  col:'#ff8844',pcol:'#ffcc44',splash:1.4,slow:0,   pierce:false, targeting:'first'},
+  slow:  {name:'冰塔',  icon:'❄️', cost:80,  range:3.5, dmg:3,   rate:45,  col:'#88eeff',pcol:'#bbffff',splash:0,  slow:0.5, pierce:false, targeting:'first'},
+  laser: {name:'电塔',  icon:'⚡', cost:120, range:4,   dmg:14,  rate:18,  col:'#ffff44',pcol:'#ffff99',splash:0,  slow:0,   pierce:true,  targeting:'first'},
+  sniper:{name:'狙击塔',icon:'🎯', cost:90,  range:6.5, dmg:120, rate:700, col:'#cc44ff',pcol:'#ee88ff',splash:0,  slow:0,   pierce:false, targeting:'maxhp'},
+  mortar:{name:'迫击炮',icon:'💥', cost:150, range:5,   dmg:55,  rate:220, col:'#ff6600',pcol:'#ffaa00',splash:2.2,slow:0,   pierce:false, targeting:'cluster'},
 };
+
+// ── Terrain decoration (generated once) ──
+const TERRAIN=[];
+{
+  const rng=(s)=>{let x=s^0xdeadbeef;return()=>{x^=x<<13;x^=x>>17;x^=x<<5;return(x>>>0)/0xffffffff;}};
+  const r=rng(42);
+  for(let col=0;col<COLS;col++) for(let row=0;row<ROWS;row++){
+    if(onPath.has(col+','+row)) continue;
+    const v=r();
+    if(v<0.10) TERRAIN.push({col,row,type:'tree',var:Math.floor(r()*3)});
+    else if(v<0.16) TERRAIN.push({col,row,type:'rock',var:Math.floor(r()*2)});
+  }
+}
 // Upgrade multipliers per level (index = level-1)
 const UPG_DMG=[1,1.6,2.8], UPG_RNG=[1,1.12,1.25], UPG_RATE=[1,0.72,0.52];
 function upgCost(type,fromLv){ return Math.round(TD[type].cost*(fromLv===1?1.2:2.0)); }
@@ -148,17 +166,18 @@ function sfx(k){
 }
 
 // ── State ──
-let gold=150,lives=20,wave=0,waveActive=false,gameOver=false;
-let towers=[],enemies=[],bullets=[],particles=[],floats=[];
+let gold=150,lives=20,wave=0,waveActive=false,gameOver=false,kills=0;
+let towers=[],enemies=[],bullets=[],particles=[],floats=[],pendingSplits=[];
 let selType='gun',hoverCell=null,selTower=null;
 let waveQueue=[],waveTimer=0;
-let speed=1; // 1 or 2
-let boss=null; // current boss reference for top bar
+let speed=1;
+let boss=null;
 
 // ── DOM ──
 const $gold=document.getElementById('s-gold');
 const $lives=document.getElementById('s-lives');
 const $wave=document.getElementById('s-wave');
+const $kills=document.getElementById('s-kills');
 const $msg=document.getElementById('msg');
 const $startBtn=document.getElementById('start-btn');
 const $speedBtn=document.getElementById('speed-btn');
@@ -241,11 +260,13 @@ function buildWave(w){
   const count=8+w*3;
   const isBossWave=w%5===0;
   for(let i=0;i<count;i++){
-    let hp=55+w*28,spd=0.06+w*0.005,reward=10+w*2,color='#ff5566',r=9,armor=0,isBoss=false;
-    if(w>=3&&i%5===4){hp*=3;r=15;spd*=0.65;color='#ff2244';reward*=4;}   // tank: slower
-    if(w>=5&&i%6===5){armor=0.3;color='#cc9944';}                          // armored
-    if(w>=7&&i%4===3){spd*=1.8;r=7;hp*=0.6;color='#ff88cc';reward*=1.5;} // speedy
-    list.push({hp,spd,reward,color,r,armor,isBoss:false,delay:i*52});
+    let hp=55+w*28,spd=0.06+w*0.005,reward=10+w*2,color='#ff5566',r=9,armor=0,regen=0,splits=false,isBoss=false;
+    if(w>=3&&i%5===4){hp*=3;r=15;spd*=0.65;color='#ff2244';reward*=4;}    // tank
+    if(w>=5&&i%6===5){armor=0.3;color='#cc9944';}                           // armored
+    if(w>=7&&i%4===3){spd*=1.8;r=7;hp*=0.6;color='#ff88cc';reward*=1.5;}  // speedy
+    if(w>=4&&i%7===6){regen=hp*0.008;color='#44ee88';reward=Math.round(reward*1.8);}  // regen
+    if(w>=6&&i%6===2){splits=true;color='#ff9922';r=11;hp*=1.4;reward=Math.round(reward*2);} // splitter
+    list.push({hp,spd,reward,color,r,armor,regen,splits,isBoss:false,delay:i*52});
   }
   if(isBossWave){
     const bossHp=Math.round((55+w*28)*18);
@@ -271,7 +292,8 @@ function updateWave(dt){
     const cfg=waveQueue.shift();
     const e={hp:cfg.hp,maxHp:cfg.hp,spd:cfg.spd,armor:cfg.armor,
               progress:0,x:PATH[0].x,y:PATH[0].y,
-              slow:0,slowTimer:0,reward:cfg.reward,color:cfg.color,r:cfg.r,isBoss:cfg.isBoss};
+              slow:0,slowTimer:0,reward:cfg.reward,color:cfg.color,r:cfg.r,
+              regen:cfg.regen||0,splits:cfg.splits||false,isBoss:cfg.isBoss};
     if(cfg.isBoss) boss=e;
     enemies.push(e);
   }
@@ -280,6 +302,8 @@ function updateWave(dt){
 function updateEnemies(dt){
   for(const e of enemies){
     if(e.slowTimer>0){e.slowTimer-=dt;if(e.slowTimer<=0)e.slow=0;}
+    // regen
+    if(e.regen>0&&e.hp>0) e.hp=Math.min(e.maxHp, e.hp+e.regen*dt/1000);
     const step=(e.spd*(1-e.slow))*dt/16;
     e.progress=Math.min(e.progress+step,PATH.length-1);
     const pi=Math.floor(e.progress),frac=e.progress-pi;
@@ -293,12 +317,20 @@ function updateEnemies(dt){
       if(lives<=0&&!gameOver){gameOver=true;$startBtn.disabled=true;sfx('over');}
     }
   }
+  // flush pending splits (spawned by hit(), added after loop to avoid mutation)
+  for(const s of pendingSplits) enemies.push(s);
+  pendingSplits=[];
+
   enemies=enemies.filter(e=>e.hp>0);
   if(waveActive&&waveQueue.length===0&&enemies.length===0){
     waveActive=false;
     $startBtn.disabled=false;
     boss=null;
     sfx('clear');
+    // interest: 5% of current gold, min 5
+    const interest=Math.max(5,Math.floor(gold*0.05));
+    gold+=interest; refreshGold();
+    floatText(CW/2,CH/2-20,`+${interest}金 利息`,'#ffd43b');
     setMsg(gameOver?'':'本波结束 · 准备好了？');
   }
 }
@@ -308,16 +340,30 @@ function updateTowers(dt){
     t.cd=(t.cd||0)-dt;
     if(t.cd>0) continue;
     const d=TD[t.type],st=towerStats(t);
+    const inRange=enemies.filter(e=>Math.hypot(e.x-t.x,e.y-t.y)<=st.range*CELL);
+    if(!inRange.length) continue;
+
     let tgt=null;
-    for(const e of enemies){
-      if(Math.hypot(e.x-t.x,e.y-t.y)<=st.range*CELL){
-        if(!tgt||e.progress>tgt.progress) tgt=e;
+    if(d.targeting==='maxhp'){
+      // sniper: highest current HP
+      for(const e of inRange) if(!tgt||e.hp>tgt.hp) tgt=e;
+    } else if(d.targeting==='cluster'){
+      // mortar: enemy with most neighbors within 2 cells
+      let best=-1;
+      for(const e of inRange){
+        const n=inRange.filter(o=>Math.hypot(o.x-e.x,o.y-e.y)<=2*CELL).length;
+        if(n>best){best=n;tgt=e;}
       }
+    } else {
+      // default: furthest along path
+      for(const e of inRange) if(!tgt||e.progress>tgt.progress) tgt=e;
     }
+
     if(!tgt) continue;
     t.angle=Math.atan2(tgt.y-t.y,tgt.x-t.x)+Math.PI/2;
     t.cd=st.rate;
-    bullets.push({x:t.x,y:t.y,tgt,spd:8,dmg:st.dmg,col:d.pcol,splash:d.splash,slow:d.slow,pierce:d.pierce,r:d.splash>0?5:3});
+    const bspd=d.targeting==='mortar'?5:8;
+    bullets.push({x:t.x,y:t.y,tgt,spd:bspd,dmg:st.dmg,col:d.pcol,splash:d.splash,slow:d.slow,pierce:d.pierce,r:d.splash>0?6:3});
   }
 }
 
@@ -343,16 +389,33 @@ function updateBullets(dt){
 }
 
 function hit(e,b){
+  if(e.hp<=0) return; // already dead, don't double-kill
   const dmg=Math.max(1,b.dmg*(1-e.armor));
   e.hp-=dmg;
   if(b.slow>0){e.slow=b.slow;e.slowTimer=100;}
   sfx('hit');
   if(e.hp<=0){
     if(e.isBoss) boss=null;
+    kills++; $kills.textContent=kills;
     gold+=e.reward; refreshGold();
     sfx('kill');
     burst(e.x,e.y,e.color,e.isBoss?20:6,e.isBoss?20:10);
     floatText(e.x,e.y,`+${e.reward}金`,'#ffd43b');
+    // splitter: spawn 2 mini enemies at same position
+    if(e.splits){
+      for(let s=0;s<2;s++){
+        pendingSplits.push({
+          hp:e.maxHp*0.35, maxHp:e.maxHp*0.35,
+          spd:e.spd*1.3, armor:0, regen:0, splits:false, isBoss:false,
+          progress:Math.max(0,e.progress-0.5+s*0.3),
+          x:e.x+(s?8:-8), y:e.y,
+          slow:0, slowTimer:0,
+          reward:Math.ceil(e.reward*0.3),
+          color:'#ffcc44', r:6
+        });
+      }
+      floatText(e.x,e.y-16,'分裂！','#ff9922');
+    }
   }
 }
 
@@ -386,7 +449,19 @@ function drawMap(){
   ctx.beginPath();ctx.moveTo(PATH[0].x,PATH[0].y);
   for(let i=1;i<PATH.length;i++) ctx.lineTo(PATH[i].x,PATH[i].y);
   ctx.stroke();ctx.restore();
-  ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 10px monospace';
+  // terrain decorations
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  for(const t of TERRAIN){
+    if(towers.find(tw=>tw.col===t.col&&tw.row===t.row)) continue;
+    const tx=t.col*CELL+CELL/2, ty=t.row*CELL+CELL/2;
+    if(t.type==='tree'){
+      const greens=['🌲','🌳','🌿'][t.var];
+      ctx.font=`${CELL*0.55}px serif`; ctx.fillText(greens,tx,ty+2);
+    } else {
+      ctx.font=`${CELL*0.48}px serif`; ctx.fillText(['🪨','⛰️'][t.var],tx,ty+2);
+    }
+  }
+  ctx.font='bold 10px monospace';
   ctx.fillStyle='rgba(80,255,80,0.8)';ctx.fillText('入',PATH[0].x,PATH[0].y);
   ctx.fillStyle='rgba(255,80,80,0.8)';ctx.fillText('出',PATH[PATH.length-1].x,PATH[PATH.length-1].y);
 }
@@ -469,6 +544,18 @@ function drawEnemies(){
     g.addColorStop(1,iced?'#44aacc':e.color);
     ctx.beginPath();ctx.arc(e.x,e.y,e.r,0,Math.PI*2);
     ctx.fillStyle=g;ctx.fill();
+    if(e.regen>0){
+      // regen: pulsing green ring
+      ctx.strokeStyle=`rgba(60,255,120,${0.3+0.3*Math.sin(Date.now()*0.006)})`;ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(e.x,e.y,e.r+3,0,Math.PI*2);ctx.stroke();
+    }
+    if(e.splits){
+      // splitter: dashed orange ring + dividing line
+      ctx.save();ctx.strokeStyle='rgba(255,160,30,0.7)';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
+      ctx.beginPath();ctx.arc(e.x,e.y,e.r+2,0,Math.PI*2);ctx.stroke();ctx.restore();
+      ctx.strokeStyle='rgba(255,160,30,0.5)';ctx.lineWidth=1;ctx.setLineDash([]);
+      ctx.beginPath();ctx.moveTo(e.x,e.y-e.r+2);ctx.lineTo(e.x,e.y+e.r-2);ctx.stroke();
+    }
     if(e.armor>0){
       ctx.strokeStyle='rgba(255,200,80,0.5)';ctx.lineWidth=2;
       ctx.beginPath();ctx.arc(e.x,e.y,e.r,0,Math.PI*2);ctx.stroke();
