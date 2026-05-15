@@ -31,64 +31,115 @@ function saveDisc(){try{localStorage.setItem(SAVE_KEY,JSON.stringify([...discove
 // ── Element definitions ──
 // {n:名称, e:emoji, c:color, d:description}
 const E={
-  fire:     {n:'火',   e:'🔥',c:'#D04828',d:'万物之源，燃烧与创造并存。'},
-  water:    {n:'水',   e:'💧',c:'#3878B0',d:'生命的摇篮，柔弱而无坚不摧。'},
-  earth:    {n:'土',   e:'🟫',c:'#806030',d:'大地承载万物，厚德载物。'},
-  wind:     {n:'风',   e:'🌬',c:'#6888A0',d:'看不见却无处不在，带来变化与流动。'},
-  steam:    {n:'蒸汽', e:'♨', c:'#7888A0',d:'火与水交融，化为无形的力量。'},
-  lava:     {n:'熔岩', e:'🌋',c:'#C03818',d:'地球内部的炽热之血。'},
-  smoke:    {n:'烟',   e:'💨',c:'#606068',d:'燃烧的痕迹，飘散于天地之间。'},
-  mud:      {n:'泥',   e:'🤎',c:'#604818',d:'水与土的融合，孕育生机。'},
-  wave:     {n:'浪',   e:'🌊',c:'#2068A0',d:'风推水涌，力量在水面奔腾。'},
-  dust:     {n:'尘',   e:'🌫',c:'#A08858',d:'土随风而起，微小而无处不在。'},
-  cloud:    {n:'云',   e:'☁', c:'#7888A0',d:'蒸汽随风升腾，悬于天际。'},
-  stone:    {n:'石',   e:'🪨',c:'#586070',d:'熔岩冷却后凝固的记忆。'},
-  volcano:  {n:'火山', e:'🗻',c:'#A02810',d:'大地的伤口，喷涌着原始力量。'},
-  brick:    {n:'砖',   e:'🧱',c:'#B05828',d:'泥土经火淬炼，成为建造文明的基石。'},
-  typhoon:  {n:'台风', e:'🌀',c:'#2860A0',d:'浪与风旋转激荡，形成巨大漩涡。'},
-  fog:      {n:'雾',   e:'🌫',c:'#6878A0',d:'烟与水混合，朦胧遮蔽了世界。'},
-  rain:     {n:'雨',   e:'🌧',c:'#2058A0',d:'云积水重，化作甘霖降落大地。'},
-  lightning:{n:'闪电', e:'⚡',c:'#C8B818',d:'云与火碰撞，瞬间释放天地之力。'},
-  sand:     {n:'沙',   e:'🏜',c:'#C0A058',d:'石被风磨碎，铺成无边沙漠。'},
-  metal:    {n:'金属', e:'⚙', c:'#586888',d:'石在烈火中涅槃，化为坚硬的金属。'},
-  rainbow:  {n:'彩虹', e:'🌈',c:'#B05898',d:'雨后阳光折射，七色横挂天际。'},
-  plant:    {n:'植物', e:'🌱',c:'#409030',d:'雨水润泽大地，生命萌发。'},
-  glass:    {n:'玻璃', e:'🔮',c:'#509898',d:'沙在高温中熔化，变成透明的奇迹。'},
-  steel:    {n:'钢',   e:'🔩',c:'#487080',d:'金属在火中精炼，强度倍增。'},
-  tool:     {n:'工具', e:'🔧',c:'#607888',d:'金属与石结合，人类掌握改造世界的力量。'},
-  charcoal: {n:'炭',   e:'◼', c:'#282830',d:'植物经火不完全燃烧的遗存。'},
-  tree:     {n:'树',   e:'🌳',c:'#287030',d:'植物扎根大地，向天空生长。'},
-  algae:    {n:'藻',   e:'🌿',c:'#208858',d:'植物与水相融，在水中悄然生长。'},
-  seed:     {n:'种子', e:'🌰',c:'#886830',d:'植物借风传播，携带生命的密码。'},
-  forest:   {n:'森林', e:'🌲',c:'#186020',d:'树连树，生命繁茂，形成大地的肺。'},
-  mirror:   {n:'镜子', e:'🪞',c:'#6898A8',d:'玻璃与沙磨砺，映出真实的倒影。'},
-  wall:     {n:'砖墙', e:'🧱',c:'#907050',d:'砖与砖叠合，隔开了内与外。'},
-  life:     {n:'生命', e:'✨',c:'#9030A0',d:'电光石火之间，奇迹在水中诞生。'},
-  fish:     {n:'鱼',   e:'🐟',c:'#2870A8',d:'生命进入水中，长出鳍与鳞片。'},
-  worm:     {n:'虫',   e:'🐛',c:'#608828',d:'生命扎入土里，蠕动于泥土之间。'},
-  bird:     {n:'鸟',   e:'🐦',c:'#3880B8',d:'生命随风而起，展翅翱翔天际。'},
-  phoenix:  {n:'凤凰', e:'🦅',c:'#C06010',d:'生命与火合一，浴火重生的神鸟。'},
-  silk:     {n:'丝绸', e:'🧵',c:'#C0A0B8',d:'虫在树上吐丝结茧，织出柔滑的奇迹。'},
-  ocean:    {n:'海洋', e:'🌊',c:'#085080',d:'无数条鱼汇聚，形成深不可测的海。'},
-  sky:      {n:'天空', e:'🌤',c:'#4080B8',d:'群鸟高飞，广阔无垠的蓝色领域。'},
-  house:    {n:'房屋', e:'🏠',c:'#B06820',d:'墙与墙相连，为生命遮风挡雨。'},
-  paper:    {n:'纸',   e:'📄',c:'#C8C0A8',d:'树木削薄铺平，成为记录思想的媒介。'},
-  ink:      {n:'墨',   e:'🖋',c:'#202028',d:'炭溶于水，变成书写文明的黑色液体。'},
-  human:    {n:'人',   e:'👤',c:'#B87848',d:'生命走进房屋，演化出智慧与情感。'},
-  tea:      {n:'茶',   e:'🍵',c:'#489048',d:'树叶落入水中，飘散出清雅的香气。'},
-  book:     {n:'书',   e:'📖',c:'#503888',d:'纸上有了墨迹，思想得以传承万代。'},
-  harvest:  {n:'收获', e:'🌾',c:'#B09018',d:'种子在雨水滋养下，结出丰硕果实。'},
-  knowledge:{n:'知识', e:'💡',c:'#A08010',d:'书与人交汇，智慧之光照亮前路。'},
-  dragon:   {n:'龙',   e:'🐉',c:'#203878',d:'凤凰穿越海洋，化身传说中的神龙。'},
-  immortal: {n:'仙',   e:'🌟',c:'#B8B028',d:'龙飞天际，超脱凡尘，得道成仙。'},
-  universe: {n:'宇宙', e:'🌌',c:'#0C1018',d:'海洋与天空合而为一，一切的起点与终点。'},
+  fire:      {n:'火',   e:'🔥',c:'#D04828',d:'万物之源，燃烧与创造并存。'},
+  water:     {n:'水',   e:'💧',c:'#3878B0',d:'生命的摇篮，柔弱而无坚不摧。'},
+  earth:     {n:'土',   e:'🟫',c:'#806030',d:'大地承载万物，厚德载物。'},
+  wind:      {n:'风',   e:'🌬',c:'#6888A0',d:'看不见却无处不在，带来变化与流动。'},
+  steam:     {n:'蒸汽', e:'♨', c:'#7888A0',d:'火与水交融，化为无形的力量。'},
+  lava:      {n:'熔岩', e:'🌋',c:'#C03818',d:'地球内部的炽热之血。'},
+  smoke:     {n:'烟',   e:'💨',c:'#606068',d:'燃烧的痕迹，飘散于天地之间。'},
+  mud:       {n:'泥',   e:'🤎',c:'#604818',d:'水与土的融合，孕育生机。'},
+  wave:      {n:'浪',   e:'🌊',c:'#2068A0',d:'风推水涌，力量在水面奔腾。'},
+  dust:      {n:'尘',   e:'🌫',c:'#A08858',d:'土随风而起，微小而无处不在。'},
+  cloud:     {n:'云',   e:'☁', c:'#7888A0',d:'蒸汽随风升腾，悬于天际。'},
+  stone:     {n:'石',   e:'🪨',c:'#586070',d:'熔岩冷却后凝固的记忆。'},
+  volcano:   {n:'火山', e:'🗻',c:'#A02810',d:'大地的伤口，喷涌着原始力量。'},
+  brick:     {n:'砖',   e:'🧱',c:'#B05828',d:'泥土经火淬炼，成为建造文明的基石。'},
+  typhoon:   {n:'台风', e:'🌀',c:'#2860A0',d:'浪与风旋转激荡，形成巨大漩涡。'},
+  fog:       {n:'雾',   e:'🌫',c:'#6878A0',d:'烟与水混合，朦胧遮蔽了世界。'},
+  rain:      {n:'雨',   e:'🌧',c:'#2058A0',d:'云积水重，化作甘霖降落大地。'},
+  lightning: {n:'闪电', e:'⚡',c:'#C8B818',d:'云与火碰撞，瞬间释放天地之力。'},
+  sand:      {n:'沙',   e:'🏜',c:'#C0A058',d:'石被风磨碎，铺成无边沙漠。'},
+  metal:     {n:'金属', e:'⚙', c:'#586888',d:'石在烈火中涅槃，化为坚硬的金属。'},
+  rainbow:   {n:'彩虹', e:'🌈',c:'#B05898',d:'雨后阳光折射，七色横挂天际。'},
+  plant:     {n:'植物', e:'🌱',c:'#409030',d:'雨水润泽大地，生命萌发。'},
+  glass:     {n:'玻璃', e:'🔮',c:'#509898',d:'沙在高温中熔化，变成透明的奇迹。'},
+  steel:     {n:'钢',   e:'🔩',c:'#487080',d:'金属在火中精炼，强度倍增。'},
+  tool:      {n:'工具', e:'🔧',c:'#607888',d:'金属与石结合，人类掌握改造世界的力量。'},
+  charcoal:  {n:'炭',   e:'◼', c:'#282830',d:'植物经火不完全燃烧的遗存。'},
+  tree:      {n:'树',   e:'🌳',c:'#287030',d:'植物扎根大地，向天空生长。'},
+  algae:     {n:'藻',   e:'🌿',c:'#208858',d:'植物与水相融，在水中悄然生长。'},
+  seed:      {n:'种子', e:'🌰',c:'#886830',d:'植物借风传播，携带生命的密码。'},
+  forest:    {n:'森林', e:'🌲',c:'#186020',d:'树连树，生命繁茂，形成大地的肺。'},
+  mirror:    {n:'镜子', e:'🪞',c:'#6898A8',d:'玻璃与沙磨砺，映出真实的倒影。'},
+  wall:      {n:'砖墙', e:'🧱',c:'#907050',d:'砖与砖叠合，隔开了内与外。'},
+  life:      {n:'生命', e:'✨',c:'#9030A0',d:'电光石火之间，奇迹在水中诞生。'},
+  fish:      {n:'鱼',   e:'🐟',c:'#2870A8',d:'生命进入水中，长出鳍与鳞片。'},
+  worm:      {n:'虫',   e:'🐛',c:'#608828',d:'生命扎入土里，蠕动于泥土之间。'},
+  bird:      {n:'鸟',   e:'🐦',c:'#3880B8',d:'生命随风而起，展翅翱翔天际。'},
+  phoenix:   {n:'凤凰', e:'🦅',c:'#C06010',d:'生命与火合一，浴火重生的神鸟。'},
+  silk:      {n:'丝绸', e:'🧵',c:'#C0A0B8',d:'虫在树上吐丝结茧，织出柔滑的奇迹。'},
+  ocean:     {n:'海洋', e:'🌊',c:'#085080',d:'无数条鱼汇聚，形成深不可测的海。'},
+  sky:       {n:'天空', e:'🌤',c:'#4080B8',d:'群鸟高飞，广阔无垠的蓝色领域。'},
+  house:     {n:'房屋', e:'🏠',c:'#B06820',d:'墙与墙相连，为生命遮风挡雨。'},
+  paper:     {n:'纸',   e:'📄',c:'#C8C0A8',d:'树木削薄铺平，成为记录思想的媒介。'},
+  ink:       {n:'墨',   e:'🖋',c:'#202028',d:'炭溶于水，变成书写文明的黑色液体。'},
+  human:     {n:'人',   e:'👤',c:'#B87848',d:'生命走进房屋，演化出智慧与情感。'},
+  tea:       {n:'茶',   e:'🍵',c:'#489048',d:'树叶落入水中，飘散出清雅的香气。'},
+  book:      {n:'书',   e:'📖',c:'#503888',d:'纸上有了墨迹，思想得以传承万代。'},
+  harvest:   {n:'收获', e:'🌾',c:'#B09018',d:'种子在雨水滋养下，结出丰硕果实。'},
+  knowledge: {n:'知识', e:'💡',c:'#A08010',d:'书与人交汇，智慧之光照亮前路。'},
+  dragon:    {n:'龙',   e:'🐉',c:'#203878',d:'凤凰穿越海洋，化身传说中的神龙。'},
+  immortal:  {n:'仙',   e:'🌟',c:'#B8B028',d:'龙飞天际，超脱凡尘，得道成仙。'},
+  universe:  {n:'宇宙', e:'🌌',c:'#0C1018',d:'海洋与天空合而为一，一切的起点与终点。'},
+  // ── NEW 49 ──
+  ice:       {n:'冰',   e:'🧊',c:'#7EC8E0',d:'水在寒石旁凝固，晶莹剔透。'},
+  snow:      {n:'雪',   e:'❄', c:'#C8E4F4',d:'云中水汽结冰，化作六角雪花飘落。'},
+  flower:    {n:'花',   e:'🌸',c:'#D870A8',d:'植物在雨露滋润下，绽放出斑斓的色彩。'},
+  mountain:  {n:'山',   e:'⛰', c:'#6A7868',d:'石与石层层积累，撑起雄伟的峰峦。'},
+  cave:      {n:'洞穴', e:'🕳', c:'#3C4040',d:'山体内部的黑暗空间，孕育未知的存在。'},
+  river:     {n:'河',   e:'〰', c:'#2878A8',d:'雨水顺沙地流淌，汇成奔腾的河流。'},
+  lake:      {n:'湖',   e:'🏞', c:'#3090B8',d:'河水在低洼处积聚，形成宁静的湖泊。'},
+  swamp:     {n:'沼泽', e:'🐸',c:'#4A6040',d:'泥与植物交织，生机与腐朽并存。'},
+  desert:    {n:'沙漠', e:'🐪',c:'#C8A850',d:'沙粒无尽蔓延，风吹起寂寞的浪。'},
+  island:    {n:'岛屿', e:'🏝', c:'#308060',d:'火山在海中升起，孤独伫立于波涛间。'},
+  wood:      {n:'木材', e:'🪵',c:'#A07040',d:'以石为斧，从树上取下坚实的木材。'},
+  ash:       {n:'灰烬', e:'🌑',c:'#787878',d:'炭在火中彻底燃尽，化作轻盈的灰。'},
+  oil:       {n:'石油', e:'⛽',c:'#282018',d:'亿万年的藻类沉积于岩层，变成黑色液态能源。'},
+  gem:       {n:'宝石', e:'💎',c:'#5898C8',d:'玻璃与石在高压下融合，生成晶莹的宝石。'},
+  crystal:   {n:'水晶', e:'🔷',c:'#90D0E8',d:'宝石与冰的精华，凝成纯净的水晶。'},
+  cloth:     {n:'布料', e:'🧣',c:'#C898B8',d:'蚕丝经工具纺织，化为柔软的布料。'},
+  rope:      {n:'绳索', e:'🪡',c:'#A88048',d:'植物纤维与蚕丝缠绕，编成坚韧的绳索。'},
+  dye:       {n:'染料', e:'🎨',c:'#C858A8',d:'花朵溶于水，染出流动的色彩。'},
+  village:   {n:'村庄', e:'🏘', c:'#A06828',d:'房屋聚集在一起，形成最初的聚落。'},
+  city:      {n:'城市', e:'🏙', c:'#607888',d:'人类在村庄建立秩序，城市由此诞生。'},
+  ship:      {n:'船',   e:'⛵', c:'#4878A8',d:'木材在波浪上漂行，人类驾风破浪。'},
+  wheel:     {n:'车轮', e:'⭕', c:'#907850',d:'木与石的结合，让移动从此不同。'},
+  road:      {n:'路',   e:'🛤', c:'#888070',d:'人踏石而行，留下通向远方的路。'},
+  farm:      {n:'农场', e:'🌻',c:'#B09830',d:'种子遇上工具，大地成为人类的粮仓。'},
+  market:    {n:'市场', e:'🏪',c:'#C87828',d:'城市中商品流通，人与物相遇交换。'},
+  palace:    {n:'宫殿', e:'🏯',c:'#B09060',d:'城市权力凝聚的高石建筑，统治的象征。'},
+  temple:    {n:'庙宇', e:'⛩', c:'#C04838',d:'人类在宫殿中寻找更高的意义，建起神圣之所。'},
+  art:       {n:'艺术', e:'🖼', c:'#A87860',d:'用色彩与形态表达人内心的情感世界。'},
+  music:     {n:'音乐', e:'🎵',c:'#A840A0',d:'人借风声领悟节律，创造出流动的时间艺术。'},
+  math:      {n:'数学', e:'📐',c:'#5870A8',d:'将知识与工具结合，发现数字背后的规律。'},
+  science:   {n:'科学', e:'⚗', c:'#5898A0',d:'数学与知识碰撞，开启探索自然法则的大门。'},
+  map:       {n:'地图', e:'🗺', c:'#907850',d:'用纸记录河流走向，世界从此可以被丈量。'},
+  law:       {n:'法律', e:'⚖', c:'#908060',d:'城市人群需要契约，书写规则成为秩序基础。'},
+  language:  {n:'语言', e:'📜',c:'#6888C0',d:'人类围着火堆发出符号，文明的传播由此开始。'},
+  star:      {n:'星辰', e:'⭐',c:'#C8B838',d:'火在天空中燃烧，点亮无尽的夜晚。'},
+  moon:      {n:'月亮', e:'🌙',c:'#C8C080',d:'冰与天空交融，挂起柔和的夜间明灯。'},
+  sun:       {n:'太阳', e:'☀', c:'#D89020',d:'星与火合一，化身宇宙中最明亮的存在。'},
+  comet:     {n:'彗星', e:'☄', c:'#C0A050',d:'星与石在宇宙中相遇，拖着光尾飞逝。'},
+  blackhole: {n:'黑洞', e:'⚫',c:'#080818',d:'恒星与宇宙的终极相遇，连光也无法逃脱。'},
+  time:      {n:'时间', e:'⏳',c:'#A09068',d:'宇宙运转与知识交汇，时间被人类感知与命名。'},
+  dream:     {n:'梦',   e:'💭',c:'#9080C0',d:'人的意识飘入云中，构建另一个世界。'},
+  spirit:    {n:'灵魂', e:'🕊', c:'#A0C0B0',d:'生命随风飘散，留下无形的存在。'},
+  egg:       {n:'蛋',   e:'🥚',c:'#E8D8B8',d:'鸟在大地孕育后代，生命以另一种形态开始。'},
+  nest:      {n:'巢',   e:'🪺',c:'#A07840',d:'鸟借树枝筑起家园，守护下一代。'},
+  whale:     {n:'鲸鱼', e:'🐋',c:'#2858A0',d:'鱼在海洋中不断进化，成为最庞大的生命。'},
+  coral:     {n:'珊瑚', e:'🪸',c:'#D07060',d:'藻类在海洋中积累，建起水下的彩色城市。'},
+  mushroom:  {n:'蘑菇', e:'🍄',c:'#C06838',d:'植物在洞穴阴暗处生长，化为奇异的形态。'},
+  fossil:    {n:'化石', e:'🦕',c:'#A09060',d:'鱼在岩石中留下印记，成为时间的见证。'},
+  pearl:     {n:'珍珠', e:'🫧',c:'#D0D0D8',d:'沙粒进入鱼体，被层层包裹成圆润的珍珠。'},
 };
 const ALL_IDS=Object.keys(E);
-const TOTAL=ALL_IDS.length; // 51
+const TOTAL=ALL_IDS.length; // 100
 
 // ── Recipes ──
 const R={};
 function rec(a,b,c){R[[a,b].sort().join('+')]=c;}
+// original 39
 rec('fire','water','steam');
 rec('fire','earth','lava');
 rec('fire','wind','smoke');
@@ -136,6 +187,56 @@ rec('book','human','knowledge');
 rec('phoenix','ocean','dragon');
 rec('dragon','sky','immortal');
 rec('ocean','sky','universe');
+// NEW 49
+rec('stone','water','ice');
+rec('cloud','ice','snow');
+rec('plant','rain','flower');
+rec('stone','stone','mountain');
+rec('earth','mountain','cave');
+rec('sand','water','river');
+rec('earth','river','lake');
+rec('mud','plant','swamp');
+rec('sand','sand','desert');
+rec('ocean','volcano','island');
+rec('stone','tree','wood');
+rec('charcoal','fire','ash');
+rec('algae','stone','oil');
+rec('glass','stone','gem');
+rec('gem','ice','crystal');
+rec('silk','tool','cloth');
+rec('plant','silk','rope');
+rec('flower','water','dye');
+rec('house','house','village');
+rec('human','village','city');
+rec('wave','wood','ship');
+rec('stone','wood','wheel');
+rec('human','stone','road');
+rec('seed','tool','farm');
+rec('city','harvest','market');
+rec('city','stone','palace');
+rec('knowledge','palace','temple');
+rec('dye','human','art');
+rec('human','wind','music');
+rec('knowledge','tool','math');
+rec('knowledge','math','science');
+rec('paper','river','map');
+rec('book','city','law');
+rec('fire','human','language');
+rec('fire','sky','star');
+rec('ice','sky','moon');
+rec('fire','star','sun');
+rec('star','stone','comet');
+rec('star','universe','blackhole');
+rec('knowledge','universe','time');
+rec('cloud','human','dream');
+rec('life','sky','spirit');
+rec('bird','earth','egg');
+rec('bird','tree','nest');
+rec('fish','ocean','whale');
+rec('algae','ocean','coral');
+rec('cave','plant','mushroom');
+rec('fish','stone','fossil');
+rec('fish','sand','pearl');
 
 // ── Origin reverse lookup ──
 const ORIGIN={};
@@ -153,39 +254,143 @@ let shakePhase=0, shakeDamp=0;
 let combAnim=null;
 let revealAnim=null;
 let combLocked=false;
-let selectedEnc=null; // selected element in encyclopedia
+let selectedEnc=null;
+let celebAnim=null;
 
 // ── Layout ──
-const LP=544;        // left panel width
-const DIV_X=LP;      // divider x
+const LP=544;
+const DIV_X=LP;
 
 // Left panel — combo zone
-const SL_CY=155;     // slot center Y
-const SL_R=40;       // slot radius
-const SL_AX=148;     // slot A center X
-const SL_BX=396;     // slot B center X
-const RES_CY=242;    // result card center Y
-const CZ_BOT=278;    // combo zone bottom
+const SL_CY=155;
+const SL_R=40;
+const SL_AX=148;
+const SL_BX=396;
+const RES_CY=242;
+const CZ_BOT=278;
 
-// Left panel — element grid
+// Left panel — element grid (10 cols, scrollable)
 const EG_TOP=316;
-const EG_SZ=52;      // card size  (7 rows × 57px = 399 → ends at 715, fits H=720)
-const EG_GAP=5;
-const EG_COLS=8;
-const EG_X0=Math.round((LP - (EG_COLS*(EG_SZ+EG_GAP)-EG_GAP))/2); // ≈19
+const EG_SZ=44;
+const EG_GAP=4;
+const EG_COLS=10;
+const EG_X0=Math.round((LP-(EG_COLS*(EG_SZ+EG_GAP)-EG_GAP))/2);
 
-// Right panel — encyclopedia
+// Right panel — encyclopedia (10×10, no scroll)
 const RP_X=LP+1;
 const RP_W=W-LP-1;
 const EN_HDR_H=56;
-const EN_COLS=8;
-const EN_CSZ=54;
-const EN_GAP=6;
+const EN_COLS=10;
+const EN_CSZ=46;
+const EN_GAP=5;
 const EN_X0=RP_X+Math.round((RP_W-(EN_COLS*(EN_CSZ+EN_GAP)-EN_GAP))/2);
-const EN_TOP=EN_HDR_H+14;
-const EN_ROWS=7;
-// detail panel below grid
-const EN_DET_Y=EN_TOP+EN_ROWS*(EN_CSZ+EN_GAP)+10;
+const EN_TOP=EN_HDR_H+14; // =70
+const EN_ROWS=10;
+const EN_DET_Y=EN_TOP+EN_ROWS*(EN_CSZ+EN_GAP)+10; // ≈580
+
+// Grid scroll
+let egScroll=0;
+function discList(){return ALL_IDS.filter(id=>discovered.has(id));}
+function egMaxScroll(){
+  const rows=Math.ceil(discList().length/EG_COLS);
+  return Math.max(0,rows*(EG_SZ+EG_GAP)-(H-EG_TOP-6));
+}
+
+// ── Celebration particles ──
+function startCeleb(){
+  const palette=[
+    '#D04828','#3878B0','#C8B818','#409030','#9030A0',
+    '#B8B028','#C06010','#2870A8','#D870A8','#5898C8',
+    '#C8A850','#A07040','#C04838','#A840A0','#D89020',
+  ];
+  const particles=[];
+  const origins=[
+    [W/2,H/2],[W*0.15,H*0.8],[W*0.85,H*0.8],[W/2,H*0.1]
+  ];
+  for(let i=0;i<300;i++){
+    const [ox,oy]=origins[Math.floor(Math.random()*origins.length)];
+    const angle=Math.random()*Math.PI*2;
+    const speed=Math.random()*8+2;
+    const col=palette[Math.floor(Math.random()*palette.length)];
+    particles.push({
+      x:ox, y:oy,
+      vx:Math.cos(angle)*speed,
+      vy:Math.sin(angle)*speed-Math.random()*4,
+      col,
+      r:Math.random()*4+2,
+      type:Math.random()<0.35?'star':'circle',
+      life:1,
+      decay:0.006+Math.random()*0.008,
+    });
+  }
+  celebAnim={particles, t:0, maxT:8};
+}
+
+function drawStar(cx,cy,r,points,ctx){
+  ctx.beginPath();
+  for(let i=0;i<points*2;i++){
+    const angle=i*Math.PI/points - Math.PI/2;
+    const radius=i%2===0?r:r*0.45;
+    const x=cx+Math.cos(angle)*radius;
+    const y=cy+Math.sin(angle)*radius;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.closePath();
+}
+
+function drawCeleb(){
+  if(!celebAnim) return;
+  const {particles,t,maxT}=celebAnim;
+
+  // Overlay
+  const fade=Math.min(1,t*2);
+  ctx.fillStyle=`rgba(240,234,222,${fade*0.88})`;
+  ctx.fillRect(0,0,W,H);
+
+  // Particles
+  ctx.save();
+  for(const p of particles){
+    if(p.life<=0) continue;
+    ctx.globalAlpha=p.life*0.92;
+    ctx.fillStyle=p.col;
+    ctx.beginPath();
+    if(p.type==='star'){
+      drawStar(p.x,p.y,p.r*1.2,5,ctx);
+    } else {
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    }
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Big text
+  const textFade=Math.min(1,(t-0.3)*3);
+  if(textFade>0){
+    ctx.save();
+    ctx.globalAlpha=textFade;
+    ctx.textAlign='center';
+
+    // Main title
+    ctx.font='bold 72px "Hiragino Sans","Yu Gothic",serif';
+    ctx.fillStyle='rgba(160,110,30,0.92)';
+    ctx.shadowBlur=30; ctx.shadowColor='rgba(200,160,60,0.5)';
+    ctx.fillText('百 炼 成 仙', W/2, H/2-30);
+    ctx.shadowBlur=0;
+
+    // Subtitle
+    ctx.font='300 20px "Hiragino Sans","Yu Gothic",sans-serif';
+    ctx.fillStyle='rgba(80,55,30,0.75)';
+    ctx.fillText('一百种元素全部炼成', W/2, H/2+28);
+
+    // Pulsing continue prompt
+    const pulse=0.55+0.45*Math.sin(t*4);
+    ctx.globalAlpha=textFade*pulse;
+    ctx.font='300 12px "Helvetica Neue",Arial,sans-serif';
+    ctx.fillStyle='rgba(120,90,55,0.80)';
+    ctx.fillText('点击继续', W/2, H/2+66);
+    ctx.restore();
+  }
+}
 
 // ── Draw helpers ──
 function roundRect(x,y,w,h,r){
@@ -198,7 +403,6 @@ function drawCard(id,x,y,sz,alpha,glowing,locked){
   ctx.save();
   ctx.globalAlpha=alpha??1;
   if(locked){
-    // locked card — warm paper with ?
     roundRect(x,y,sz,sz,8);
     ctx.fillStyle='rgba(180,165,140,0.22)'; ctx.fill();
     ctx.strokeStyle='rgba(150,120,80,0.14)'; ctx.lineWidth=1;
@@ -209,10 +413,8 @@ function drawCard(id,x,y,sz,alpha,glowing,locked){
     ctx.fillText('?', x+sz/2, y+sz*0.44);
     ctx.restore(); return;
   }
-  // bg
   roundRect(x,y,sz,sz,8);
   ctx.fillStyle=c+'20'; ctx.fill();
-  // border
   if(glowing){
     ctx.shadowBlur=16; ctx.shadowColor=c;
     ctx.strokeStyle=c+'CC'; ctx.lineWidth=2;
@@ -222,12 +424,10 @@ function drawCard(id,x,y,sz,alpha,glowing,locked){
   }
   roundRect(x,y,sz,sz,8); ctx.stroke();
   ctx.shadowBlur=0;
-  // emoji
   ctx.font=`${Math.round(sz*0.38)}px serif`;
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillStyle='#fff';
   ctx.fillText(e, x+sz/2, y+sz*0.40);
-  // name
   ctx.font=`300 ${Math.max(8,Math.round(sz*0.165))}px "Hiragino Sans","Yu Gothic",sans-serif`;
   ctx.fillStyle='rgba(40,28,16,0.65)';
   ctx.fillText(n, x+sz/2, y+sz*0.79);
@@ -263,13 +463,12 @@ function tryCombine(){
 function draw(ts){
   ctx.clearRect(0,0,W,H);
 
-  // === Background — 水墨仙境 · 米色宣纸 ===
+  // === Background ===
   ctx.fillStyle='#EDE8DE'; ctx.fillRect(0,0,W,H);
   const bg=ctx.createRadialGradient(W*0.38,H*0.42,0,W*0.38,H*0.42,620);
   bg.addColorStop(0,'#F5F0E6'); bg.addColorStop(0.55,'#EDE8DE'); bg.addColorStop(1,'#E4DED2');
   ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
 
-  // Ink bleed blobs — warm sepia washes
   const b1=ctx.createRadialGradient(180,160,0,180,160,320);
   b1.addColorStop(0,'rgba(160,130,90,0.10)'); b1.addColorStop(1,'rgba(160,130,90,0)');
   ctx.fillStyle=b1; ctx.fillRect(0,0,W,H);
@@ -280,7 +479,6 @@ function draw(ts){
   b3.addColorStop(0,'rgba(180,150,100,0.07)'); b3.addColorStop(1,'rgba(180,150,100,0)');
   ctx.fillStyle=b3; ctx.fillRect(0,0,W,H);
 
-  // Sparse warm dot grid
   ctx.fillStyle='rgba(150,120,80,0.06)';
   for(let x=22;x<W;x+=32) for(let y=22;y<H;y+=32){
     ctx.beginPath();ctx.arc(x,y,0.7,0,Math.PI*2);ctx.fill();
@@ -296,38 +494,37 @@ function draw(ts){
   // === Right Panel ===
   drawRightPanel();
 
-  // === Reveal overlay (full-screen) ===
+  // === Reveal overlay ===
   if(revealAnim) drawReveal();
+
+  // === Celebration (on top of everything) ===
+  if(celebAnim) drawCeleb();
 }
 
 function drawLeftPanel(ts){
-  // Header
   ctx.textAlign='center';
   ctx.fillStyle='rgba(40,28,16,0.78)';
   ctx.font='300 16px "Hiragino Sans","Yu Gothic",sans-serif';
   ctx.fillText('元  素  炼  成', LP/2, 30);
 
-  const dl=[...discovered];
+  const dl=discList();
   ctx.fillStyle='rgba(120,90,55,0.55)';
   ctx.font='300 10px "Helvetica Neue",Arial,sans-serif';
   ctx.fillText(`${dl.length} / ${TOTAL}  已发现`, LP/2, 48);
-  // progress bar
   const pbw=140,pbx=(LP-pbw)/2,pby=56;
   ctx.fillStyle='rgba(150,120,80,0.15)';
   ctx.beginPath();ctx.roundRect(pbx,pby,pbw,2,1);ctx.fill();
   ctx.fillStyle='rgba(120,90,50,0.40)';
   ctx.beginPath();ctx.roundRect(pbx,pby,pbw*(dl.length/TOTAL),2,1);ctx.fill();
 
-  // ── Combo zone background ──
+  // Combo zone background
   ctx.fillStyle='rgba(200,185,160,0.22)';
   ctx.beginPath();ctx.roundRect(14,88,LP-28,CZ_BOT-88,12);ctx.fill();
   ctx.strokeStyle='rgba(150,120,80,0.18)'; ctx.lineWidth=0.5;
   ctx.beginPath();ctx.roundRect(14,88,LP-28,CZ_BOT-88,12);ctx.stroke();
 
-  // slot shake offset
   const sOff=shakeDamp>0.01?Math.sin(shakePhase)*shakeDamp*10:0;
 
-  // Draw two slots
   [[SL_AX+sOff,slotA],[SL_BX+sOff,slotB]].forEach(([sx,id])=>{
     ctx.save();
     ctx.beginPath();ctx.arc(sx,SL_CY,SL_R,0,Math.PI*2);
@@ -353,13 +550,11 @@ function drawLeftPanel(ts){
     ctx.restore();
   });
 
-  // "+" label
   ctx.fillStyle='rgba(120,90,55,0.28)';
   ctx.font='300 22px "Helvetica Neue",Arial,sans-serif';
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText('+', LP/2, SL_CY);
 
-  // Result area
   if(combAnim){
     const t=combAnim.timer;
     if(combAnim.type==='fail'){
@@ -390,7 +585,6 @@ function drawLeftPanel(ts){
     ctx.fillText('点击下方元素放入槽中', LP/2, RES_CY);
   }
 
-  // ── Divider between combo and grid ──
   ctx.strokeStyle='rgba(140,110,70,0.16)'; ctx.lineWidth=0.5;
   ctx.beginPath();ctx.moveTo(14,CZ_BOT+6);ctx.lineTo(LP-14,CZ_BOT+6);ctx.stroke();
   ctx.fillStyle='rgba(120,90,55,0.50)';
@@ -398,23 +592,35 @@ function drawLeftPanel(ts){
   ctx.textAlign='left';
   ctx.fillText('已发现', 14, CZ_BOT+20);
 
-  // ── Element grid ──
+  // Element grid with scroll
   const orderedDisc=ALL_IDS.filter(id=>discovered.has(id));
+  const gridTop=CZ_BOT+24;
+  const clipH=H-gridTop;
+
   ctx.save();
-  ctx.beginPath();ctx.rect(0,CZ_BOT+24,LP,H-(CZ_BOT+24));ctx.clip();
+  ctx.beginPath();ctx.rect(0,gridTop,LP,clipH);ctx.clip();
+
   orderedDisc.forEach((id,i)=>{
     const col=i%EG_COLS, row=Math.floor(i/EG_COLS);
     const cx=EG_X0+col*(EG_SZ+EG_GAP);
-    const cy=EG_TOP+row*(EG_SZ+EG_GAP);
-    if(cy>H) return;
+    const cy=EG_TOP+row*(EG_SZ+EG_GAP)-egScroll;
+    if(cy+EG_SZ<gridTop||cy>H) return;
     const sel=(id===slotA||id===slotB);
     drawCard(id,cx,cy,EG_SZ,1,sel);
   });
+
   ctx.restore();
+
+  // Fade gradient at bottom of left grid
+  const fadeH=40;
+  const fadeGrad=ctx.createLinearGradient(0,H-fadeH,0,H);
+  fadeGrad.addColorStop(0,'rgba(237,232,222,0)');
+  fadeGrad.addColorStop(1,'rgba(237,232,222,0.92)');
+  ctx.fillStyle=fadeGrad;
+  ctx.fillRect(0,H-fadeH,LP,fadeH);
 }
 
 function drawRightPanel(){
-  // Header
   ctx.textAlign='center';
   ctx.fillStyle='rgba(40,28,16,0.75)';
   ctx.font='300 14px "Hiragino Sans","Yu Gothic",sans-serif';
@@ -425,7 +631,6 @@ function drawRightPanel(){
   ctx.font='300 10px "Helvetica Neue",Arial,sans-serif';
   ctx.fillText(`${cnt} / ${TOTAL}`, RP_X+RP_W/2, 46);
 
-  // Grid — all 51 in order (locked vs unlocked)
   ALL_IDS.forEach((id,i)=>{
     const col=i%EN_COLS, row=Math.floor(i/EN_COLS);
     const x=EN_X0+col*(EN_CSZ+EN_GAP);
@@ -433,7 +638,6 @@ function drawRightPanel(){
     const isDisc=discovered.has(id);
     const isSel=(id===selectedEnc);
     drawCard(id,x,y,EN_CSZ,1,isSel,!isDisc);
-    // selection highlight ring
     if(isSel&&isDisc){
       ctx.save();
       ctx.strokeStyle=E[id].c+'AA';
@@ -444,7 +648,6 @@ function drawRightPanel(){
     }
   });
 
-  // Detail panel
   if(selectedEnc&&discovered.has(selectedEnc)){
     drawDetailPanel(selectedEnc);
   } else {
@@ -459,17 +662,15 @@ function drawDetailPanel(id){
   const el=E[id];
   const {n,e,c,d}=el;
   const px=RP_X+10, py=EN_DET_Y, pw=RP_W-20, ph=H-EN_DET_Y-10;
-  const PAD=18;
+  const PAD=12;
 
-  // panel bg
   ctx.save();
   ctx.fillStyle=c+'14';
   ctx.beginPath();ctx.roundRect(px,py,pw,ph,10);ctx.fill();
   ctx.strokeStyle=c+'35'; ctx.lineWidth=0.8;
   ctx.beginPath();ctx.roundRect(px,py,pw,ph,10);ctx.stroke();
 
-  // ── Row 1: emoji (left) + name & recipe (right) ──
-  const emojiSize=46;
+  const emojiSize=34;
   const emojiCX=px+PAD+emojiSize*0.5;
   const emojiCY=py+PAD+emojiSize*0.5;
 
@@ -478,33 +679,29 @@ function drawDetailPanel(id){
   ctx.fillStyle='#fff';
   ctx.fillText(e, emojiCX, emojiCY);
 
-  const textX=px+PAD+emojiSize+14;
+  const textX=px+PAD+emojiSize+12;
 
-  // name
-  ctx.font=`500 17px "Hiragino Sans","Yu Gothic",sans-serif`;
+  ctx.font=`500 15px "Hiragino Sans","Yu Gothic",sans-serif`;
   ctx.textAlign='left'; ctx.textBaseline='top';
   ctx.fillStyle=c;
   ctx.fillText(n, textX, py+PAD+2);
 
-  // recipe
   const orig=ORIGIN[id];
   const recipeStr=orig
     ? `${E[orig[0]].e} ${E[orig[0]].n}  ＋  ${E[orig[1]].e} ${E[orig[1]].n}`
     : '起源元素';
   ctx.font=`300 10px "Hiragino Sans","Yu Gothic",sans-serif`;
   ctx.fillStyle=orig?'rgba(80,55,30,0.45)':'rgba(80,55,30,0.30)';
-  ctx.fillText(recipeStr, textX, py+PAD+24);
+  ctx.fillText(recipeStr, textX, py+PAD+22);
 
-  // ── Divider ──
-  const divY=py+PAD+emojiSize+14;
+  const divY=py+PAD+emojiSize+12;
   ctx.strokeStyle=c+'45'; ctx.lineWidth=0.5;
   ctx.beginPath();ctx.moveTo(px+PAD,divY);ctx.lineTo(px+pw-PAD,divY);ctx.stroke();
 
-  // ── Description ──
   ctx.font=`300 11px "Hiragino Sans","Yu Gothic",sans-serif`;
   ctx.fillStyle='rgba(50,35,18,0.52)';
   ctx.textBaseline='top';
-  ctx.fillText(d, px+PAD, divY+12);
+  ctx.fillText(d, px+PAD, divY+10);
 
   ctx.restore();
 }
@@ -516,7 +713,6 @@ function drawReveal(){
   const id=revealAnim.id;
   const {n,e,c}=E[id];
 
-  // glow orb
   ctx.save();
   ctx.globalAlpha=ease*0.45;
   ctx.shadowBlur=100; ctx.shadowColor=c;
@@ -524,7 +720,6 @@ function drawReveal(){
   ctx.fillStyle=c+'18';ctx.fill();
   ctx.restore();
 
-  // big card
   const bsz=180;
   ctx.save();
   ctx.translate(W/2,H/2-14);
@@ -552,6 +747,22 @@ function loop(ts){
   shakePhase+=dt*55; shakeDamp=Math.max(0,shakeDamp-dt*4);
   if(combAnim) combAnim.timer=Math.max(0,combAnim.timer-dt*1.8);
   if(revealAnim) revealAnim.t=Math.min(1,revealAnim.t+dt*3.2);
+
+  // Update celebration particles
+  if(celebAnim){
+    celebAnim.t+=dt;
+    if(celebAnim.t>=celebAnim.maxT){celebAnim=null;}
+    else {
+      for(const p of celebAnim.particles){
+        p.x+=p.vx;
+        p.y+=p.vy;
+        p.vx*=0.99;
+        p.vy+=0.06;
+        p.life=Math.max(0,p.life-p.decay);
+      }
+    }
+  }
+
   draw(ts);
 }
 requestAnimationFrame(loop);
@@ -562,7 +773,7 @@ function hitLeftCard(x,y){
   for(let i=0;i<disc.length;i++){
     const col=i%EG_COLS, row=Math.floor(i/EG_COLS);
     const cx=EG_X0+col*(EG_SZ+EG_GAP);
-    const cy=EG_TOP+row*(EG_SZ+EG_GAP);
+    const cy=EG_TOP+row*(EG_SZ+EG_GAP)-egScroll;
     if(x>=cx&&x<=cx+EG_SZ&&y>=cy&&y<=cy+EG_SZ) return disc[i];
   }
   return null;
@@ -579,15 +790,19 @@ function hitEncCard(x,y){
 }
 
 function onTap(x,y){
-  if(revealAnim&&revealAnim.hold){ revealAnim=null; return; }
+  // Celebration dismiss
+  if(celebAnim){celebAnim=null;return;}
+  if(revealAnim&&revealAnim.hold){
+    revealAnim=null;
+    if(discovered.size===TOTAL) startCeleb();
+    return;
+  }
   if(revealAnim) return;
   if(combLocked) return;
 
-  // Click slot to clear
   if(Math.hypot(x-SL_AX,y-SL_CY)<=SL_R){ slotA=null; return; }
   if(Math.hypot(x-SL_BX,y-SL_CY)<=SL_R){ slotB=null; return; }
 
-  // Right panel — encyclopedia
   if(x>=RP_X){
     const id=hitEncCard(x,y);
     if(id&&discovered.has(id)){
@@ -596,8 +811,7 @@ function onTap(x,y){
     return;
   }
 
-  // Left panel — element grid
-  if(y<EG_TOP) return;
+  if(y<EG_TOP-egScroll+CZ_BOT+24&&y<CZ_BOT+24) return;
   const id=hitLeftCard(x,y);
   if(!id) return;
   if(!slotA){ slotA=id; }
@@ -609,6 +823,36 @@ cv.addEventListener('click',e=>{
   const r=cv.getBoundingClientRect();
   onTap((e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height);
 });
+
+// ── Scroll ──
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const r=cv.getBoundingClientRect();
+  const x=(e.clientX-r.left)*W/r.width;
+  if(x<LP){
+    egScroll=Math.max(0,Math.min(egMaxScroll(),egScroll+e.deltaY*0.6));
+  }
+},{passive:false});
+
+// Touch scroll for left panel
+let touchStartY=null;
+let touchStartScroll=0;
+cv.addEventListener('touchstart',e=>{
+  const r=cv.getBoundingClientRect();
+  const t=e.touches[0];
+  const tx=(t.clientX-r.left)*W/r.width;
+  if(tx<LP){
+    touchStartY=t.clientY;
+    touchStartScroll=egScroll;
+  }
+},{passive:true});
+cv.addEventListener('touchmove',e=>{
+  if(touchStartY===null) return;
+  const dy=e.touches[0].clientY-touchStartY;
+  egScroll=Math.max(0,Math.min(egMaxScroll(),touchStartScroll-dy));
+  e.preventDefault();
+},{passive:false});
+cv.addEventListener('touchend',()=>{touchStartY=null;},{passive:true});
 </script>
 </body>
 </html>
