@@ -7,7 +7,7 @@
 <title>合成水果</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#E8E8E8;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;overflow:hidden;touch-action:none}
+body{background:#E8E6E0;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;overflow:hidden;touch-action:none}
 canvas{display:block;touch-action:none}
 </style>
 </head>
@@ -25,7 +25,6 @@ const cv=document.getElementById('c');
 cv.width=W; cv.height=H;
 const ctx=cv.getContext('2d');
 
-// ── Hi-score ──
 const HS_KEY='merge_hi';
 let hiScore=+localStorage.getItem(HS_KEY)||0;
 
@@ -47,20 +46,160 @@ function sfxMerge(tier){
 }
 function sfxOver(){[240,190,150].forEach((f,i)=>setTimeout(()=>tone(f,0.22,'sine',0.08),i*110));}
 
-// ── Fruit defs — flat brand palette ──
-// col=fill, bdr=1px border (slightly darker), fg=text color
+// ── Fruit data ──
 const FRUITS=[
-  {r:15,  col:'#E8607A', bdr:'#B83050', fg:'#fff', name:'樱桃', pts:10 },
-  {r:22,  col:'#E02855', bdr:'#A00830', fg:'#fff', name:'草莓', pts:30 },
-  {r:30,  col:'#7848B0', bdr:'#502880', fg:'#fff', name:'葡萄', pts:60 },
-  {r:38,  col:'#E87020', bdr:'#A04000', fg:'#fff', name:'橘子', pts:100},
-  {r:46,  col:'#D4AA10', bdr:'#907000', fg:'#fff', name:'柠檬', pts:160},
-  {r:55,  col:'#B82010', bdr:'#780000', fg:'#fff', name:'苹果', pts:250},
-  {r:65,  col:'#5C9020', bdr:'#345800', fg:'#fff', name:'梨',   pts:360},
-  {r:77,  col:'#D86858', bdr:'#983828', fg:'#fff', name:'桃子', pts:500},
-  {r:91,  col:'#B87810', bdr:'#785000', fg:'#fff', name:'菠萝', pts:660},
-  {r:107, col:'#18985A', bdr:'#006030', fg:'#fff', name:'西瓜', pts:1000},
+  {r:15,  ring:'#D4A0A8', name:'樱桃',  pts:10 },
+  {r:22,  ring:'#E0A8A8', name:'草莓',  pts:30 },
+  {r:30,  ring:'#C0B0D8', name:'葡萄',  pts:60 },
+  {r:38,  ring:'#E8C898', name:'橘子',  pts:100},
+  {r:46,  ring:'#E0D898', name:'柠檬',  pts:160},
+  {r:55,  ring:'#D8A898', name:'苹果',  pts:250},
+  {r:65,  ring:'#B8CCA0', name:'梨',    pts:360},
+  {r:77,  ring:'#E8C0A8', name:'桃子',  pts:500},
+  {r:91,  ring:'#E0D090', name:'菠萝',  pts:660},
+  {r:107, ring:'#A8D8B8', name:'西瓜',  pts:1000},
 ];
+
+// ── SVG fruit illustrations (100×100 viewBox, 素雅 minimal) ──
+const SVG_SRC = [
+
+// 0 — 樱桃 Cherry
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="49" fill="#FEF2F4" stroke="#D4A0A8" stroke-width="1.2"/>
+  <path d="M38 50 Q38 30 50 24 Q62 30 62 50" stroke="#7A4A32" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+  <path d="M50 24 Q55 14 62 16" stroke="#7A4A32" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <circle cx="36" cy="65" r="17" fill="#B85870"/>
+  <circle cx="63" cy="68" r="15" fill="#A84D60"/>
+  <ellipse cx="30" cy="58" rx="5" ry="7" fill="rgba(255,255,255,0.38)" transform="rotate(-20,30,58)"/>
+  <ellipse cx="57" cy="62" rx="4" ry="6" fill="rgba(255,255,255,0.32)" transform="rotate(-20,57,62)"/>
+</svg>`,
+
+// 1 — 草莓 Strawberry
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="49" fill="#FEF0F2" stroke="#E0A8A8" stroke-width="1.2"/>
+  <path d="M32 40 Q26 22 38 18 Q44 28 50 26 Q56 28 62 18 Q74 22 68 40" fill="#5A8C38"/>
+  <path d="M32 40 Q14 56 20 72 Q26 90 50 92 Q74 90 80 72 Q86 56 68 40 Z" fill="#C84050"/>
+  <circle cx="42" cy="58" r="2.2" fill="#983040"/>
+  <circle cx="55" cy="52" r="2.2" fill="#983040"/>
+  <circle cx="61" cy="65" r="2.2" fill="#983040"/>
+  <circle cx="44" cy="72" r="2.2" fill="#983040"/>
+  <circle cx="57" cy="76" r="2.2" fill="#983040"/>
+  <circle cx="36" cy="70" r="2"   fill="#983040"/>
+  <ellipse cx="35" cy="52" rx="6" ry="10" fill="rgba(255,255,255,0.22)" transform="rotate(-18,35,52)"/>
+</svg>`,
+
+// 2 — 葡萄 Grape
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="49" fill="#F5F0FC" stroke="#C0B0D8" stroke-width="1.2"/>
+  <line x1="50" y1="8" x2="50" y2="24" stroke="#7A4A32" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M50 18 Q62 8 70 16 Q62 26 52 22 Z" fill="#4A8030"/>
+  <path d="M50 18 Q38 10 30 18 Q38 26 48 22 Z" fill="#5A9038"/>
+  <circle cx="50" cy="32" r="12" fill="#9070B8"/>
+  <circle cx="36" cy="46" r="12" fill="#8868B0"/>
+  <circle cx="64" cy="46" r="12" fill="#8868B0"/>
+  <circle cx="28" cy="62" r="11" fill="#8060A8"/>
+  <circle cx="50" cy="60" r="12" fill="#7858A0"/>
+  <circle cx="72" cy="62" r="11" fill="#8060A8"/>
+  <circle cx="38" cy="76" r="11" fill="#7050A0"/>
+  <circle cx="62" cy="76" r="11" fill="#7050A0"/>
+  <circle cx="50" cy="88" r="10" fill="#6848A0"/>
+  <ellipse cx="44" cy="27" rx="4" ry="6" fill="rgba(255,255,255,0.42)" transform="rotate(-20,44,27)"/>
+</svg>`,
+
+// 3 — 橘子 Orange
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="49" fill="#FFF6EE" stroke="#E8C898" stroke-width="1.2"/>
+  <circle cx="50" cy="54" r="35" fill="#D87838"/>
+  <path d="M47 14 Q50 6 53 14" stroke="#7A4A32" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M50 12 Q63 4 70 14 Q62 24 52 18 Z" fill="#4A8030"/>
+  <line x1="50" y1="19" x2="50" y2="89" stroke="rgba(255,255,255,0.16)" stroke-width="1.5"/>
+  <line x1="15" y1="46" x2="85" y2="62" stroke="rgba(255,255,255,0.14)" stroke-width="1.5"/>
+  <line x1="15" y1="62" x2="85" y2="46" stroke="rgba(255,255,255,0.14)" stroke-width="1.5"/>
+  <line x1="26" y1="28" x2="74" y2="80" stroke="rgba(255,255,255,0.10)" stroke-width="1.5"/>
+  <line x1="74" y1="28" x2="26" y2="80" stroke="rgba(255,255,255,0.10)" stroke-width="1.5"/>
+  <ellipse cx="37" cy="40" rx="9" ry="13" fill="rgba(255,255,255,0.22)" transform="rotate(-25,37,40)"/>
+</svg>`,
+
+// 4 — 柠檬 Lemon
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="49" fill="#FEFAEC" stroke="#E0D898" stroke-width="1.2"/>
+  <ellipse cx="50" cy="52" rx="32" ry="26" fill="#C8A828" transform="rotate(-18,50,52)"/>
+  <ellipse cx="26" cy="60" rx="7" ry="5" fill="#B89020" transform="rotate(-18,26,60)"/>
+  <ellipse cx="74" cy="44" rx="7" ry="5" fill="#B89020" transform="rotate(-18,74,44)"/>
+  <path d="M52 18 Q58 8 64 12" stroke="#7A4A32" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+  <path d="M61 10 Q74 2 78 14 Q68 22 60 16 Z" fill="#4A8030"/>
+  <ellipse cx="36" cy="40" rx="8" ry="13" fill="rgba(255,255,255,0.26)" transform="rotate(-18,36,40)"/>
+</svg>`,
+
+// 5 — 苹果 Apple
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="49" fill="#FEF2F0" stroke="#D8A898" stroke-width="1.2"/>
+  <path d="M50 22 Q50 12 57 10" stroke="#7A4A32" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M55 8 Q68 2 74 14 Q64 24 55 16 Z" fill="#4A8030"/>
+  <path d="M50 26 Q30 22 22 40 Q16 54 20 68 Q26 84 38 88 Q44 92 50 88 Q56 92 62 88 Q74 84 80 68 Q84 54 78 40 Q70 22 50 26 Z" fill="#B03020"/>
+  <path d="M44 26 Q50 20 56 26" stroke="#901A10" stroke-width="2" fill="none"/>
+  <ellipse cx="34" cy="44" rx="8" ry="14" fill="rgba(255,255,255,0.20)" transform="rotate(-22,34,44)"/>
+</svg>`,
+
+// 6 — 梨 Pear
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="49" fill="#F3F8EA" stroke="#B8CCA0" stroke-width="1.2"/>
+  <path d="M50 14 Q50 6 55 10" stroke="#7A4A32" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M53 8 Q66 2 70 14 Q60 22 53 15 Z" fill="#4A8030"/>
+  <path d="M44 20 Q32 20 26 34 Q20 48 22 62 Q26 76 36 84 Q42 90 50 90 Q58 90 64 84 Q74 76 78 62 Q80 48 74 34 Q68 20 56 20 Q54 14 50 16 Q46 14 44 20 Z" fill="#7A9830"/>
+  <path d="M44 20 Q50 25 56 20" stroke="#608020" stroke-width="1.2" fill="none"/>
+  <ellipse cx="35" cy="42" rx="7" ry="13" fill="rgba(255,255,255,0.24)" transform="rotate(-20,35,42)"/>
+</svg>`,
+
+// 7 — 桃子 Peach
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="49" fill="#FDF4EF" stroke="#E8C0A8" stroke-width="1.2"/>
+  <path d="M50 16 Q50 6 55 10" stroke="#7A4A32" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+  <path d="M53 8 Q66 2 70 12 Q62 22 53 15 Z" fill="#4A8030"/>
+  <path d="M50 22 Q26 20 20 46 Q16 62 24 76 Q32 90 50 92 Q68 90 76 76 Q84 62 80 46 Q74 20 50 22 Z" fill="#D88870"/>
+  <path d="M50 22 L50 92" stroke="#C07050" stroke-width="2.5" stroke-linecap="round" opacity="0.35"/>
+  <ellipse cx="35" cy="44" rx="8" ry="14" fill="rgba(255,255,255,0.22)" transform="rotate(-20,35,44)"/>
+</svg>`,
+
+// 8 — 菠萝 Pineapple
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="49" fill="#FEF8E4" stroke="#E0D090" stroke-width="1.2"/>
+  <path d="M38 32 Q36 14 42 12 Q46 8 50 6 Q54 8 58 12 Q64 14 62 32" fill="#3A7820"/>
+  <path d="M42 22 Q50 14 58 22" stroke="#2A6010" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <ellipse cx="50" cy="64" rx="26" ry="32" fill="#C8A028"/>
+  <line x1="32" y1="52" x2="68" y2="52" stroke="#A07818" stroke-width="1.2" opacity="0.6"/>
+  <line x1="30" y1="64" x2="70" y2="64" stroke="#A07818" stroke-width="1.2" opacity="0.6"/>
+  <line x1="32" y1="76" x2="68" y2="76" stroke="#A07818" stroke-width="1.2" opacity="0.6"/>
+  <line x1="38" y1="34" x2="38" y2="96" stroke="#A07818" stroke-width="1.2" opacity="0.6"/>
+  <line x1="50" y1="32" x2="50" y2="96" stroke="#A07818" stroke-width="1.2" opacity="0.6"/>
+  <line x1="62" y1="34" x2="62" y2="96" stroke="#A07818" stroke-width="1.2" opacity="0.6"/>
+  <ellipse cx="38" cy="50" rx="6" ry="12" fill="rgba(255,255,255,0.18)" transform="rotate(-15,38,50)"/>
+</svg>`,
+
+// 9 — 西瓜 Watermelon
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="49" fill="#EEF9F2" stroke="#A8D8B8" stroke-width="1.2"/>
+  <circle cx="50" cy="50" r="42" fill="#2A9848"/>
+  <path d="M50 8 Q74 18 80 46" stroke="#50B868" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.6"/>
+  <path d="M50 8 Q26 18 20 46" stroke="#50B868" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.6"/>
+  <path d="M18 62 Q24 78 36 86" stroke="#50B868" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.5"/>
+  <path d="M82 62 Q76 78 64 86" stroke="#50B868" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.5"/>
+  <clipPath id="wm"><circle cx="50" cy="50" r="42"/></clipPath>
+  <path d="M8 58 Q50 46 92 58 L92 100 L8 100 Z" fill="#D85040" clip-path="url(#wm)"/>
+  <circle cx="34" cy="70" r="2.5" fill="#1C2C18"/>
+  <circle cx="50" cy="74" r="2.5" fill="#1C2C18"/>
+  <circle cx="66" cy="70" r="2.5" fill="#1C2C18"/>
+  <ellipse cx="32" cy="30" rx="7" ry="12" fill="rgba(255,255,255,0.14)" transform="rotate(-25,32,30)"/>
+</svg>`,
+
+];
+
+// ── Preload SVG images ──
+const fruitImgs = SVG_SRC.map(src => {
+  const img = new Image();
+  img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(src);
+  return img;
+});
 
 // ── Matter.js ──
 const {Engine,Bodies,Body,World,Events,Composite}=Matter;
@@ -75,13 +214,8 @@ const STATIC=[
 World.add(world, STATIC);
 
 // ── State ──
-let score=0;
-let fruits=[];
-let pendingMerges=[];
-let mergingIds=new Set();
-let particles=[];
-let popAnims=[];
-
+let score=0, fruits=[], pendingMerges=[], mergingIds=new Set();
+let particles=[], popAnims=[];
 let curTier, nextTier;
 let dropX=W/2, canDrop=true;
 let gameState='playing';
@@ -95,41 +229,33 @@ function reset(){
 }
 reset();
 
-// ── Fruit bodies ──
+// ── Bodies ──
 function makeFruitBody(x,y,tier){
   const f=FRUITS[tier];
   const b=Bodies.circle(
     Math.max(WALL_X0+f.r, Math.min(WALL_X1-f.r, x)),
-    Math.max(DROP_Y, y),
-    f.r,
-    {restitution:0.22, friction:0.55, frictionAir:0.008, density:0.0015, label:'fruit'}
+    Math.max(DROP_Y, y), f.r,
+    {restitution:0.22,friction:0.55,frictionAir:0.008,density:0.0015,label:'fruit'}
   );
-  b.fruitTier=tier;
-  b.spawnTime=Date.now();
-  return b;
+  b.fruitTier=tier; b.spawnTime=Date.now(); return b;
 }
 
 function drop(x){
   if(!canDrop||gameState!=='playing') return;
   canDrop=false;
   const b=makeFruitBody(x, DROP_Y, curTier);
-  World.add(world,b);
-  fruits.push(b);
-  sfxDrop();
-  setTimeout(()=>{
-    if(gameState==='playing'){canDrop=true;curTier=nextTier;nextTier=randTier();}
-  }, 550);
+  World.add(world,b); fruits.push(b); sfxDrop();
+  setTimeout(()=>{if(gameState==='playing'){canDrop=true;curTier=nextTier;nextTier=randTier();}},550);
 }
 
-// ── Merge detection ──
+// ── Merge ──
 Events.on(engine,'collisionStart',({pairs})=>{
   for(const {bodyA,bodyB} of pairs){
     if(bodyA.label!=='fruit'||bodyB.label!=='fruit') continue;
     if(bodyA.fruitTier!==bodyB.fruitTier) continue;
     if(bodyA.fruitTier>=FRUITS.length-1) continue;
     if(mergingIds.has(bodyA.id)||mergingIds.has(bodyB.id)) continue;
-    mergingIds.add(bodyA.id);
-    mergingIds.add(bodyB.id);
+    mergingIds.add(bodyA.id); mergingIds.add(bodyB.id);
     pendingMerges.push([bodyA,bodyB]);
   }
 });
@@ -137,36 +263,25 @@ Events.on(engine,'collisionStart',({pairs})=>{
 function processMerges(){
   for(const [a,b] of pendingMerges){
     if(!fruits.includes(a)||!fruits.includes(b)) continue;
-    const mx=(a.position.x+b.position.x)/2;
-    const my=(a.position.y+b.position.y)/2;
-    const tier=a.fruitTier+1;
-    const f=FRUITS[tier];
-
+    const mx=(a.position.x+b.position.x)/2, my=(a.position.y+b.position.y)/2;
+    const tier=a.fruitTier+1, f=FRUITS[tier];
     World.remove(world,a); World.remove(world,b);
     fruits=fruits.filter(x=>x!==a&&x!==b);
-
     const nb=makeFruitBody(mx,my,tier);
     Body.setVelocity(nb,{x:(a.velocity.x+b.velocity.x)*0.3,y:-2});
-    World.add(world,nb);
-    fruits.push(nb);
-
+    World.add(world,nb); fruits.push(nb);
     score+=f.pts;
     if(score>hiScore){hiScore=score;localStorage.setItem(HS_KEY,hiScore);}
     sfxMerge(tier);
-
-    // two clean expanding rings
-    popAnims.push({x:mx,y:my,r:f.r,col:f.col,t:1,n:1});
-    popAnims.push({x:mx,y:my,r:f.r*0.55,col:f.bdr,t:0.85,n:2});
-
-    // minimal particles
-    for(let i=0;i<9;i++){
-      const ang=(i/9)*Math.PI*2, s=1+Math.random()*2.2;
-      particles.push({x:mx,y:my,vx:Math.cos(ang)*s,vy:Math.sin(ang)*s-0.6,
-        r:1.5+Math.random()*1.5,life:1,col:f.col});
+    popAnims.push({x:mx,y:my,r:f.r,col:f.ring,t:1});
+    popAnims.push({x:mx,y:my,r:f.r*.55,col:f.ring,t:.8});
+    for(let i=0;i<8;i++){
+      const ang=(i/8)*Math.PI*2, s=.8+Math.random()*2;
+      particles.push({x:mx,y:my,vx:Math.cos(ang)*s,vy:Math.sin(ang)*s-.5,
+        r:1.5+Math.random()*1.5,life:1,col:f.ring});
     }
   }
-  pendingMerges=[];
-  mergingIds.clear();
+  pendingMerges=[]; mergingIds.clear();
 }
 
 function checkGameOver(){
@@ -174,96 +289,66 @@ function checkGameOver(){
   for(const b of fruits){
     if(now-b.spawnTime<1200) continue;
     const spd=Math.hypot(b.velocity.x,b.velocity.y);
-    if(spd<0.4 && b.position.y-FRUITS[b.fruitTier].r < DANGER_Y){
+    if(spd<0.4 && b.position.y-FRUITS[b.fruitTier].r<DANGER_Y){
       gameState='dead'; sfxOver(); return;
     }
   }
 }
 
-// ── Draw fruit — flat brand circle ──
+// ── Draw fruit using SVG image ──
 function drawFruit(x, y, f, angle, alpha, scale){
-  const sc = scale||1;
-  const r  = f.r * sc;
+  const sc=scale||1, r=f.r*sc;
+  const tier=FRUITS.indexOf(f);
+  const img=fruitImgs[tier];
   ctx.save();
-  ctx.globalAlpha = alpha??1;
-  ctx.translate(x, y);
-
-  // very subtle drop shadow for depth without glossiness
-  ctx.shadowBlur   = 10*sc;
-  ctx.shadowOffsetY= 3*sc;
-  ctx.shadowColor  = 'rgba(0,0,0,0.14)';
-
-  // flat fill
-  ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
-  ctx.fillStyle = f.col;
-  ctx.fill();
-
-  // 1px border
-  ctx.shadowBlur=0; ctx.shadowOffsetY=0;
-  ctx.strokeStyle = f.bdr;
-  ctx.lineWidth = Math.max(0.8, 1.2*sc);
-  ctx.stroke();
-
-  // label — always upright, two lines for larger fruits
+  ctx.globalAlpha=alpha??1;
+  ctx.translate(x,y);
+  // counter-rotate so illustration stays upright
   ctx.rotate(-(angle||0));
-  ctx.textAlign='center';
-  ctx.textBaseline='middle';
-  ctx.fillStyle = f.fg;
-
-  if(r >= 38){
-    // large enough: show full name (split if 2 chars or more)
-    const label = f.name;
-    if(label.length <= 2 || r < 50){
-      const fs = Math.max(9, Math.round(r * 0.52));
-      ctx.font=`500 ${fs}px "Hiragino Sans","Yu Gothic","Noto Sans SC",sans-serif`;
-      ctx.fillText(label, 0, 0);
-    } else {
-      // two lines
-      const fs = Math.max(9, Math.round(r * 0.38));
-      ctx.font=`500 ${fs}px "Hiragino Sans","Yu Gothic","Noto Sans SC",sans-serif`;
-      ctx.fillText(label.slice(0,2), 0, -fs*0.6);
-      ctx.fillText(label.slice(2),   0,  fs*0.6);
-    }
-  } else {
-    // small: just first character
-    const fs = Math.max(8, Math.round(r * 0.72));
-    ctx.font=`500 ${fs}px "Hiragino Sans","Yu Gothic","Noto Sans SC",sans-serif`;
-    ctx.fillText(f.name[0], 0, 0);
+  // subtle drop shadow
+  ctx.shadowBlur=12*sc; ctx.shadowOffsetY=4*sc; ctx.shadowColor='rgba(0,0,0,0.12)';
+  // clip to circle then draw
+  ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.clip();
+  if(img.complete && img.naturalWidth>0)
+    ctx.drawImage(img,-r,-r,r*2,r*2);
+  else{
+    ctx.fillStyle=f.ring; ctx.fill();
   }
-
+  ctx.restore();
+  // draw ring border outside clip
+  ctx.save();
+  ctx.globalAlpha=(alpha??1)*0.7;
+  ctx.strokeStyle=f.ring;
+  ctx.lineWidth=Math.max(0.8,1.2*sc);
+  ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke();
   ctx.restore();
 }
 
 function draw(){
-  // ── Background — pure white ──
+  // background — clean white
   ctx.fillStyle='#FFFFFF';
   ctx.fillRect(0,0,W,H);
 
-  // danger zone — barely-there blush
-  ctx.fillStyle='rgba(200,50,50,0.03)';
+  // danger zone
+  ctx.fillStyle='rgba(200,50,50,0.025)';
   ctx.fillRect(0,0,W,DANGER_Y);
-  ctx.strokeStyle='rgba(200,50,50,0.14)';
-  ctx.lineWidth=0.5;
-  ctx.setLineDash([5,8]);
+  ctx.strokeStyle='rgba(200,50,50,0.12)';
+  ctx.lineWidth=0.5; ctx.setLineDash([6,8]);
   ctx.beginPath(); ctx.moveTo(WALL_X0,DANGER_Y); ctx.lineTo(WALL_X1,DANGER_Y); ctx.stroke();
   ctx.setLineDash([]);
 
-  // walls — light neutral grey, just enough contrast
-  ctx.fillStyle='#F0F0F0';
-  ctx.fillRect(0,       DANGER_Y, WALL_X0,   H-DANGER_Y);
-  ctx.fillRect(WALL_X1, DANGER_Y, W-WALL_X1, H-DANGER_Y);
-  ctx.fillRect(0,       FLOOR_Y,  W,          H-FLOOR_Y);
-  // 1px inner edges
-  ctx.strokeStyle='rgba(0,0,0,0.09)';
-  ctx.lineWidth=1;
+  // walls
+  ctx.fillStyle='#F2F2F2';
+  ctx.fillRect(0,DANGER_Y,WALL_X0,H-DANGER_Y);
+  ctx.fillRect(WALL_X1,DANGER_Y,W-WALL_X1,H-DANGER_Y);
+  ctx.fillRect(0,FLOOR_Y,W,H-FLOOR_Y);
+  ctx.strokeStyle='rgba(0,0,0,0.08)'; ctx.lineWidth=1;
   ctx.beginPath(); ctx.moveTo(WALL_X0,DANGER_Y); ctx.lineTo(WALL_X0,FLOOR_Y); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(WALL_X1,DANGER_Y); ctx.lineTo(WALL_X1,FLOOR_Y); ctx.stroke();
 
   // drop guide
   if(gameState==='playing'&&canDrop){
-    ctx.strokeStyle='rgba(0,0,0,0.07)';
-    ctx.lineWidth=0.5;
-    ctx.setLineDash([3,8]);
+    ctx.strokeStyle='rgba(0,0,0,0.06)'; ctx.lineWidth=0.5; ctx.setLineDash([4,9]);
     ctx.beginPath(); ctx.moveTo(dropX,DANGER_Y); ctx.lineTo(dropX,FLOOR_Y); ctx.stroke();
     ctx.setLineDash([]);
   }
@@ -271,18 +356,16 @@ function draw(){
   // pop rings
   for(const p of popAnims){
     ctx.save();
-    ctx.globalAlpha=p.t*(p.n===1?0.45:0.28);
-    ctx.strokeStyle=p.col;
-    ctx.lineWidth=p.n===1?1.5:1;
-    const rr=p.r*(1.6+0.8*(1-p.t));
-    ctx.beginPath(); ctx.arc(p.x,p.y,rr,0,Math.PI*2); ctx.stroke();
+    ctx.globalAlpha=p.t*0.45;
+    ctx.strokeStyle=p.col; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r*(1.5+0.9*(1-p.t)),0,Math.PI*2); ctx.stroke();
     ctx.restore();
   }
 
   // particles
   for(const p of particles){
     ctx.save();
-    ctx.globalAlpha=p.life*0.65;
+    ctx.globalAlpha=p.life*0.6;
     ctx.fillStyle=p.col;
     ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
     ctx.restore();
@@ -295,74 +378,60 @@ function draw(){
   // ghost preview
   if(gameState==='playing'&&canDrop){
     const cf=FRUITS[curTier];
-    const gx=Math.max(WALL_X0+cf.r+2, Math.min(WALL_X1-cf.r-2, dropX));
-    drawFruit(gx, DROP_Y, cf, 0, 0.36);
+    const gx=Math.max(WALL_X0+cf.r+2,Math.min(WALL_X1-cf.r-2,dropX));
+    drawFruit(gx,DROP_Y,cf,0,0.35);
   }
 
-  // ── HUD ──
-  // left: score
+  // HUD — left
   ctx.save();
-  ctx.fillStyle='rgba(40,35,30,0.38)';
-  ctx.font='300 9px "Helvetica Neue",Arial,sans-serif';
   ctx.textAlign='left';
+  ctx.fillStyle='rgba(30,25,20,0.32)';
+  ctx.font='300 9px "Helvetica Neue",Arial,sans-serif';
   ctx.fillText('SCORE', WALL_X0+6, 19);
-  ctx.fillStyle='rgba(40,35,30,0.80)';
-  ctx.font='500 18px "Helvetica Neue",Arial,sans-serif';
+  ctx.fillStyle='rgba(30,25,20,0.75)';
+  ctx.font='400 18px "Helvetica Neue",Arial,sans-serif';
   ctx.fillText(score, WALL_X0+6, 38);
-  ctx.fillStyle='rgba(40,35,30,0.22)';
+  ctx.fillStyle='rgba(30,25,20,0.20)';
   ctx.font='300 8px "Helvetica Neue",Arial,sans-serif';
   ctx.fillText('BEST '+hiScore, WALL_X0+6, 52);
   ctx.restore();
 
-  // right: next fruit
+  // HUD — right: next
   const nf=FRUITS[nextTier];
   const maxR=16, ns=Math.min(1, maxR/nf.r);
   ctx.save();
-  ctx.fillStyle='rgba(40,35,30,0.28)';
-  ctx.font='300 8px "Helvetica Neue",Arial,sans-serif';
   ctx.textAlign='right';
-  ctx.fillText('NEXT', WALL_X1-6, 18);
+  ctx.fillStyle='rgba(30,25,20,0.25)';
+  ctx.font='300 8px "Helvetica Neue",Arial,sans-serif';
+  ctx.fillText('NEXT', WALL_X1-6, 19);
   ctx.restore();
-  drawFruit(WALL_X1-14, 46, nf, 0, 0.88, ns);
+  drawFruit(WALL_X1-16, 46, nf, 0, 0.85, ns);
 
   if(gameState==='dead') drawGameOver();
 }
 
 function drawGameOver(){
-  ctx.fillStyle='rgba(255,255,255,0.88)';
+  ctx.fillStyle='rgba(255,255,255,0.90)';
   ctx.fillRect(0,0,W,H);
-
   ctx.save();
   ctx.textAlign='center';
-
-  // thin box frame
-  const bw=200, bh=120, bx=(W-bw)/2, by=H/2-70;
-  ctx.strokeStyle='rgba(40,35,30,0.10)';
-  ctx.lineWidth=0.5;
+  const bw=200,bh=118,bx=(W-bw)/2,by=H/2-68;
+  ctx.strokeStyle='rgba(0,0,0,0.08)'; ctx.lineWidth=0.5;
   ctx.strokeRect(bx,by,bw,bh);
-
-  // GAME OVER
-  ctx.fillStyle='rgba(40,35,30,0.55)';
+  ctx.fillStyle='rgba(30,25,20,0.45)';
   ctx.font='300 10px "Helvetica Neue",Arial,sans-serif';
-  ctx.fillText('G A M E   O V E R', W/2, by+24);
-
-  // score
-  ctx.fillStyle='rgba(40,35,30,0.85)';
+  ctx.fillText('G A M E   O V E R',W/2,by+26);
+  ctx.fillStyle='rgba(30,25,20,0.80)';
   ctx.font='300 32px "Helvetica Neue",Arial,sans-serif';
-  ctx.fillText(score, W/2, by+68);
-
-  // best badge
+  ctx.fillText(score,W/2,by+68);
   if(score>0&&score>=hiScore){
-    ctx.fillStyle='rgba(168,120,24,0.75)';
+    ctx.fillStyle='rgba(160,110,20,0.70)';
     ctx.font='300 9px "Helvetica Neue",Arial,sans-serif';
-    ctx.fillText('NEW BEST', W/2, by+90);
+    ctx.fillText('N E W   B E S T',W/2,by+90);
   }
-
-  // retry prompt
-  ctx.fillStyle=`rgba(40,35,30,${0.18+0.08*Math.sin(Date.now()*0.004)})`;
+  ctx.fillStyle=`rgba(30,25,20,${0.18+0.08*Math.sin(Date.now()*.004)})`;
   ctx.font='300 9px "Helvetica Neue",Arial,sans-serif';
-  ctx.fillText('CLICK  ·  SPACE  ·  TAP', W/2, by+140);
-
+  ctx.fillText('CLICK  ·  SPACE  ·  TAP',W/2,by+138);
   ctx.restore();
 }
 
@@ -371,33 +440,19 @@ let last=0;
 function loop(ts){
   requestAnimationFrame(loop);
   const dt=Math.min(ts-last,50); last=ts;
-
-  if(gameState==='playing'){
-    Engine.update(engine,dt);
-    processMerges();
-    checkGameOver();
-  }
-
+  if(gameState==='playing'){Engine.update(engine,dt);processMerges();checkGameOver();}
   for(const p of particles){p.x+=p.vx;p.y+=p.vy;p.vy+=0.09;p.life-=0.038;}
   particles=particles.filter(p=>p.life>0);
   for(const p of popAnims) p.t-=0.042;
   popAnims=popAnims.filter(p=>p.t>0);
-
   draw();
 }
 requestAnimationFrame(loop);
 
 // ── Input ──
-function getX(clientX){
-  const r=cv.getBoundingClientRect();
-  return (clientX-r.left)*W/r.width;
-}
-cv.addEventListener('mousemove',e=>{ dropX=getX(e.clientX); });
-cv.addEventListener('click',e=>{
-  ac();
-  if(gameState==='dead'){reset();return;}
-  drop(getX(e.clientX));
-});
+function getX(e){const r=cv.getBoundingClientRect();return (e-r.left)*W/r.width;}
+cv.addEventListener('mousemove',e=>{dropX=getX(e.clientX);});
+cv.addEventListener('click',e=>{ac();if(gameState==='dead'){reset();return;}drop(getX(e.clientX));});
 cv.addEventListener('touchmove',e=>{e.preventDefault();dropX=getX(e.touches[0].clientX);},{passive:false});
 cv.addEventListener('touchend',e=>{
   e.preventDefault();ac();
@@ -405,13 +460,9 @@ cv.addEventListener('touchend',e=>{
   drop(getX(e.changedTouches[0].clientX));
 },{passive:false});
 window.addEventListener('keydown',e=>{
-  if(e.code==='Space'){
-    e.preventDefault();ac();
-    if(gameState==='dead'){reset();return;}
-    drop(dropX);
-  }
-  if(e.code==='ArrowLeft')  dropX=Math.max(WALL_X0+FRUITS[curTier].r+2, dropX-8);
-  if(e.code==='ArrowRight') dropX=Math.min(WALL_X1-FRUITS[curTier].r-2, dropX+8);
+  if(e.code==='Space'){e.preventDefault();ac();if(gameState==='dead'){reset();return;}drop(dropX);}
+  if(e.code==='ArrowLeft')  dropX=Math.max(WALL_X0+FRUITS[curTier].r+2,dropX-8);
+  if(e.code==='ArrowRight') dropX=Math.min(WALL_X1-FRUITS[curTier].r-2,dropX+8);
 });
 </script>
 </body>
