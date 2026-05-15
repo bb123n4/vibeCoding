@@ -127,10 +127,15 @@ function update(dt){
   // ── Player ──
   if(!player.deadTimer){
     let px=player.x;
-    if(keys['ArrowLeft']||keys['KeyA'])  px-=PLAYER_SPD*dt/1000;
-    if(keys['ArrowRight']||keys['KeyD']) px+=PLAYER_SPD*dt/1000;
-    if(!keys['ArrowLeft']&&!keys['KeyA']&&!keys['ArrowRight']&&!keys['KeyD'])
+    if(keys['ArrowLeft']||keys['KeyA']){
+      px-=PLAYER_SPD*dt/1000;
+      mouseX=px+PLAYER_W/2;   // sync so mouse interpolation never fights keys
+    } else if(keys['ArrowRight']||keys['KeyD']){
+      px+=PLAYER_SPD*dt/1000;
+      mouseX=px+PLAYER_W/2;
+    } else {
       px+=(mouseX-PLAYER_W/2-px)*0.14;
+    }
     player.x=Math.max(0,Math.min(W-PLAYER_W,px));
   } else {
     player.deadTimer=Math.max(0,player.deadTimer-dt);
