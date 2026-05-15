@@ -7,7 +7,7 @@
 <title>合成水果</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#EDEAE4;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;overflow:hidden;touch-action:none}
+body{background:#E8E8E8;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;overflow:hidden;touch-action:none}
 canvas{display:block;touch-action:none}
 </style>
 </head>
@@ -47,19 +47,19 @@ function sfxMerge(tier){
 }
 function sfxOver(){[240,190,150].forEach((f,i)=>setTimeout(()=>tone(f,0.22,'sine',0.08),i*110));}
 
-// ── Fruit defs — Japanese minimalist palette ──
-// col=base, hi=top highlight, dk=border/shadow, glyph=single kanji
+// ── Fruit defs — flat brand palette ──
+// col=fill, bdr=1px border (slightly darker), fg=text color
 const FRUITS=[
-  {r:15,  col:'#C8556E', hi:'#EFA0B0', dk:'#8A2840', glyph:'桜', name:'樱桃',  pts:10 },
-  {r:22,  col:'#D83055', hi:'#F08898', dk:'#981030', glyph:'莓', name:'草莓',  pts:30 },
-  {r:30,  col:'#7A50AA', hi:'#B890D8', dk:'#502878', glyph:'葡', name:'葡萄',  pts:60 },
-  {r:38,  col:'#D86820', hi:'#F5A870', dk:'#904000', glyph:'橘', name:'橘子',  pts:100},
-  {r:46,  col:'#C8A818', hi:'#EDD870', dk:'#887000', glyph:'柠', name:'柠檬',  pts:160},
-  {r:55,  col:'#A82818', hi:'#D87060', dk:'#700000', glyph:'苹', name:'苹果',  pts:250},
-  {r:65,  col:'#5E8C28', hi:'#A0CC68', dk:'#305800', glyph:'梨', name:'梨',    pts:360},
-  {r:77,  col:'#D06858', hi:'#F0A898', dk:'#903830', glyph:'桃', name:'桃子',  pts:500},
-  {r:91,  col:'#A87818', hi:'#D8B860', dk:'#705000', glyph:'菠', name:'菠萝',  pts:660},
-  {r:107, col:'#208858', hi:'#60C898', dk:'#005830', glyph:'瓜', name:'西瓜',  pts:1000},
+  {r:15,  col:'#E8607A', bdr:'#B83050', fg:'#fff', name:'樱桃', pts:10 },
+  {r:22,  col:'#E02855', bdr:'#A00830', fg:'#fff', name:'草莓', pts:30 },
+  {r:30,  col:'#7848B0', bdr:'#502880', fg:'#fff', name:'葡萄', pts:60 },
+  {r:38,  col:'#E87020', bdr:'#A04000', fg:'#fff', name:'橘子', pts:100},
+  {r:46,  col:'#D4AA10', bdr:'#907000', fg:'#fff', name:'柠檬', pts:160},
+  {r:55,  col:'#B82010', bdr:'#780000', fg:'#fff', name:'苹果', pts:250},
+  {r:65,  col:'#5C9020', bdr:'#345800', fg:'#fff', name:'梨',   pts:360},
+  {r:77,  col:'#D86858', bdr:'#983828', fg:'#fff', name:'桃子', pts:500},
+  {r:91,  col:'#B87810', bdr:'#785000', fg:'#fff', name:'菠萝', pts:660},
+  {r:107, col:'#18985A', bdr:'#006030', fg:'#fff', name:'西瓜', pts:1000},
 ];
 
 // ── Matter.js ──
@@ -155,14 +155,14 @@ function processMerges(){
     sfxMerge(tier);
 
     // two clean expanding rings
-    popAnims.push({x:mx,y:my,r:f.r,col:f.col,dk:f.dk,t:1,n:1});
-    popAnims.push({x:mx,y:my,r:f.r*0.55,col:f.hi,dk:f.col,t:0.85,n:2});
+    popAnims.push({x:mx,y:my,r:f.r,col:f.col,t:1,n:1});
+    popAnims.push({x:mx,y:my,r:f.r*0.55,col:f.bdr,t:0.85,n:2});
 
     // minimal particles
     for(let i=0;i<9;i++){
       const ang=(i/9)*Math.PI*2, s=1+Math.random()*2.2;
       particles.push({x:mx,y:my,vx:Math.cos(ang)*s,vy:Math.sin(ang)*s-0.6,
-        r:1.5+Math.random()*1.5,life:1,col:i%2===0?f.col:f.hi});
+        r:1.5+Math.random()*1.5,life:1,col:f.col});
     }
   }
   pendingMerges=[];
@@ -180,7 +180,7 @@ function checkGameOver(){
   }
 }
 
-// ── Draw fruit — three-band gradient + highlight crescent ──
+// ── Draw fruit — flat brand circle ──
 function drawFruit(x, y, f, angle, alpha, scale){
   const sc = scale||1;
   const r  = f.r * sc;
@@ -188,74 +188,74 @@ function drawFruit(x, y, f, angle, alpha, scale){
   ctx.globalAlpha = alpha??1;
   ctx.translate(x, y);
 
-  // drop shadow
-  ctx.shadowBlur   = 16*sc;
-  ctx.shadowOffsetY= 5*sc;
-  ctx.shadowColor  = f.dk+'44';
+  // very subtle drop shadow for depth without glossiness
+  ctx.shadowBlur   = 10*sc;
+  ctx.shadowOffsetY= 3*sc;
+  ctx.shadowColor  = 'rgba(0,0,0,0.14)';
 
-  // main sphere — three-stop vertical gradient
+  // flat fill
   ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
-  const g=ctx.createLinearGradient(0,-r,0,r);
-  g.addColorStop(0,   f.hi);
-  g.addColorStop(0.42,f.col);
-  g.addColorStop(1,   f.dk);
-  ctx.fillStyle=g;
+  ctx.fillStyle = f.col;
   ctx.fill();
 
-  // thin border
+  // 1px border
   ctx.shadowBlur=0; ctx.shadowOffsetY=0;
-  ctx.strokeStyle=f.dk+'99';
-  ctx.lineWidth=0.8*sc;
+  ctx.strokeStyle = f.bdr;
+  ctx.lineWidth = Math.max(0.8, 1.2*sc);
   ctx.stroke();
 
-  // primary highlight crescent (top-left oval)
-  ctx.beginPath();
-  ctx.ellipse(-r*.22,-r*.30,r*.38,r*.24,-0.3,0,Math.PI*2);
-  ctx.fillStyle='rgba(255,255,255,0.26)';
-  ctx.fill();
-
-  // specular dot
-  ctx.beginPath();
-  ctx.arc(-r*.36,-r*.44,r*.09,0,Math.PI*2);
-  ctx.fillStyle='rgba(255,255,255,0.52)';
-  ctx.fill();
-
-  // kanji label — always upright
+  // label — always upright, two lines for larger fruits
   ctx.rotate(-(angle||0));
-  const fs=Math.max(7, Math.round(r*0.78));
-  ctx.font=`300 ${fs}px "Hiragino Sans","Yu Gothic","Noto Sans SC",sans-serif`;
   ctx.textAlign='center';
   ctx.textBaseline='middle';
-  ctx.fillStyle='rgba(255,255,255,0.90)';
-  // thin shadow under text for legibility
-  ctx.shadowBlur=3; ctx.shadowColor='rgba(0,0,0,0.30)';
-  ctx.fillText(f.glyph, 0, r*0.06);
+  ctx.fillStyle = f.fg;
+
+  if(r >= 38){
+    // large enough: show full name (split if 2 chars or more)
+    const label = f.name;
+    if(label.length <= 2 || r < 50){
+      const fs = Math.max(9, Math.round(r * 0.52));
+      ctx.font=`500 ${fs}px "Hiragino Sans","Yu Gothic","Noto Sans SC",sans-serif`;
+      ctx.fillText(label, 0, 0);
+    } else {
+      // two lines
+      const fs = Math.max(9, Math.round(r * 0.38));
+      ctx.font=`500 ${fs}px "Hiragino Sans","Yu Gothic","Noto Sans SC",sans-serif`;
+      ctx.fillText(label.slice(0,2), 0, -fs*0.6);
+      ctx.fillText(label.slice(2),   0,  fs*0.6);
+    }
+  } else {
+    // small: just first character
+    const fs = Math.max(8, Math.round(r * 0.72));
+    ctx.font=`500 ${fs}px "Hiragino Sans","Yu Gothic","Noto Sans SC",sans-serif`;
+    ctx.fillText(f.name[0], 0, 0);
+  }
 
   ctx.restore();
 }
 
 function draw(){
-  // ── Background ──
-  ctx.fillStyle='#F8F6F1';
+  // ── Background — pure white ──
+  ctx.fillStyle='#FFFFFF';
   ctx.fillRect(0,0,W,H);
 
-  // danger zone — ultra-subtle
-  ctx.fillStyle='rgba(180,50,50,0.035)';
+  // danger zone — barely-there blush
+  ctx.fillStyle='rgba(200,50,50,0.03)';
   ctx.fillRect(0,0,W,DANGER_Y);
-  ctx.strokeStyle='rgba(180,50,50,0.16)';
+  ctx.strokeStyle='rgba(200,50,50,0.14)';
   ctx.lineWidth=0.5;
-  ctx.setLineDash([5,7]);
+  ctx.setLineDash([5,8]);
   ctx.beginPath(); ctx.moveTo(WALL_X0,DANGER_Y); ctx.lineTo(WALL_X1,DANGER_Y); ctx.stroke();
   ctx.setLineDash([]);
 
-  // walls — warm paper tone
-  ctx.fillStyle='#EDE8DF';
+  // walls — light neutral grey, just enough contrast
+  ctx.fillStyle='#F0F0F0';
   ctx.fillRect(0,       DANGER_Y, WALL_X0,   H-DANGER_Y);
   ctx.fillRect(WALL_X1, DANGER_Y, W-WALL_X1, H-DANGER_Y);
   ctx.fillRect(0,       FLOOR_Y,  W,          H-FLOOR_Y);
-  // hair-line inner edges
-  ctx.strokeStyle='rgba(0,0,0,0.07)';
-  ctx.lineWidth=0.5;
+  // 1px inner edges
+  ctx.strokeStyle='rgba(0,0,0,0.09)';
+  ctx.lineWidth=1;
   ctx.beginPath(); ctx.moveTo(WALL_X0,DANGER_Y); ctx.lineTo(WALL_X0,FLOOR_Y); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(WALL_X1,DANGER_Y); ctx.lineTo(WALL_X1,FLOOR_Y); ctx.stroke();
 
@@ -329,8 +329,7 @@ function draw(){
 }
 
 function drawGameOver(){
-  // frosted overlay
-  ctx.fillStyle='rgba(248,246,241,0.86)';
+  ctx.fillStyle='rgba(255,255,255,0.88)';
   ctx.fillRect(0,0,W,H);
 
   ctx.save();
