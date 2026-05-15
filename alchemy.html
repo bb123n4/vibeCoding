@@ -7,7 +7,7 @@
 <title>元素炼成</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#1A1830;display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden}
+body{background:#EDE8DE;display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden}
 canvas{display:block}
 </style>
 </head>
@@ -198,12 +198,12 @@ function drawCard(id,x,y,sz,alpha,glowing,locked){
   ctx.save();
   ctx.globalAlpha=alpha??1;
   if(locked){
-    // locked card — dark with ?
+    // locked card — warm paper with ?
     roundRect(x,y,sz,sz,8);
-    ctx.fillStyle='rgba(255,255,255,0.04)'; ctx.fill();
-    ctx.strokeStyle='rgba(255,255,255,0.08)'; ctx.lineWidth=1;
+    ctx.fillStyle='rgba(180,165,140,0.22)'; ctx.fill();
+    ctx.strokeStyle='rgba(150,120,80,0.14)'; ctx.lineWidth=1;
     roundRect(x,y,sz,sz,8); ctx.stroke();
-    ctx.fillStyle='rgba(255,255,255,0.12)';
+    ctx.fillStyle='rgba(140,110,70,0.22)';
     ctx.font=`${Math.round(sz*0.36)}px serif`;
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('?', x+sz/2, y+sz*0.44);
@@ -229,7 +229,7 @@ function drawCard(id,x,y,sz,alpha,glowing,locked){
   ctx.fillText(e, x+sz/2, y+sz*0.40);
   // name
   ctx.font=`300 ${Math.max(8,Math.round(sz*0.165))}px "Hiragino Sans","Yu Gothic",sans-serif`;
-  ctx.fillStyle='rgba(255,255,255,0.68)';
+  ctx.fillStyle='rgba(40,28,16,0.65)';
   ctx.fillText(n, x+sz/2, y+sz*0.79);
   ctx.restore();
 }
@@ -263,22 +263,34 @@ function tryCombine(){
 function draw(ts){
   ctx.clearRect(0,0,W,H);
 
-  // === Background ===
-  const bg=ctx.createRadialGradient(W*0.35,H*0.45,0,W*0.35,H*0.45,600);
-  bg.addColorStop(0,'#1E1B38'); bg.addColorStop(1,'#111024');
+  // === Background — 水墨仙境 · 米色宣纸 ===
+  ctx.fillStyle='#EDE8DE'; ctx.fillRect(0,0,W,H);
+  const bg=ctx.createRadialGradient(W*0.38,H*0.42,0,W*0.38,H*0.42,620);
+  bg.addColorStop(0,'#F5F0E6'); bg.addColorStop(0.55,'#EDE8DE'); bg.addColorStop(1,'#E4DED2');
   ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
 
-  // subtle dot grid
-  ctx.fillStyle='rgba(255,255,255,0.018)';
-  for(let x=18;x<W;x+=28) for(let y=18;y<H;y+=28){
-    ctx.beginPath();ctx.arc(x,y,0.8,0,Math.PI*2);ctx.fill();
+  // Ink bleed blobs — warm sepia washes
+  const b1=ctx.createRadialGradient(180,160,0,180,160,320);
+  b1.addColorStop(0,'rgba(160,130,90,0.10)'); b1.addColorStop(1,'rgba(160,130,90,0)');
+  ctx.fillStyle=b1; ctx.fillRect(0,0,W,H);
+  const b2=ctx.createRadialGradient(920,560,0,920,560,280);
+  b2.addColorStop(0,'rgba(140,110,75,0.08)'); b2.addColorStop(1,'rgba(140,110,75,0)');
+  ctx.fillStyle=b2; ctx.fillRect(0,0,W,H);
+  const b3=ctx.createRadialGradient(600,80,0,600,80,200);
+  b3.addColorStop(0,'rgba(180,150,100,0.07)'); b3.addColorStop(1,'rgba(180,150,100,0)');
+  ctx.fillStyle=b3; ctx.fillRect(0,0,W,H);
+
+  // Sparse warm dot grid
+  ctx.fillStyle='rgba(150,120,80,0.06)';
+  for(let x=22;x<W;x+=32) for(let y=22;y<H;y+=32){
+    ctx.beginPath();ctx.arc(x,y,0.7,0,Math.PI*2);ctx.fill();
   }
 
   // === Left Panel ===
   drawLeftPanel(ts);
 
   // === Divider ===
-  ctx.strokeStyle='rgba(255,255,255,0.07)'; ctx.lineWidth=1;
+  ctx.strokeStyle='rgba(140,110,70,0.18)'; ctx.lineWidth=1;
   ctx.beginPath(); ctx.moveTo(DIV_X,0); ctx.lineTo(DIV_X,H); ctx.stroke();
 
   // === Right Panel ===
@@ -291,25 +303,25 @@ function draw(ts){
 function drawLeftPanel(ts){
   // Header
   ctx.textAlign='center';
-  ctx.fillStyle='rgba(255,255,255,0.75)';
+  ctx.fillStyle='rgba(40,28,16,0.78)';
   ctx.font='300 16px "Hiragino Sans","Yu Gothic",sans-serif';
   ctx.fillText('元  素  炼  成', LP/2, 30);
 
   const dl=[...discovered];
-  ctx.fillStyle='rgba(255,255,255,0.20)';
+  ctx.fillStyle='rgba(120,90,55,0.55)';
   ctx.font='300 10px "Helvetica Neue",Arial,sans-serif';
   ctx.fillText(`${dl.length} / ${TOTAL}  已发现`, LP/2, 48);
   // progress bar
   const pbw=140,pbx=(LP-pbw)/2,pby=56;
-  ctx.fillStyle='rgba(255,255,255,0.06)';
+  ctx.fillStyle='rgba(150,120,80,0.15)';
   ctx.beginPath();ctx.roundRect(pbx,pby,pbw,2,1);ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,0.25)';
+  ctx.fillStyle='rgba(120,90,50,0.40)';
   ctx.beginPath();ctx.roundRect(pbx,pby,pbw*(dl.length/TOTAL),2,1);ctx.fill();
 
   // ── Combo zone background ──
-  ctx.fillStyle='rgba(255,255,255,0.022)';
+  ctx.fillStyle='rgba(200,185,160,0.22)';
   ctx.beginPath();ctx.roundRect(14,88,LP-28,CZ_BOT-88,12);ctx.fill();
-  ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=0.5;
+  ctx.strokeStyle='rgba(150,120,80,0.18)'; ctx.lineWidth=0.5;
   ctx.beginPath();ctx.roundRect(14,88,LP-28,CZ_BOT-88,12);ctx.stroke();
 
   // slot shake offset
@@ -324,8 +336,8 @@ function drawLeftPanel(ts){
       ctx.fillStyle=c+'15'; ctx.fill();
       ctx.strokeStyle=c+'70'; ctx.lineWidth=1.5;
     } else {
-      ctx.fillStyle='rgba(255,255,255,0.025)'; ctx.fill();
-      ctx.strokeStyle='rgba(255,255,255,0.08)';
+      ctx.fillStyle='rgba(200,185,160,0.15)'; ctx.fill();
+      ctx.strokeStyle='rgba(150,120,80,0.28)';
       ctx.setLineDash([4,6]); ctx.lineWidth=1;
     }
     ctx.beginPath();ctx.arc(sx,SL_CY,SL_R,0,Math.PI*2);ctx.stroke();
@@ -334,7 +346,7 @@ function drawLeftPanel(ts){
       const csz=EG_SZ*0.92;
       drawCard(id, sx-csz/2, SL_CY-csz/2, csz, 1, true);
     } else {
-      ctx.fillStyle='rgba(255,255,255,0.08)';
+      ctx.fillStyle='rgba(150,120,80,0.30)';
       ctx.font='20px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText('◇', sx, SL_CY);
     }
@@ -342,7 +354,7 @@ function drawLeftPanel(ts){
   });
 
   // "+" label
-  ctx.fillStyle='rgba(255,255,255,0.15)';
+  ctx.fillStyle='rgba(120,90,55,0.28)';
   ctx.font='300 22px "Helvetica Neue",Arial,sans-serif';
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText('+', LP/2, SL_CY);
@@ -372,16 +384,16 @@ function drawLeftPanel(ts){
       ctx.fillText(lbl, LP/2, RES_CY+csz/2+13);
     }
   } else if(!slotA&&!slotB){
-    ctx.fillStyle='rgba(255,255,255,0.06)';
+    ctx.fillStyle='rgba(120,90,55,0.30)';
     ctx.font='300 10px "Helvetica Neue",Arial,sans-serif';
     ctx.textAlign='center'; ctx.textBaseline='middle';
     ctx.fillText('点击下方元素放入槽中', LP/2, RES_CY);
   }
 
   // ── Divider between combo and grid ──
-  ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=0.5;
+  ctx.strokeStyle='rgba(140,110,70,0.16)'; ctx.lineWidth=0.5;
   ctx.beginPath();ctx.moveTo(14,CZ_BOT+6);ctx.lineTo(LP-14,CZ_BOT+6);ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,0.14)';
+  ctx.fillStyle='rgba(120,90,55,0.50)';
   ctx.font='300 9px "Helvetica Neue",Arial,sans-serif';
   ctx.textAlign='left';
   ctx.fillText('已发现', 14, CZ_BOT+20);
@@ -404,12 +416,12 @@ function drawLeftPanel(ts){
 function drawRightPanel(){
   // Header
   ctx.textAlign='center';
-  ctx.fillStyle='rgba(255,255,255,0.70)';
+  ctx.fillStyle='rgba(40,28,16,0.75)';
   ctx.font='300 14px "Hiragino Sans","Yu Gothic",sans-serif';
   ctx.fillText('图  鉴', RP_X+RP_W/2, 30);
 
   const cnt=discovered.size;
-  ctx.fillStyle='rgba(255,255,255,0.18)';
+  ctx.fillStyle='rgba(120,90,55,0.55)';
   ctx.font='300 10px "Helvetica Neue",Arial,sans-serif';
   ctx.fillText(`${cnt} / ${TOTAL}`, RP_X+RP_W/2, 46);
 
@@ -436,7 +448,7 @@ function drawRightPanel(){
   if(selectedEnc&&discovered.has(selectedEnc)){
     drawDetailPanel(selectedEnc);
   } else {
-    ctx.fillStyle='rgba(255,255,255,0.07)';
+    ctx.fillStyle='rgba(120,90,55,0.30)';
     ctx.font='300 10px "Helvetica Neue",Arial,sans-serif';
     ctx.textAlign='center';
     ctx.fillText('点击已发现的元素查看详情', RP_X+RP_W/2, EN_DET_Y+26);
@@ -446,45 +458,53 @@ function drawRightPanel(){
 function drawDetailPanel(id){
   const el=E[id];
   const {n,e,c,d}=el;
-  const x=RP_X+10, y=EN_DET_Y, w=RP_W-20, h=H-EN_DET_Y-10;
+  const px=RP_X+10, py=EN_DET_Y, pw=RP_W-20, ph=H-EN_DET_Y-10;
+  const PAD=18;
 
   // panel bg
   ctx.save();
-  ctx.fillStyle=c+'12';
-  ctx.beginPath();ctx.roundRect(x,y,w,h,10);ctx.fill();
-  ctx.strokeStyle=c+'30'; ctx.lineWidth=0.8;
-  ctx.beginPath();ctx.roundRect(x,y,w,h,10);ctx.stroke();
+  ctx.fillStyle=c+'14';
+  ctx.beginPath();ctx.roundRect(px,py,pw,ph,10);ctx.fill();
+  ctx.strokeStyle=c+'35'; ctx.lineWidth=0.8;
+  ctx.beginPath();ctx.roundRect(px,py,pw,ph,10);ctx.stroke();
 
-  // emoji + name row
-  ctx.font=`${Math.round(h*0.40)}px serif`;
-  ctx.textAlign='left'; ctx.textBaseline='middle';
+  // ── Row 1: emoji (left) + name & recipe (right) ──
+  const emojiSize=46;
+  const emojiCX=px+PAD+emojiSize*0.5;
+  const emojiCY=py+PAD+emojiSize*0.5;
+
+  ctx.font=`${emojiSize}px serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillStyle='#fff';
-  const emojY=y+h*0.32;
-  ctx.fillText(e, x+14, emojY);
+  ctx.fillText(e, emojiCX, emojiCY);
 
-  ctx.font=`300 18px "Hiragino Sans","Yu Gothic",sans-serif`;
+  const textX=px+PAD+emojiSize+14;
+
+  // name
+  ctx.font=`500 17px "Hiragino Sans","Yu Gothic",sans-serif`;
+  ctx.textAlign='left'; ctx.textBaseline='top';
   ctx.fillStyle=c;
-  ctx.fillText(n, x+14+h*0.38, emojY-8);
+  ctx.fillText(n, textX, py+PAD+2);
 
   // recipe
   const orig=ORIGIN[id];
-  if(orig){
-    const [ra,rb]=orig;
-    const recipeStr=`${E[ra].e} ${E[ra].n}  ＋  ${E[rb].e} ${E[rb].n}`;
-    ctx.font=`300 10px "Hiragino Sans","Yu Gothic",sans-serif`;
-    ctx.fillStyle='rgba(255,255,255,0.35)';
-    ctx.fillText(recipeStr, x+14+h*0.38, emojY+10);
-  } else {
-    ctx.font=`300 10px "Helvetica Neue",Arial,sans-serif`;
-    ctx.fillStyle='rgba(255,255,255,0.22)';
-    ctx.fillText('起源元素', x+14+h*0.38, emojY+10);
-  }
+  const recipeStr=orig
+    ? `${E[orig[0]].e} ${E[orig[0]].n}  ＋  ${E[orig[1]].e} ${E[orig[1]].n}`
+    : '起源元素';
+  ctx.font=`300 10px "Hiragino Sans","Yu Gothic",sans-serif`;
+  ctx.fillStyle=orig?'rgba(80,55,30,0.45)':'rgba(80,55,30,0.30)';
+  ctx.fillText(recipeStr, textX, py+PAD+24);
 
-  // description
+  // ── Divider ──
+  const divY=py+PAD+emojiSize+14;
+  ctx.strokeStyle=c+'45'; ctx.lineWidth=0.5;
+  ctx.beginPath();ctx.moveTo(px+PAD,divY);ctx.lineTo(px+pw-PAD,divY);ctx.stroke();
+
+  // ── Description ──
   ctx.font=`300 11px "Hiragino Sans","Yu Gothic",sans-serif`;
-  ctx.fillStyle='rgba(255,255,255,0.52)';
+  ctx.fillStyle='rgba(50,35,18,0.52)';
   ctx.textBaseline='top';
-  ctx.fillText(d, x+14, y+h*0.65);
+  ctx.fillText(d, px+PAD, divY+12);
 
   ctx.restore();
 }
@@ -492,7 +512,7 @@ function drawDetailPanel(id){
 function drawReveal(){
   const t=Math.min(1,revealAnim.t);
   const ease=t<0.5?2*t*t:(1-Math.pow(-2*t+2,2)/2);
-  ctx.fillStyle=`rgba(9,8,16,${ease*0.95})`; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle=`rgba(240,234,222,${ease*0.96})`; ctx.fillRect(0,0,W,H);
   const id=revealAnim.id;
   const {n,e,c}=E[id];
 
@@ -513,11 +533,11 @@ function drawReveal(){
   ctx.restore();
 
   ctx.globalAlpha=ease;
-  ctx.fillStyle='rgba(210,185,55,0.92)';
+  ctx.fillStyle='rgba(160,110,30,0.90)';
   ctx.font='300 12px "Helvetica Neue",Arial,sans-serif';
   ctx.textAlign='center';
   ctx.fillText('✦   新发现   ✦', W/2, H/2-bsz/2*0.72-22);
-  ctx.fillStyle='rgba(255,255,255,0.25)';
+  ctx.fillStyle='rgba(80,55,30,0.40)';
   ctx.font='300 9px "Helvetica Neue",Arial,sans-serif';
   ctx.fillText(revealAnim.hold?'点击继续':'', W/2, H/2+bsz/2*0.72+22);
   ctx.globalAlpha=1;
