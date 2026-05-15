@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>元素炼成</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0D0B18;display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden;touch-action:none}
+canvas{display:block;touch-action:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const W=420, H=640;
+const cv=document.getElementById('c');
+cv.width=W; cv.height=H;
+const ctx=cv.getContext('2d');
+
+// ── Persist discovered set ──
+const SAVE_KEY='alchemy_v1';
+function loadDisc(){
+  try{return new Set(JSON.parse(localStorage.getItem(SAVE_KEY))||[]);}catch(e){return new Set();}
+}
+function saveDisc(){
+  try{localStorage.setItem(SAVE_KEY,JSON.stringify([...discovered]));}catch(e){}
+}
+
+// ── Element definitions  [name, emoji, baseColor] ──
+const E={
+  fire:     ['火',   '🔥','#D04828'],
+  water:    ['水',   '💧','#3878B0'],
+  earth:    ['土',   '🟫','#806030'],
+  wind:     ['风',   '🌬','#6888A0'],
+  // tier-1
+  steam:    ['蒸汽', '♨', '#7888A0'],
+  lava:     ['熔岩', '🌋','#C03818'],
+  smoke:    ['烟',   '💨','#606068'],
+  mud:      ['泥',   '🤎','#604818'],
+  wave:     ['浪',   '🌊','#2068A0'],
+  dust:     ['尘',   '🌫','#A08858'],
+  // tier-2
+  cloud:    ['云',   '☁', '#7888A0'],
+  stone:    ['石',   '🪨','#586070'],
+  volcano:  ['火山', '🗻','#A02810'],
+  brick:    ['砖',   '🧱','#B05828'],
+  typhoon:  ['台风', '🌀','#2860A0'],
+  fog:      ['雾',   '🌫','#6878A0'],
+  rain:     ['雨',   '🌧','#2058A0'],
+  lightning:['闪电', '⚡','#C8B818'],
+  sand:     ['沙',   '🏜','#C0A058'],
+  metal:    ['金属', '⚙', '#586888'],
+  // tier-3
+  rainbow:  ['彩虹', '🌈','#B05898'],
+  plant:    ['植物', '🌱','#409030'],
+  glass:    ['玻璃', '🔮','#509898'],
+  steel:    ['钢',   '🔩','#487080'],
+  tool:     ['工具', '🔧','#607888'],
+  charcoal: ['炭',   '◼', '#282830'],
+  tree:     ['树',   '🌳','#287030'],
+  algae:    ['藻',   '🌿','#208858'],
+  seed:     ['种子', '🌰','#886830'],
+  // tier-4
+  forest:   ['森林', '🌲','#186020'],
+  mirror:   ['镜子', '🪞','#6898A8'],
+  wall:     ['砖墙', '🧱','#907050'],
+  life:     ['生命', '✨','#9030A0'],
+  // tier-5
+  fish:     ['鱼',   '🐟','#2870A8'],
+  worm:     ['虫',   '🐛','#608828'],
+  bird:     ['鸟',   '🐦','#3880B8'],
+  phoenix:  ['凤凰', '🦅','#C06010'],
+  silk:     ['丝绸', '🧵','#C0A0B8'],
+  ocean:    ['海洋', '🌊','#085080'],
+  sky:      ['天空', '🌤','#4080B8'],
+  // tier-6
+  house:    ['房屋', '🏠','#B06820'],
+  paper:    ['纸',   '📄','#C8C0A8'],
+  ink:      ['墨',   '🖋','#202028'],
+  // tier-7
+  human:    ['人',   '👤','#B87848'],
+  tea:      ['茶',   '🍵','#489048'],
+  book:     ['书',   '📖','#503888'],
+  harvest:  ['收获', '🌾','#B09018'],
+  // tier-8
+  knowledge:['知识', '💡','#A08010'],
+  // myth
+  dragon:   ['龙',   '🐉','#203878'],
+  immortal: ['仙',   '🌟','#B8B028'],
+  universe: ['宇宙', '🌌','#0C1018'],
+};
+const TOTAL=Object.keys(E).length;
+
+// ── Recipes: sorted(a+b) → result ──
+const R={};
+function rec(a,b,c){R[[a,b].sort().join('+')]=c;}
+rec('fire','water','steam');
+rec('fire','earth','lava');
+rec('fire','wind','smoke');
+rec('water','earth','mud');
+rec('water','wind','wave');
+rec('earth','wind','dust');
+rec('steam','wind','cloud');
+rec('lava','water','stone');
+rec('lava','earth','volcano');
+rec('mud','fire','brick');
+rec('wave','wind','typhoon');
+rec('smoke','water','fog');
+rec('cloud','water','rain');
+rec('cloud','fire','lightning');
+rec('stone','wind','sand');
+rec('stone','fire','metal');
+rec('rain','fire','rainbow');
+rec('rain','earth','plant');
+rec('sand','fire','glass');
+rec('metal','fire','steel');
+rec('metal','stone','tool');
+rec('plant','fire','charcoal');
+rec('plant','earth','tree');
+rec('plant','water','algae');
+rec('plant','wind','seed');
+rec('tree','tree','forest');
+rec('glass','sand','mirror');
+rec('brick','brick','wall');
+rec('lightning','water','life');
+rec('life','water','fish');
+rec('life','earth','worm');
+rec('life','wind','bird');
+rec('life','fire','phoenix');
+rec('worm','tree','silk');
+rec('fish','fish','ocean');
+rec('bird','bird','sky');
+rec('wall','wall','house');
+rec('tree','tool','paper');
+rec('charcoal','water','ink');
+rec('house','life','human');
+rec('tree','water','tea');
+rec('paper','ink','book');
+rec('seed','rain','harvest');
+rec('book','human','knowledge');
+rec('phoenix','ocean','dragon');
+rec('dragon','sky','immortal');
+rec('ocean','sky','universe');
+
+// ── State ──
+const STARTERS=['fire','water','earth','wind'];
+let discovered=loadDisc();
+if(discovered.size===0) STARTERS.forEach(id=>discovered.add(id));
+let slotA=null, slotB=null;
+let libScroll=0;
+let shakePhase=0, shakeDamp=0; // slot shake on fail
+let combAnim=null;   // {type:'fail'|'known'|'new', timer, id}
+let revealAnim=null; // {id, t, hold}  full-screen reveal
+let combLocked=false; // prevent double-fire
+
+// ── Layout ──
+const HDR_H=54;
+const SLOT_CY=HDR_H+82;
+const SLOT_R=40;
+const SLT_AX=W*0.28, SLT_BX=W*0.72;
+const RES_Y=SLOT_CY+SLOT_R+22;
+const DIV_Y=270;
+const LIB_Y=DIV_Y+18;
+const LIB_H=H-LIB_Y-4;
+const CW=72,CH=78,CGAP=9;
+const COLS=5;
+const ROW_H=CH+6;
+function cardX(col){return CGAP+col*(CW+CGAP);}
+function cardY(row){return LIB_Y+row*ROW_H-libScroll;}
+function maxScroll(){
+  return Math.max(0,Math.ceil(discList().length/COLS)*ROW_H - LIB_H);
+}
+function discList(){return Object.keys(E).filter(id=>discovered.has(id));}
+
+// ── Draw element card ──
+function drawCard(id,x,y,w,h,alpha,glowing,scale){
+  const [n,e,c]=E[id]||['?','?','#888'];
+  ctx.save();
+  ctx.globalAlpha=alpha??1;
+  if(scale&&scale!==1){
+    ctx.translate(x+w/2,y+h/2);
+    ctx.scale(scale,scale);
+    ctx.translate(-w/2,-h/2);
+    x=0;y=0;
+  }
+  // bg
+  ctx.beginPath(); ctx.roundRect(x,y,w,h,9);
+  ctx.fillStyle=c+'20'; ctx.fill();
+  // glow border
+  if(glowing){
+    ctx.shadowBlur=14; ctx.shadowColor=c;
+    ctx.strokeStyle=c+'CC'; ctx.lineWidth=1.8;
+  } else {
+    ctx.strokeStyle=c+'60'; ctx.lineWidth=1;
+  }
+  ctx.beginPath(); ctx.roundRect(x,y,w,h,9); ctx.stroke();
+  ctx.shadowBlur=0;
+  // emoji
+  ctx.font=`${Math.round(w*0.4)}px serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#fff';
+  ctx.fillText(e, x+w/2, y+h*0.41);
+  // name
+  ctx.font=`300 ${Math.max(9,Math.round(w*0.175))}px "Hiragino Sans","Yu Gothic",sans-serif`;
+  ctx.fillStyle='rgba(255,255,255,0.72)';
+  ctx.fillText(n, x+w/2, y+h*0.79);
+  ctx.restore();
+}
+
+// ── Combine logic ──
+function tryCombine(){
+  if(combLocked||!slotA||!slotB) return;
+  combLocked=true;
+  const key=[slotA,slotB].sort().join('+');
+  const result=R[key];
+  if(!result){
+    shakeDamp=1; shakePhase=0;
+    combAnim={type:'fail',timer:1};
+    setTimeout(()=>{slotA=null;slotB=null;combAnim=null;combLocked=false;},680);
+    return;
+  }
+  const isNew=!discovered.has(result);
+  discovered.add(result); saveDisc();
+  combAnim={type:isNew?'new':'known',timer:1,id:result};
+  if(isNew){
+    setTimeout(()=>{
+      revealAnim={id:result,t:0,hold:false};
+      combAnim=null; slotA=null; slotB=null; combLocked=false;
+    },380);
+  } else {
+    setTimeout(()=>{slotA=null;slotB=null;combAnim=null;combLocked=false;},820);
+  }
+}
+
+// ── Draw ──
+function draw(ts){
+  ctx.clearRect(0,0,W,H);
+
+  // background
+  const bg=ctx.createRadialGradient(W/2,H*0.4,0,W/2,H*0.4,400);
+  bg.addColorStop(0,'#111020'); bg.addColorStop(1,'#090810');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+
+  // subtle dot grid
+  ctx.fillStyle='rgba(255,255,255,0.022)';
+  for(let x=18;x<W;x+=30) for(let y=18;y<H;y+=30){
+    ctx.beginPath();ctx.arc(x,y,0.9,0,Math.PI*2);ctx.fill();
+  }
+
+  // ── Header ──
+  ctx.textAlign='center';
+  ctx.fillStyle='rgba(255,255,255,0.80)';
+  ctx.font='300 15px "Hiragino Sans","Yu Gothic",sans-serif';
+  ctx.fillText('元  素  炼  成', W/2, 24);
+  const dl=discList();
+  ctx.fillStyle='rgba(255,255,255,0.22)';
+  ctx.font='300 10px "Helvetica Neue",Arial,sans-serif';
+  ctx.fillText(`${dl.length} / ${TOTAL}  已发现`, W/2, 42);
+  // thin progress bar
+  const pbw=120,pbx=(W-pbw)/2,pby=48;
+  ctx.fillStyle='rgba(255,255,255,0.07)';
+  ctx.beginPath();ctx.roundRect(pbx,pby,pbw,2.5,1.5);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.28)';
+  ctx.beginPath();ctx.roundRect(pbx,pby,pbw*(dl.length/TOTAL),2.5,1.5);ctx.fill();
+
+  // ── Slots ──
+  const sOff= shakeDamp>0.01 ? Math.sin(shakePhase)*shakeDamp*10 : 0;
+
+  [[SLT_AX+sOff, slotA],[SLT_BX+sOff, slotB]].forEach(([sx,id])=>{
+    ctx.save();
+    ctx.beginPath(); ctx.arc(sx,SLOT_CY,SLOT_R,0,Math.PI*2);
+    if(id){
+      const c=E[id][2];
+      ctx.fillStyle=c+'18'; ctx.fill();
+      ctx.strokeStyle=c+'70'; ctx.lineWidth=1.5;
+    } else {
+      ctx.fillStyle='rgba(255,255,255,0.03)'; ctx.fill();
+      ctx.strokeStyle='rgba(255,255,255,0.10)';
+      ctx.setLineDash([4,6]); ctx.lineWidth=1;
+    }
+    ctx.beginPath(); ctx.arc(sx,SLOT_CY,SLOT_R,0,Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+    if(id){
+      drawCard(id, sx-CW/2*0.88, SLOT_CY-CH/2*0.88, CW*0.88, CH*0.88, 1, true);
+    } else {
+      ctx.fillStyle='rgba(255,255,255,0.10)';
+      ctx.font='18px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('◇', sx, SLOT_CY);
+    }
+    ctx.restore();
+  });
+
+  // "+" between slots
+  ctx.fillStyle='rgba(255,255,255,0.18)';
+  ctx.font='300 20px "Helvetica Neue",Arial,sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('+', W/2, SLOT_CY);
+
+  // ── Combine result area ──
+  if(combAnim){
+    const t=combAnim.timer;
+    if(combAnim.type==='fail'){
+      ctx.fillStyle=`rgba(220,80,60,${t*0.75})`;
+      ctx.font='300 11px "Helvetica Neue",Arial,sans-serif';
+      ctx.textAlign='center'; ctx.textBaseline='top';
+      ctx.fillText('无法合成', W/2, RES_Y);
+    } else if(combAnim.id){
+      const sc=0.8+0.2*(1-t);
+      drawCard(combAnim.id, W/2-CW/2, RES_Y, CW, CH, Math.min(1,t*2), false, sc);
+      if(combAnim.type==='new'){
+        ctx.fillStyle=`rgba(200,180,50,${Math.min(1,t*2)*0.85})`;
+        ctx.font='300 9px "Helvetica Neue",Arial,sans-serif';
+        ctx.textAlign='center';
+        ctx.fillText('✦  新发现  ✦', W/2, RES_Y+CH+6);
+      } else {
+        ctx.fillStyle=`rgba(255,255,255,${t*0.3})`;
+        ctx.font='300 9px "Helvetica Neue",Arial,sans-serif';
+        ctx.textAlign='center';
+        ctx.fillText('已知', W/2, RES_Y+CH+6);
+      }
+    }
+  }
+
+  // ── Divider ──
+  ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=0.5;
+  ctx.beginPath(); ctx.moveTo(14,DIV_Y); ctx.lineTo(W-14,DIV_Y); ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,0.16)';
+  ctx.font='300 9px "Helvetica Neue",Arial,sans-serif';
+  ctx.textAlign='left';
+  ctx.fillText('已发现', 14, DIV_Y+11);
+
+  // ── Library ──
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0,LIB_Y,W,LIB_H); ctx.clip();
+  dl.forEach((id,i)=>{
+    const col=i%COLS, row=Math.floor(i/COLS);
+    const cx=cardX(col), cy=cardY(row);
+    if(cy+CH<LIB_Y||cy>H) return;
+    const sel=(id===slotA||id===slotB);
+    drawCard(id,cx,cy,CW,CH,1,sel);
+  });
+  ctx.restore();
+
+  // fade bottom edge of library
+  const fg=ctx.createLinearGradient(0,H-36,0,H);
+  fg.addColorStop(0,'rgba(9,8,16,0)'); fg.addColorStop(1,'rgba(9,8,16,1)');
+  ctx.fillStyle=fg; ctx.fillRect(0,H-36,W,36);
+
+  // ── Reveal overlay ──
+  if(revealAnim){
+    const t=Math.min(1,revealAnim.t);
+    const ease=t<0.5?2*t*t:(1-Math.pow(-2*t+2,2)/2);
+    ctx.fillStyle=`rgba(9,8,16,${ease*0.94})`; ctx.fillRect(0,0,W,H);
+    const id=revealAnim.id;
+    const [n,e,c]=E[id];
+    // glow orb
+    ctx.save();
+    ctx.globalAlpha=ease*0.4;
+    ctx.shadowBlur=80; ctx.shadowColor=c;
+    ctx.beginPath(); ctx.arc(W/2,H/2-10,70,0,Math.PI*2);
+    ctx.fillStyle=c+'18'; ctx.fill();
+    ctx.restore();
+    // big card
+    const bw=160,bh=170;
+    drawCard(id,(W-bw)/2,(H-bh)/2-24,bw,bh,ease,true,0.7+ease*0.3);
+    // badges
+    ctx.globalAlpha=ease;
+    ctx.fillStyle='rgba(200,180,50,0.90)';
+    ctx.font='300 11px "Helvetica Neue",Arial,sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('✦   新发现   ✦', W/2, (H-bh)/2-40);
+    ctx.fillStyle='rgba(255,255,255,0.28)';
+    ctx.font='300 9px "Helvetica Neue",Arial,sans-serif';
+    ctx.fillText(revealAnim.hold?'点击继续':'', W/2, (H+bh)/2-2);
+    ctx.globalAlpha=1;
+    if(!revealAnim.hold&&t>=1) revealAnim.hold=true;
+  }
+}
+
+// ── Loop ──
+let last=0;
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt=Math.min(ts-last,50)/1000; last=ts;
+  shakePhase+=dt*55; shakeDamp=Math.max(0,shakeDamp-dt*4);
+  if(combAnim) combAnim.timer=Math.max(0,combAnim.timer-dt*1.8);
+  if(revealAnim) revealAnim.t=Math.min(1,revealAnim.t+dt*3.5);
+  draw(ts);
+}
+requestAnimationFrame(loop);
+
+// ── Input ──
+function hitCard(x,y){
+  const dl=discList();
+  for(let i=0;i<dl.length;i++){
+    const cx=cardX(i%COLS), cy=cardY(Math.floor(i/COLS));
+    if(x>=cx&&x<=cx+CW&&y>=cy&&y<=cy+CH) return dl[i];
+  }
+  return null;
+}
+
+function onTap(x,y){
+  if(revealAnim&&revealAnim.hold){ revealAnim=null; return; }
+  if(revealAnim) return;
+  if(combLocked) return;
+  // click slot to deselect
+  if(Math.hypot(x-SLT_AX,y-SLOT_CY)<=SLOT_R){ slotA=null; return; }
+  if(Math.hypot(x-SLT_BX,y-SLOT_CY)<=SLOT_R){ slotB=null; return; }
+  // click library
+  if(y<LIB_Y) return;
+  const id=hitCard(x,y);
+  if(!id) return;
+  if(!slotA){ slotA=id; }
+  else if(!slotB){ slotB=id; setTimeout(tryCombine,120); }
+  else { slotA=id; slotB=null; }
+}
+
+cv.addEventListener('click',e=>{
+  const r=cv.getBoundingClientRect();
+  onTap((e.clientX-r.left)*W/r.width,(e.clientY-r.top)*H/r.height);
+});
+cv.addEventListener('wheel',e=>{
+  e.preventDefault();
+  libScroll=Math.max(0,Math.min(maxScroll(),libScroll+e.deltaY*0.8));
+},{passive:false});
+
+let _ty=0,_ts=0,_moved=false;
+cv.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  const r=cv.getBoundingClientRect();
+  _ty=(e.touches[0].clientY-r.top)*H/r.height;
+  _ts=libScroll; _moved=false;
+},{passive:false});
+cv.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const r=cv.getBoundingClientRect();
+  const y=(e.touches[0].clientY-r.top)*H/r.height;
+  const dy=_ty-y;
+  if(Math.abs(dy)>4){_moved=true; libScroll=Math.max(0,Math.min(maxScroll(),_ts+dy));}
+},{passive:false});
+cv.addEventListener('touchend',e=>{
+  e.preventDefault();
+  if(!_moved){
+    const r=cv.getBoundingClientRect();
+    const t=e.changedTouches[0];
+    onTap((t.clientX-r.left)*W/r.width,(t.clientY-r.top)*H/r.height);
+  }
+},{passive:false});
+</script>
+</body>
+</html>

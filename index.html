@@ -367,6 +367,10 @@ footer {
 .p-merge { background:#faf6ef; position:relative; overflow:hidden; }
 .p-merge canvas { display:block; width:100%; height:100%; }
 
+/* ════════════════════════  Alchemy ════════════════════════ */
+.p-alchemy { background:#0D0B18; position:relative; overflow:hidden; }
+.p-alchemy canvas { display:block; width:100%; height:100%; }
+
 /* ── Responsive ── */
 @media (max-width: 680px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
@@ -442,8 +446,12 @@ footer {
         <div class="info"><div class="info-left"><div class="card-name">合成水果</div><div class="card-desc">物理合并 · 西瓜游戏 · 越大越爽</div></div><div class="card-arrow">→</div></div>
       </a>
 
-      <!-- 2 placeholders to fill row -->
-      <div class="card-ph"><div class="ph-icon">✦</div><div class="ph-text">新的在路上</div></div>
+      <a class="card" href="alchemy.html">
+        <div class="preview p-alchemy"><canvas id="alchCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">元素炼成</div><div class="card-desc">火水土风 · 合成发现 · 51种元素</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <!-- 1 placeholder to fill row -->
       <div class="card-ph"><div class="ph-icon">✦</div><div class="ph-text">新的在路上</div></div>
 
     </div>
@@ -544,7 +552,7 @@ footer {
 const ALL_APPS = [
   '2048.html','breakout.html','minesweeper.html','rhythm.html','slots.html','adventure.html',
   'luckToday.html','tarot.html','energy.html','namescore.html','iching.html',
-  'instruments.html','pixel.html','fireworks.html','sand.html','fractal.html','ink.html','tower.html','invaders.html','fishing.html','merge.html'
+  'instruments.html','pixel.html','fireworks.html','sand.html','fractal.html','ink.html','tower.html','invaders.html','fishing.html','merge.html','alchemy.html'
 ];
 function goRandom() {
   const btn = document.querySelector('.explore-btn');
@@ -943,6 +951,53 @@ function goRandom() {
   ctx.strokeStyle='rgba(0,0,0,0.07)'; ctx.lineWidth=1; ctx.setLineDash([3,5]);
   ctx.beginPath(); ctx.moveTo(W*.5,top.r*2+10); ctx.lineTo(W*.5,H-8); ctx.stroke();
   ctx.setLineDash([]);
+})();
+
+// ── Alchemy mini (static dark thumbnail with element cards) ──
+(function(){
+  const cv=document.getElementById('alchCanvas');
+  if(!cv)return;
+  const par=cv.parentElement;
+  const W=par.offsetWidth||200, H=par.offsetHeight||160;
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  const bg=ctx.createRadialGradient(W/2,H*.4,0,W/2,H*.4,W*.9);
+  bg.addColorStop(0,'#111020'); bg.addColorStop(1,'#090810');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+  // dot grid
+  ctx.fillStyle='rgba(255,255,255,0.025)';
+  for(let x=14;x<W;x+=22) for(let y=14;y<H;y+=22){ctx.beginPath();ctx.arc(x,y,0.8,0,Math.PI*2);ctx.fill();}
+  // element cards
+  const cards=[
+    {e:'🔥',c:'#D04828',n:'火'},{e:'💧',c:'#3878B0',n:'水'},
+    {e:'🟫',c:'#806030',n:'土'},{e:'🌬',c:'#6888A0',n:'风'},
+    {e:'🌱',c:'#409030',n:'植物'},{e:'⚡',c:'#C8B818',n:'闪电'},
+    {e:'✨',c:'#9030A0',n:'生命'},{e:'🐉',c:'#203878',n:'龙'},
+  ];
+  const cw=Math.floor((W-10)/4-4), ch=Math.floor(cw*1.1);
+  const gapX=Math.floor((W-4*cw)/5);
+  const startY=Math.floor(H*.22);
+  cards.forEach((c,i)=>{
+    const col=i%4, row=Math.floor(i/4);
+    const x=gapX+col*(cw+gapX), y=startY+row*(ch+5);
+    ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(x,y,cw,ch,4); else ctx.rect(x,y,cw,ch);
+    ctx.fillStyle=c.c+'20'; ctx.fill();
+    ctx.strokeStyle=c.c+'55'; ctx.lineWidth=0.8;
+    ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(x,y,cw,ch,4); else ctx.rect(x,y,cw,ch);
+    ctx.stroke();
+    ctx.font=`${Math.round(cw*.38)}px serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#fff';
+    ctx.fillText(c.e, x+cw/2, y+ch*.40);
+    ctx.font=`${Math.max(7,Math.round(cw*.17))}px sans-serif`;
+    ctx.fillStyle='rgba(255,255,255,0.6)';
+    ctx.fillText(c.n, x+cw/2, y+ch*.78);
+  });
+  // title
+  ctx.fillStyle='rgba(255,255,255,0.35)';
+  ctx.font=`300 ${Math.round(W*.055)}px sans-serif`;
+  ctx.textAlign='center';
+  ctx.fillText('元 素 炼 成', W/2, Math.round(H*.1));
 })();
 
 // ── Tower mini (static map thumbnail) ──
