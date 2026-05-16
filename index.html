@@ -27,7 +27,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12vh 24px 80px;
+  padding: 6vh 24px 80px;
 }
 
 body::before {
@@ -40,7 +40,7 @@ body::before {
 .wrap { position: relative; z-index: 1; width: 100%; max-width: 980px; }
 
 /* ── Header ── */
-header { margin-bottom: 48px; }
+header { margin-bottom: 20px; }
 .header-label {
   font-size: 0.68rem; font-weight: 500;
   letter-spacing: 0.45em; text-transform: uppercase;
@@ -48,7 +48,8 @@ header { margin-bottom: 48px; }
 }
 h1 {
   font-size: 1.75rem; font-weight: 300; letter-spacing: -0.01em;
-  color: var(--text); line-height: 1.2; margin-bottom: 20px;
+  color: var(--text); line-height: 1.2; margin-bottom: 0;
+  white-space: nowrap;
 }
 h1 strong { font-weight: 600; }
 
@@ -61,6 +62,8 @@ h1 strong { font-weight: 600; }
   font-family: 'Quicksand', sans-serif;
   font-size: 0.9rem; font-weight: 600; letter-spacing: 0.02em;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: transform 0.25s cubic-bezier(0.22,1,0.36,1), box-shadow 0.25s ease;
   box-shadow: 0 4px 16px rgba(0,0,0,0.15), 0 1px 4px rgba(0,0,0,0.1);
   position: relative; overflow: hidden;
@@ -79,7 +82,6 @@ h1 strong { font-weight: 600; }
 .explore-btn:hover .dice { transform: rotate(20deg) scale(1.15); }
 
 /* ── Category section ── */
-.cat-section { margin-bottom: 32px; }
 .cat-label {
   display: flex; align-items: center; gap: 12px;
   margin-bottom: 12px;
@@ -91,11 +93,79 @@ h1 strong { font-weight: 600; }
 }
 .cat-label-line { flex: 1; height: 1px; background: var(--border); }
 
-/* ── Grid: always 4 columns ── */
+/* ── Tab bar ── */
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+.tab-btn {
+  padding: 7px 18px;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  font-family: 'Quicksand', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s;
+  letter-spacing: 0.02em;
+  box-shadow: var(--shadow);
+}
+.tab-btn:hover { color: var(--text); border-color: rgba(0,0,0,0.15); }
+.tab-btn.active {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+}
+
+/* ── cat-section hidden by default, shown by JS ── */
+.cat-section { display: none; margin-bottom: 32px; }
+.cat-section.visible {
+  display: block;
+  animation: sectionIn 0.22s ease both;
+}
+@keyframes sectionIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Grid: 4-column CSS grid (single-category mode) ── */
 .grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
+}
+
+/* ── All-mode: every section becomes a horizontal scroll row ── */
+.wrap.all-mode .grid-wrap { position: relative; }
+.wrap.all-mode .grid-wrap::after {
+  content: '';
+  position: absolute; right: 0; top: 0; bottom: 12px;
+  width: 80px;
+  background: linear-gradient(to right, transparent, var(--bg));
+  pointer-events: none; z-index: 2;
+}
+.wrap.all-mode .grid {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 12px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.10) transparent;
+}
+.wrap.all-mode .grid::-webkit-scrollbar { height: 4px; }
+.wrap.all-mode .grid::-webkit-scrollbar-track { background: transparent; }
+.wrap.all-mode .grid::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.10); border-radius: 2px; }
+.wrap.all-mode .card {
+  flex: 0 0 200px;
+  width: 200px;
+  scroll-snap-align: start;
 }
 
 /* ── Card ── */
@@ -152,29 +222,6 @@ h1 strong { font-weight: 600; }
   flex-shrink: 0;
 }
 .card:hover .card-arrow { background: var(--text); color: #fff; transform: rotate(-45deg); }
-
-/* ── Placeholder card ── */
-.card-ph {
-  aspect-ratio: 1 / 1;
-  border-radius: 14px;
-  border: 1.5px dashed rgba(0,0,0,0.09);
-  display: flex; align-items: center; justify-content: center;
-  flex-direction: column; gap: 8px;
-  cursor: default;
-  background: transparent;
-}
-.ph-icon {
-  font-size: 1.1rem; color: rgba(0,0,0,0.1);
-  animation: phPulse 4s ease-in-out infinite;
-}
-@keyframes phPulse {
-  0%,100% { opacity: 0.5; transform: scale(1); }
-  50%      { opacity: 1;   transform: scale(1.12); }
-}
-.ph-text {
-  font-size: 0.6rem; color: rgba(0,0,0,0.2);
-  letter-spacing: 0.22em; font-family: 'Quicksand', sans-serif;
-}
 
 /* ── Footer ── */
 footer {
@@ -375,6 +422,10 @@ footer {
 .p-teahouse { background:#F5EDD8; position:relative; overflow:hidden; }
 .p-teahouse canvas { display:block; width:100%; height:100%; }
 
+/* ── Fishing ── */
+.p-fishing { background:#0c0820; position:relative; overflow:hidden; }
+.p-fishing canvas { display:block; width:100%; height:100%; }
+
 /* ── Responsive ── */
 @media (max-width: 680px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
@@ -386,73 +437,31 @@ footer {
 <div class="wrap">
   <header>
     <div class="header-label">vibe coding</div>
-    <h1><strong>Projects</strong> I made<br>for fun</h1>
-    <button class="explore-btn" onclick="goRandom()">
-      <span class="dice">🎲</span> 带我探索！
-    </button>
+    <h1><strong>Projects</strong> I made for fun</h1>
   </header>
 
-  <!-- ── 游戏  (6 cards → 2 rows of 4, need 2 placeholders) ── -->
-  <div class="cat-section">
+  <!-- ── Tab bar ── -->
+  <nav class="tabs">
+    <button class="tab-btn active" data-cat="all" onclick="setTab('all')">全部 · 23</button>
+    <button class="tab-btn" data-cat="game" onclick="setTab('game')">🎮 游戏 · 12</button>
+    <button class="tab-btn" data-cat="mystic" onclick="setTab('mystic')">🔮 玄学 · 5</button>
+    <button class="tab-btn" data-cat="create" onclick="setTab('create')">🎨 创作 · 6</button>
+    <button class="explore-btn" onclick="goRandom()" style="margin-left:auto">
+      <span class="dice">🎲</span> 带我探索！
+    </button>
+  </nav>
+
+  <!-- ── 游戏 ── -->
+  <div class="cat-section" data-cat="game">
     <div class="cat-label">
       <span class="cat-label-text">🎮 &nbsp;游戏</span>
       <div class="cat-label-line"></div>
     </div>
-    <div class="grid">
-
-      <a class="card" href="2048.html">
-        <div class="preview p-2048"><div class="tiles-grid" id="tilesGrid"></div></div>
-        <div class="info"><div class="info-left"><div class="card-name">2048</div><div class="card-desc">数字消除 · 自动推演</div></div><div class="card-arrow">→</div></div>
-      </a>
-
-      <a class="card" href="breakout.html">
-        <div class="preview p-breakout"><div class="brk-inner"><div class="brk-blocks" id="brkBlocks"></div><div class="brk-ball"></div><div class="brk-paddle"></div></div></div>
-        <div class="info"><div class="info-left"><div class="card-name">无尽弹球</div><div class="card-desc">关卡无限 · 速度递增 · 挡板渐短</div></div><div class="card-arrow">→</div></div>
-      </a>
-
-      <a class="card" href="minesweeper.html">
-        <div class="preview p-mine"><div class="mine-grid" id="mineGrid"></div></div>
-        <div class="info"><div class="info-left"><div class="card-name">扫雷</div><div class="card-desc">三难度 · 计时 · 首点安全</div></div><div class="card-arrow">→</div></div>
-      </a>
-
-      <a class="card" href="rhythm.html">
-        <div class="preview p-rhythm"><div class="rhy-inner" id="rhyInner"></div></div>
-        <div class="info"><div class="info-left"><div class="card-name">节奏打击</div><div class="card-desc">点击节拍 · 三难度 · Perfect 判定</div></div><div class="card-arrow">→</div></div>
-      </a>
-
-      <a class="card" href="slots.html">
-        <div class="preview p-slots"><div class="sl-machine"><div class="sl-title">LUCKY 777</div><div class="sl-reels"><div class="sl-reel"><div class="sl-sym">🍒</div><div class="sl-sym">7️⃣</div><div class="sl-sym">🍋</div></div><div class="sl-reel"><div class="sl-sym">💎</div><div class="sl-sym">7️⃣</div><div class="sl-sym">🍊</div></div><div class="sl-reel"><div class="sl-sym">⭐</div><div class="sl-sym">7️⃣</div><div class="sl-sym">🔔</div></div></div><div class="sl-line"></div><div class="sl-btn">SPIN</div></div></div>
-        <div class="info"><div class="info-left"><div class="card-name">老虎机</div><div class="card-desc">拉霸 · 777 · Jackpot 200×</div></div><div class="card-arrow">→</div></div>
-      </a>
-
-      <a class="card" href="adventure.html">
-        <div class="preview p-adventure"><div class="adv-light"></div><div class="adv-title">深夜书店</div><div class="adv-choices"><div class="adv-choice">▸ 推开那扇门</div><div class="adv-choice">▸ 继续向前走</div></div></div>
-        <div class="info"><div class="info-left"><div class="card-name">深夜书店</div><div class="card-desc">文字冒险 · 四种结局 · 每次不同</div></div><div class="card-arrow">→</div></div>
-      </a>
-
-      <a class="card" href="fishing.html">
-        <div class="preview p-fishing"><canvas id="fishCanvas"></canvas></div>
-        <div class="info"><div class="info-left"><div class="card-name">钓鱼</div><div class="card-desc">等待咬钩 · 六种鱼 · 月夜垂钓</div></div><div class="card-arrow">→</div></div>
-      </a>
-
-      <a class="card" href="tower.html">
-        <div class="preview p-tower"><canvas id="towerCanvas"></canvas></div>
-        <div class="info"><div class="info-left"><div class="card-name">塔防</div><div class="card-desc">四种炮塔 · 无尽波次 · 路径守卫</div></div><div class="card-arrow">→</div></div>
-      </a>
-
-      <a class="card" href="invaders.html">
-        <div class="preview p-invaders"><canvas id="invCanvas"></canvas></div>
-        <div class="info"><div class="info-left"><div class="card-name">太空侵略者</div><div class="card-desc">经典街机 · UFO · 护盾防线</div></div><div class="card-arrow">→</div></div>
-      </a>
-
-      <a class="card" href="merge.html">
-        <div class="preview p-merge"><canvas id="mergeCanvas"></canvas></div>
-        <div class="info"><div class="info-left"><div class="card-name">合成水果</div><div class="card-desc">物理合并 · 西瓜游戏 · 越大越爽</div></div><div class="card-arrow">→</div></div>
-      </a>
+    <div class="grid-wrap"><div class="grid">
 
       <a class="card" href="alchemy.html">
         <div class="preview p-alchemy"><canvas id="alchCanvas"></canvas></div>
-        <div class="info"><div class="info-left"><div class="card-name">元素炼成</div><div class="card-desc">火水土风 · 合成发现 · 100种元素</div></div><div class="card-arrow">→</div></div>
+        <div class="info"><div class="info-left"><div class="card-name">元素炼成</div><div class="card-desc">火水土风 · 100种元素 · 双栏图鉴</div></div><div class="card-arrow">→</div></div>
       </a>
 
       <a class="card" href="teahouse.html">
@@ -460,66 +469,111 @@ footer {
         <div class="info"><div class="info-left"><div class="card-name">小茶馆</div><div class="card-desc">放置养成 · 八种茶叶 · 银两滚滚来</div></div><div class="card-arrow">→</div></div>
       </a>
 
-    </div>
+      <a class="card" href="merge.html">
+        <div class="preview p-merge"><canvas id="mergeCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">合成水果</div><div class="card-desc">物理引擎 · 西瓜合并 · 越大越爽</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <a class="card" href="tower.html">
+        <div class="preview p-tower"><canvas id="towerCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">塔防</div><div class="card-desc">四种炮塔 · 无尽波次 · 路径守卫</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <a class="card" href="2048.html">
+        <div class="preview p-2048"><div class="tiles-grid" id="tilesGrid"></div></div>
+        <div class="info"><div class="info-left"><div class="card-name">2048</div><div class="card-desc">数字消除 · 滑动合并 · AI 自动演示</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <a class="card" href="minesweeper.html">
+        <div class="preview p-mine"><div class="mine-grid" id="mineGrid"></div></div>
+        <div class="info"><div class="info-left"><div class="card-name">扫雷</div><div class="card-desc">三档难度 · 计时 · 首点必安全</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <a class="card" href="breakout.html">
+        <div class="preview p-breakout"><div class="brk-inner"><div class="brk-blocks" id="brkBlocks"></div><div class="brk-ball"></div><div class="brk-paddle"></div></div></div>
+        <div class="info"><div class="info-left"><div class="card-name">无尽弹球</div><div class="card-desc">无限关卡 · 速度渐快 · 挡板渐短</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <a class="card" href="rhythm.html">
+        <div class="preview p-rhythm"><div class="rhy-inner" id="rhyInner"></div></div>
+        <div class="info"><div class="info-left"><div class="card-name">节奏打击</div><div class="card-desc">下落节拍 · 三档难度 · Perfect 判定</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <a class="card" href="invaders.html">
+        <div class="preview p-invaders"><canvas id="invCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">太空侵略者</div><div class="card-desc">经典街机 · UFO 彩蛋 · 护盾防线</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <a class="card" href="slots.html">
+        <div class="preview p-slots"><div class="sl-machine"><div class="sl-title">LUCKY 777</div><div class="sl-reels"><div class="sl-reel"><div class="sl-sym">🍒</div><div class="sl-sym">7️⃣</div><div class="sl-sym">🍋</div></div><div class="sl-reel"><div class="sl-sym">💎</div><div class="sl-sym">7️⃣</div><div class="sl-sym">🍊</div></div><div class="sl-reel"><div class="sl-sym">⭐</div><div class="sl-sym">7️⃣</div><div class="sl-sym">🔔</div></div></div><div class="sl-line"></div><div class="sl-btn">SPIN</div></div></div>
+        <div class="info"><div class="info-left"><div class="card-name">老虎机</div><div class="card-desc">拉霸转轮 · 777 · Jackpot 200×</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <a class="card" href="fishing.html">
+        <div class="preview p-fishing"><canvas id="fishCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">钓鱼</div><div class="card-desc">月夜垂钓 · 六种鱼 · 等待咬钩</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <a class="card" href="adventure.html">
+        <div class="preview p-adventure"><div class="adv-light"></div><div class="adv-title">深夜书店</div><div class="adv-choices"><div class="adv-choice">▸ 推开那扇门</div><div class="adv-choice">▸ 继续向前走</div></div></div>
+        <div class="info"><div class="info-left"><div class="card-name">深夜书店</div><div class="card-desc">文字冒险 · 分支剧情 · 四种结局</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+    </div></div>
   </div>
 
-  <!-- ── 玄学  (5 cards → 2 rows of 4, need 3 placeholders) ── -->
-  <div class="cat-section">
+  <!-- ── 玄学 ── -->
+  <div class="cat-section" data-cat="mystic">
     <div class="cat-label">
       <span class="cat-label-text">🔮 &nbsp;玄学</span>
       <div class="cat-label-line"></div>
     </div>
-    <div class="grid">
+    <div class="grid-wrap"><div class="grid">
 
       <a class="card" href="luckToday.html">
         <div class="preview p-luck" id="luckPreview"><div class="luck-cup-wrap"><div class="luck-sticks"><div class="luck-stick"></div><div class="luck-stick"></div><div class="luck-stick"></div><div class="luck-stick"></div></div><div class="luck-cup-rim"></div><div class="luck-cup"><div class="luck-cup-char">籤</div></div></div></div>
-        <div class="info"><div class="info-left"><div class="card-name">Your Luck Today</div><div class="card-desc">每日灵签 · 诚心求签</div></div><div class="card-arrow">→</div></div>
+        <div class="info"><div class="info-left"><div class="card-name">Your Luck Today</div><div class="card-desc">每日灵签 · 诚心一摇 · 签文解读</div></div><div class="card-arrow">→</div></div>
       </a>
 
       <a class="card" href="tarot.html">
         <div class="preview p-tarot"><div class="tarot-stars" id="tarotStars"></div><div class="mini-card"><div class="mini-card-sym">✦</div></div></div>
-        <div class="info"><div class="info-left"><div class="card-name">Tarot</div><div class="card-desc">每日塔罗 · 爱情 · 事业 · 金钱</div></div><div class="card-arrow">→</div></div>
-      </a>
-
-      <a class="card" href="energy.html">
-        <div class="preview p-energy"><svg id="energyRadar" width="120" height="120" viewBox="0 0 140 140"></svg></div>
-        <div class="info"><div class="info-left"><div class="card-name">今日能量值</div><div class="card-desc">八维能量扫描 · 专注 · 财运 · 爱情</div></div><div class="card-arrow">→</div></div>
-      </a>
-
-      <a class="card" href="namescore.html">
-        <div class="preview p-name"><div class="name-cert-mini"><div class="name-cn">振宇</div><div class="name-badge-row"><div class="name-badge">S</div><div class="name-score-txt">传世之名<br><span style="color:rgba(212,168,75,.35)">SCORE 92</span></div></div></div></div>
-        <div class="info"><div class="info-left"><div class="card-name">命名打分器</div><div class="card-desc">字形 · 音律 · 五行 · 数理能量</div></div><div class="card-arrow">→</div></div>
+        <div class="info"><div class="info-left"><div class="card-name">Tarot</div><div class="card-desc">每日塔罗 · 三牌展开 · 爱情事业金钱</div></div><div class="card-arrow">→</div></div>
       </a>
 
       <a class="card" href="iching.html">
         <div class="preview p-iching"><div class="ich-inner"><div class="ich-hex" id="ichHex"></div><div class="ich-name">周易占卦</div><div class="ich-coins"><div class="ich-coin">阳</div><div class="ich-coin">阴</div><div class="ich-coin">阳</div></div></div></div>
-        <div class="info"><div class="info-left"><div class="card-name">周易占卦</div><div class="card-desc">摇铜钱起卦 · 六十四卦 · 卦辞解读</div></div><div class="card-arrow">→</div></div>
+        <div class="info"><div class="info-left"><div class="card-name">周易占卦</div><div class="card-desc">铜钱起卦 · 六十四卦 · 卦辞详解</div></div><div class="card-arrow">→</div></div>
       </a>
 
-      <!-- 3 placeholders -->
-      <div class="card-ph"><div class="ph-icon">✦</div><div class="ph-text">新的在路上</div></div>
-      <div class="card-ph"><div class="ph-icon">✦</div><div class="ph-text">新的在路上</div></div>
-      <div class="card-ph"><div class="ph-icon">✦</div><div class="ph-text">新的在路上</div></div>
+      <a class="card" href="energy.html">
+        <div class="preview p-energy"><svg id="energyRadar" width="120" height="120" viewBox="0 0 140 140"></svg></div>
+        <div class="info"><div class="info-left"><div class="card-name">今日能量值</div><div class="card-desc">八维雷达扫描 · 财运专注爱情</div></div><div class="card-arrow">→</div></div>
+      </a>
 
-    </div>
+      <a class="card" href="namescore.html">
+        <div class="preview p-name"><div class="name-cert-mini"><div class="name-cn">振宇</div><div class="name-badge-row"><div class="name-badge">S</div><div class="name-score-txt">传世之名<br><span style="color:rgba(212,168,75,.35)">SCORE 92</span></div></div></div></div>
+        <div class="info"><div class="info-left"><div class="card-name">命名打分器</div><div class="card-desc">字形音律 · 五行数理 · 综合评分</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+    </div></div>
   </div>
 
-  <!-- ── 创作  (5 cards → 2 rows of 4, need 3 placeholders) ── -->
-  <div class="cat-section">
+  <!-- ── 创作 ── -->
+  <div class="cat-section" data-cat="create">
     <div class="cat-label">
       <span class="cat-label-text">🎨 &nbsp;创作</span>
       <div class="cat-label-line"></div>
     </div>
-    <div class="grid">
+    <div class="grid-wrap"><div class="grid">
 
-      <a class="card" href="instruments.html">
-        <div class="preview p-instruments"><div class="inst-notes"><span class="inst-note">♩</span><span class="inst-note">♪</span><span class="inst-note">♫</span></div><div class="piano-keys" id="pianoKeys"></div></div>
-        <div class="info"><div class="info-left"><div class="card-name">Software Instruments</div><div class="card-desc">虚拟钢琴 & 吉他 · 自动演奏</div></div><div class="card-arrow">→</div></div>
+      <a class="card" href="ink.html">
+        <div class="preview p-ink"><canvas id="inkCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">流体墨水</div><div class="card-desc">Navier-Stokes · 宣纸水墨 · 五色颜料</div></div><div class="card-arrow">→</div></div>
       </a>
 
-      <a class="card" href="pixel.html">
-        <div class="preview p-pixel"><div class="pixel-grid" id="pixelGrid"></div></div>
-        <div class="info"><div class="info-left"><div class="card-name">Pixel Board</div><div class="card-desc">像素画板 · 工具齐全 · 导出 PNG</div></div><div class="card-arrow">→</div></div>
+      <a class="card" href="fractal.html">
+        <div class="preview p-fractal"><canvas id="fractalCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">分形浏览器</div><div class="card-desc">Mandelbrot · 无限缩放 · 五种配色</div></div><div class="card-arrow">→</div></div>
       </a>
 
       <a class="card" href="fireworks.html">
@@ -529,24 +583,20 @@ footer {
 
       <a class="card" href="sand.html">
         <div class="preview p-sand"><canvas id="sandCanvas"></canvas></div>
-        <div class="info"><div class="info-left"><div class="card-name">沙粒模拟</div><div class="card-desc">沙 · 水 · 火 · 油 · 元素交互</div></div><div class="card-arrow">→</div></div>
+        <div class="info"><div class="info-left"><div class="card-name">沙粒模拟</div><div class="card-desc">沙 · 水 · 火 · 油 · 四元素物理</div></div><div class="card-arrow">→</div></div>
       </a>
 
-      <a class="card" href="fractal.html">
-        <div class="preview p-fractal"><canvas id="fractalCanvas"></canvas></div>
-        <div class="info"><div class="info-left"><div class="card-name">分形浏览器</div><div class="card-desc">Mandelbrot · 缩放漫游 · 五种配色</div></div><div class="card-arrow">→</div></div>
+      <a class="card" href="pixel.html">
+        <div class="preview p-pixel"><div class="pixel-grid" id="pixelGrid"></div></div>
+        <div class="info"><div class="info-left"><div class="card-name">Pixel Board</div><div class="card-desc">像素画板 · 笔刷填充 · 导出 PNG</div></div><div class="card-arrow">→</div></div>
       </a>
 
-      <a class="card" href="ink.html">
-        <div class="preview p-ink"><canvas id="inkCanvas"></canvas></div>
-        <div class="info"><div class="info-left"><div class="card-name">流体墨水</div><div class="card-desc">Navier-Stokes · 水墨纸上 · 五色颜料</div></div><div class="card-arrow">→</div></div>
+      <a class="card" href="instruments.html">
+        <div class="preview p-instruments"><div class="inst-notes"><span class="inst-note">♩</span><span class="inst-note">♪</span><span class="inst-note">♫</span></div><div class="piano-keys" id="pianoKeys"></div></div>
+        <div class="info"><div class="info-left"><div class="card-name">Software Instruments</div><div class="card-desc">虚拟钢琴吉他 · Web Audio · 自动演奏</div></div><div class="card-arrow">→</div></div>
       </a>
 
-      <!-- 2 placeholders -->
-      <div class="card-ph"><div class="ph-icon">✦</div><div class="ph-text">新的在路上</div></div>
-      <div class="card-ph"><div class="ph-icon">✦</div><div class="ph-text">新的在路上</div></div>
-
-    </div>
+    </div></div>
   </div>
 
 </div>
@@ -1121,6 +1171,19 @@ function goRandom() {
     ctx.restore();
   });
 })();
+
+// ── Tab filtering ──
+function setTab(cat) {
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.cat === cat);
+  });
+  // all-mode: horizontal scroll rows; single: 4-col grid
+  document.querySelector('.wrap').classList.toggle('all-mode', cat === 'all');
+  document.querySelectorAll('.cat-section').forEach(s => {
+    s.classList.toggle('visible', cat === 'all' || s.dataset.cat === cat);
+  });
+}
+setTab('all');
 </script>
 </body>
 </html>
