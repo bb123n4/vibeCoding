@@ -371,6 +371,10 @@ footer {
 .p-alchemy { background:#EDE8DE; position:relative; overflow:hidden; }
 .p-alchemy canvas { display:block; width:100%; height:100%; }
 
+/* ════════════════════════  Teahouse ════════════════════════ */
+.p-teahouse { background:#F5EDD8; position:relative; overflow:hidden; }
+.p-teahouse canvas { display:block; width:100%; height:100%; }
+
 /* ── Responsive ── */
 @media (max-width: 680px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
@@ -451,8 +455,10 @@ footer {
         <div class="info"><div class="info-left"><div class="card-name">元素炼成</div><div class="card-desc">火水土风 · 合成发现 · 100种元素</div></div><div class="card-arrow">→</div></div>
       </a>
 
-      <!-- 1 placeholder to fill row -->
-      <div class="card-ph"><div class="ph-icon">✦</div><div class="ph-text">新的在路上</div></div>
+      <a class="card" href="teahouse.html">
+        <div class="preview p-teahouse"><canvas id="teaCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">小茶馆</div><div class="card-desc">放置养成 · 八种茶叶 · 银两滚滚来</div></div><div class="card-arrow">→</div></div>
+      </a>
 
     </div>
   </div>
@@ -552,7 +558,7 @@ footer {
 const ALL_APPS = [
   '2048.html','breakout.html','minesweeper.html','rhythm.html','slots.html','adventure.html',
   'luckToday.html','tarot.html','energy.html','namescore.html','iching.html',
-  'instruments.html','pixel.html','fireworks.html','sand.html','fractal.html','ink.html','tower.html','invaders.html','fishing.html','merge.html','alchemy.html'
+  'instruments.html','pixel.html','fireworks.html','sand.html','fractal.html','ink.html','tower.html','invaders.html','fishing.html','merge.html','alchemy.html','teahouse.html'
 ];
 function goRandom() {
   const btn = document.querySelector('.explore-btn');
@@ -1001,6 +1007,81 @@ function goRandom() {
   ctx.font=`300 ${Math.round(W*.052)}px sans-serif`;
   ctx.textAlign='center';
   ctx.fillText('元 素 炼 成', W/2, Math.round(H*.11));
+})();
+
+// ── Teahouse mini ──
+(function(){
+  const cv=document.getElementById('teaCanvas');
+  if(!cv)return;
+  const par=cv.parentElement;
+  const W=par.offsetWidth||200, H=par.offsetHeight||160;
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  // warm paper background
+  ctx.fillStyle='#F5EDD8'; ctx.fillRect(0,0,W,H);
+  const bg=ctx.createRadialGradient(W*.5,H*.4,0,W*.5,H*.4,W*.7);
+  bg.addColorStop(0,'#FBF4E4'); bg.addColorStop(1,'#EDE4C8');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+  // subtle ink blobs
+  const ib=ctx.createRadialGradient(W*.15,H*.2,0,W*.15,H*.2,W*.35);
+  ib.addColorStop(0,'rgba(140,100,50,0.07)'); ib.addColorStop(1,'rgba(140,100,50,0)');
+  ctx.fillStyle=ib; ctx.fillRect(0,0,W,H);
+  // floor
+  ctx.fillStyle='rgba(160,120,70,0.12)';
+  ctx.beginPath(); ctx.ellipse(W*.5,H*.82,W*.38,H*.09,0,0,Math.PI*2); ctx.fill();
+  // teapot body
+  const tx=W*.5, ty=H*.56, tr=H*.18;
+  ctx.beginPath(); ctx.ellipse(tx,ty,tr,tr*.82,0,0,Math.PI*2);
+  ctx.fillStyle='#9B5B28'; ctx.fill();
+  ctx.strokeStyle='#7A4418'; ctx.lineWidth=1.5; ctx.stroke();
+  // teapot lid
+  ctx.beginPath(); ctx.ellipse(tx,ty-tr*.72,tr*.38,tr*.13,0,0,Math.PI*2);
+  ctx.fillStyle='#B87040'; ctx.fill();
+  ctx.strokeStyle='#7A4418'; ctx.lineWidth=1; ctx.stroke();
+  // lid knob
+  ctx.beginPath(); ctx.arc(tx,ty-tr*.85,tr*.07,0,Math.PI*2);
+  ctx.fillStyle='#C88050'; ctx.fill();
+  // spout
+  ctx.beginPath(); ctx.moveTo(tx+tr*.7,ty-tr*.15);
+  ctx.quadraticCurveTo(tx+tr*1.2,ty-tr*.5,tx+tr*1.1,ty-tr*.75);
+  ctx.strokeStyle='#9B5B28'; ctx.lineWidth=tr*.28; ctx.lineCap='round'; ctx.stroke();
+  // handle
+  ctx.beginPath(); ctx.arc(tx-tr*.9,ty,tr*.36,Math.PI*-.55,Math.PI*.55);
+  ctx.strokeStyle='#9B5B28'; ctx.lineWidth=tr*.2; ctx.lineCap='round'; ctx.stroke();
+  // steam puffs
+  ctx.fillStyle='rgba(255,255,255,0.55)';
+  [[tx-tr*.18,ty-tr*1.15],[tx+tr*.05,ty-tr*1.35],[tx+tr*.22,ty-tr*1.18]].forEach(([sx,sy])=>{
+    ctx.beginPath(); ctx.arc(sx,sy,tr*.12,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(sx+tr*.1,sy-tr*.12,tr*.09,0,Math.PI*2); ctx.fill();
+  });
+  // left lantern
+  const ll_x=W*.14, ll_y=H*.32, ll_r=H*.078;
+  ctx.beginPath(); ctx.ellipse(ll_x,ll_y,ll_r*.55,ll_r,0,0,Math.PI*2);
+  ctx.fillStyle='#CC2222'; ctx.fill();
+  ctx.strokeStyle='#991111'; ctx.lineWidth=0.8; ctx.stroke();
+  ctx.fillStyle='rgba(255,180,0,0.35)';
+  ctx.beginPath(); ctx.ellipse(ll_x,ll_y,ll_r*.55,ll_r,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#CC2222'; ctx.lineWidth=0.5;
+  for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(ll_x,ll_y-ll_r);ctx.lineTo(ll_x,ll_y+ll_r);ctx.stroke();}
+  // right lantern
+  const rl_x=W*.86, rl_y=H*.28, rl_r=H*.065;
+  ctx.beginPath(); ctx.ellipse(rl_x,rl_y,rl_r*.55,rl_r,0,0,Math.PI*2);
+  ctx.fillStyle='#CC2222'; ctx.fill();
+  ctx.strokeStyle='#991111'; ctx.lineWidth=0.8; ctx.stroke();
+  ctx.fillStyle='rgba(255,180,0,0.3)';
+  ctx.beginPath(); ctx.ellipse(rl_x,rl_y,rl_r*.55,rl_r,0,0,Math.PI*2); ctx.fill();
+  // coin pile
+  const coins=[{x:W*.34,y:H*.78},{x:W*.38,y:H*.75},{x:W*.36,y:H*.73},{x:W*.66,y:H*.77},{x:W*.63,y:H*.74}];
+  coins.forEach(c=>{
+    ctx.beginPath(); ctx.ellipse(c.x,c.y,W*.026,H*.012,0,0,Math.PI*2);
+    ctx.fillStyle='#D4A820'; ctx.fill();
+    ctx.strokeStyle='#A07C10'; ctx.lineWidth=0.6; ctx.stroke();
+  });
+  // title text
+  ctx.fillStyle='rgba(100,65,25,0.50)';
+  ctx.font=`500 ${Math.round(W*.075)}px "STKaiti","KaiTi","楷体",serif`;
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillText('小 茶 馆', W*.5, H*.06);
 })();
 
 // ── Tower mini (static map thumbnail) ──

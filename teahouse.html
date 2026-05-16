@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小茶馆</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#F5EDD8;display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden}
+canvas{display:block;width:min(100vw,calc(100vh * 1200 / 700));height:min(100vh,calc(100vw * 700 / 1200))}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const W=1200,H=700;
+const dpr=Math.min(window.devicePixelRatio||1,2);
+const cv=document.getElementById('c');
+cv.width=W*dpr; cv.height=H*dpr;
+const ctx=cv.getContext('2d');
+ctx.scale(dpr,dpr);
+
+// ── Game Data ──
+const TEAS=[
+  {id:'white', n:'白茶', e:'🌿', desc:'清淡甘甜，初学者的选择',   baseRate:0.5,   baseCost:0,       owned:1, color:'#C8D8B0'},
+  {id:'green', n:'绿茶', e:'🍃', desc:'提神醒脑，客源渐广',       baseRate:2,     baseCost:80,      owned:0, color:'#78A840'},
+  {id:'oolong',n:'乌龙', e:'🌀', desc:'香气馥郁，留客更久',       baseRate:8,     baseCost:450,     owned:0, color:'#C09050'},
+  {id:'black', n:'红茶', e:'🍂', desc:'温润暖胃，口碑渐起',       baseRate:25,    baseCost:2500,    owned:0, color:'#A84030'},
+  {id:'puerh', n:'普洱', e:'🫖', desc:'陈香醇厚，声名远播',       baseRate:80,    baseCost:14000,   owned:0, color:'#704820'},
+  {id:'rock',  n:'岩茶', e:'⛰', desc:'岩骨花香，茶中极品',       baseRate:250,   baseCost:70000,   owned:0, color:'#806040'},
+  {id:'dragon',n:'龙井', e:'🐉', desc:'皇室贡品，天下闻名',       baseRate:800,   baseCost:350000,  owned:0, color:'#408040'},
+  {id:'mao',   n:'毛尖', e:'✨', desc:'仙茗之选，茶馆封神',       baseRate:2500,  baseCost:1800000, owned:0, color:'#A09020'},
+];
+
+const UPGRADES=[
+  {id:'pot1',n:'陶土茶壶',e:'🫖',desc:'所有收入 ×1.3',cost:120,   type:'equip',val:1.3, bought:false},
+  {id:'pot2',n:'紫砂壶',  e:'🏺',desc:'所有收入 ×1.6',cost:900,   type:'equip',val:1.6, bought:false},
+  {id:'pot3',n:'汝窑茶具',e:'🔮',desc:'所有收入 ×2.5',cost:6000,  type:'equip',val:2.5, bought:false},
+  {id:'pot4',n:'宋代珍品',e:'💎',desc:'所有收入 ×5',  cost:40000, type:'equip',val:5.0, bought:false},
+  {id:'mas', n:'茶学大师',e:'🎓',desc:'所有收入 ×4',  cost:200000,type:'equip',val:4.0, bought:false},
+  {id:'clk1',n:'手工茶磨',e:'⚙', desc:'点击 +8 银两', cost:250,   type:'click',val:8,   bought:false},
+  {id:'clk2',n:'精制茶刀',e:'🔪',desc:'点击 +40 银两',cost:2000,  type:'click',val:40,  bought:false},
+  {id:'clk3',n:'秘制配方',e:'📜',desc:'点击 +200 银两',cost:18000, type:'click',val:200, bought:false},
+  {id:'boy', n:'小学徒',  e:'👦',desc:'+4 银两/秒',   cost:180,   type:'staff',val:4,   bought:0,max:10},
+  {id:'art', n:'茶艺师',  e:'👩',desc:'+18 银两/秒',  cost:1200,  type:'staff',val:18,  bought:0,max:5},
+  {id:'mgr', n:'老掌柜',  e:'👴',desc:'+60 银两/秒',  cost:7000,  type:'staff',val:60,  bought:0,max:3},
+];
+
+// ── State ──
+let silver=0, totalEarned=0, clicks=0, customersServed=0;
+let tab='tea', rightScroll=0, teapotPulse=0;
+let particles=[];
+let achievedMilestones=new Set();
+let toast=null; // {msg, life, maxLife}
+let mouseX=0, mouseY=0;
+let last=0;
+let steamFrames=0, passiveTimer=0;
+let steamParticles=[];
+
+const MILESTONES=[
+  {thresh:1000,   msg:'小茶馆初具规模！'},
+  {thresh:50000,  msg:'街坊邻里皆知晓'},
+  {thresh:500000, msg:'茶香飘十里'},
+  {thresh:5000000,msg:'名动四方'},
+];
+const DRAGON_MS={id:'dragon_unlock',msg:'皇室贡品入馆！'};
+
+// ── Save / Load ──
+const SAVE_KEY='teahouse_v1';
+function save(){
+  try{
+    const data={
+      silver, totalEarned, customersServed, clicks,
+      teas: Object.fromEntries(TEAS.map(t=>[t.id,t.owned])),
+      upgrades: Object.fromEntries(UPGRADES.map(u=>[u.id,u.bought])),
+      milestones:[...achievedMilestones],
+    };
+    localStorage.setItem(SAVE_KEY,JSON.stringify(data));
+  }catch(e){}
+}
+function load(){
+  try{
+    const d=JSON.parse(localStorage.getItem(SAVE_KEY));
+    if(!d) return;
+    silver=d.silver||0;
+    totalEarned=d.totalEarned||0;
+    customersServed=d.customersServed||0;
+    clicks=d.clicks||0;
+    if(d.teas) for(const t of TEAS) if(d.teas[t.id]!=null) t.owned=d.teas[t.id];
+    if(d.upgrades) for(const u of UPGRADES) if(d.upgrades[u.id]!=null) u.bought=d.upgrades[u.id];
+    if(d.milestones) achievedMilestones=new Set(d.milestones);
+  }catch(e){}
+}
+load();
+let saveTimer=0;
+
+// ── Helpers ──
+function fmt(n){
+  if(n<1000) return Math.floor(n).toString();
+  if(n<1e6) return (n/1000).toFixed(1)+'K';
+  if(n<1e9) return (n/1e6).toFixed(2)+'M';
+  if(n<1e12) return (n/1e9).toFixed(2)+'B';
+  return (n/1e12).toFixed(2)+'T';
+}
+function fmtDec(n,d=2){
+  if(n<1000) return n.toFixed(d);
+  if(n<1e6) return (n/1000).toFixed(1)+'K';
+  if(n<1e9) return (n/1e6).toFixed(2)+'M';
+  return (n/1e9).toFixed(2)+'B';
+}
+
+function getEquipMult(){ let m=1; for(const u of UPGRADES) if(u.type==='equip'&&u.bought) m*=u.val; return m; }
+function getStaffBonus(){ let b=0; for(const u of UPGRADES) if(u.type==='staff') b+=u.val*u.bought; return b; }
+function silverPerSec(){
+  let sps=0;
+  for(const t of TEAS) sps+=t.baseRate*t.owned;
+  sps+=getStaffBonus();
+  return sps*getEquipMult();
+}
+function getClickPower(){
+  let cp=Math.max(1, silverPerSec()*0.1);
+  for(const u of UPGRADES) if(u.type==='click'&&u.bought) cp+=u.val;
+  return cp;
+}
+function teaCost(t){
+  if(t.id==='white') return t.owned===0?0:Math.floor(15*Math.pow(1.15,t.owned-1));
+  return Math.floor(t.baseCost*Math.pow(1.15,t.owned));
+}
+function upgradeCost(u){
+  if(u.type==='staff') return Math.floor(u.cost*Math.pow(1.12,u.bought));
+  return u.cost;
+}
+
+// ── Particles ──
+function spawnMoney(x,y,amount){
+  particles.push({x,y,vx:(Math.random()-0.5)*0.8,vy:-1.5-Math.random()*0.5,life:1.2,maxLife:1.2,msg:'+'+fmt(amount)+'银',type:'money'});
+}
+function spawnSteam(x,y){
+  steamParticles.push({x:x+(Math.random()-0.5)*8,y,vx:(Math.random()-0.5)*0.4,vy:-0.9-Math.random()*0.4,r:4,life:1.2,maxLife:1.2});
+}
+
+// ── Milestone check ──
+function checkMilestones(){
+  for(const m of MILESTONES){
+    if(!achievedMilestones.has(m.thresh)&&totalEarned>=m.thresh){
+      achievedMilestones.add(m.thresh);
+      showToast(m.msg);
+    }
+  }
+  const dragon=TEAS.find(t=>t.id==='dragon');
+  if(dragon&&dragon.owned>0&&!achievedMilestones.has('dragon')){
+    achievedMilestones.add('dragon');
+    showToast(DRAGON_MS.msg);
+  }
+}
+function showToast(msg){ toast={msg,life:3,maxLife:3}; }
+
+// ── Drawing Helpers ──
+function roundRect(x,y,w,h,r,fill,stroke){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);
+  ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r);
+  ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h);
+  ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r);
+  ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
+  if(fill){ctx.fillStyle=fill;ctx.fill();}
+  if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}
+}
+
+// ── Draw Left Panel ──
+function drawScene(ts){
+  const W2=480, H2=H;
+  // Floor
+  ctx.fillStyle='#D4A870';
+  ctx.fillRect(0,0,W2,H2);
+  // Floor planks
+  ctx.strokeStyle='rgba(160,100,40,0.15)';
+  ctx.lineWidth=1;
+  for(let i=0;i<8;i++){
+    const y=H2-i*(H2/8)-H2/16;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W2,y); ctx.stroke();
+  }
+  // Back wall
+  ctx.fillStyle='#E8D8B0';
+  ctx.fillRect(0,0,W2,H2*0.55);
+  // Wall texture lines
+  ctx.strokeStyle='rgba(160,120,60,0.08)';
+  for(let i=0;i<5;i++){
+    ctx.beginPath(); ctx.moveTo(0,i*80+30); ctx.lineTo(W2,i*80+30); ctx.stroke();
+  }
+
+  // Counter/bar
+  const barY=280, barH=50;
+  roundRect(30,barY,W2-60,barH,8,'#C08840','rgba(140,90,30,0.3)');
+  // counter shadow
+  ctx.fillStyle='rgba(100,60,20,0.15)';
+  ctx.fillRect(30,barY+barH,W2-60,6);
+
+  // Bamboo plant bottom-left
+  drawBamboo(30, H2-20);
+
+  // Tables and customers
+  const sps=silverPerSec();
+  const numCustomers=Math.min(4,Math.floor(sps/5)+1);
+  const tablePositions=[{x:130,y:490},{x:340,y:490},{x:130,y:610},{x:340,y:610}];
+  for(let i=0;i<tablePositions.length;i++){
+    const tp=tablePositions[i];
+    // table
+    ctx.fillStyle='#C8A060';
+    ctx.beginPath(); ctx.arc(tp.x,tp.y,38,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(140,90,30,0.3)'; ctx.lineWidth=2; ctx.stroke();
+    // table center decoration
+    ctx.fillStyle='rgba(140,90,30,0.2)';
+    ctx.beginPath(); ctx.arc(tp.x,tp.y,10,0,Math.PI*2); ctx.fill();
+
+    // customers seated at table
+    const cAtTable = i < numCustomers ? Math.floor(Math.random()*2)+1 : 0;
+    // use deterministic positions around table
+    const angles=[-0.6,0.5,-2.0];
+    for(let j=0;j<Math.min(cAtTable,3);j++){
+      const ang=angles[j];
+      const cx2=tp.x+Math.cos(ang)*48;
+      const cy2=tp.y+Math.sin(ang)*28;
+      drawCustomer(cx2,cy2,ts);
+    }
+  }
+
+  // Teapot on counter
+  const pot={x:240, y:barY+5};
+  drawTeapot(pot.x, pot.y, ts);
+
+  // Lanterns
+  drawLantern(100, 25, ts);
+  drawLantern(370, 25, ts);
+
+  // Sign
+  roundRect(140,8,200,38,6,'#8B5020');
+  ctx.fillStyle='#F5EDD8';
+  ctx.font='bold 18px "Hiragino Sans","Yu Gothic",sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('小  茶  馆',240,27);
+
+  // Steam particles
+  for(const s of steamParticles){
+    const a=(s.life/s.maxLife)*0.5;
+    ctx.fillStyle=`rgba(255,255,255,${a})`;
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.r*(0.5+0.5*s.life/s.maxLife),0,Math.PI*2); ctx.fill();
+  }
+
+  // Money particles
+  for(const p of particles){
+    const a=p.life/p.maxLife;
+    ctx.globalAlpha=a;
+    ctx.fillStyle='#B8860B';
+    ctx.font=`bold 14px "Hiragino Sans","Yu Gothic",sans-serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(p.msg,p.x,p.y);
+    ctx.globalAlpha=1;
+  }
+
+  // Bottom label
+  ctx.fillStyle='rgba(120,80,40,0.45)';
+  ctx.font='13px "Hiragino Sans","Yu Gothic",sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('点击茶壶泡茶',240,H2-28);
+  ctx.fillStyle='rgba(140,100,40,0.65)';
+  ctx.font='12px "Hiragino Sans","Yu Gothic",sans-serif';
+  ctx.fillText('点击力 +'+fmt(getClickPower())+'银',240,H2-12);
+
+  // Divider
+  ctx.fillStyle='rgba(160,120,60,0.2)';
+  ctx.fillRect(480,0,1,H);
+}
+
+function drawBamboo(x,baseY){
+  const stalks=[{x:x,h:160,lx:-1},{x:x+15,h:130,lx:1},{x:x+30,h:150,lx:-1}];
+  for(const s of stalks){
+    // stalk
+    ctx.strokeStyle='#5A8A30';
+    ctx.lineWidth=5;
+    ctx.beginPath(); ctx.moveTo(s.x,baseY); ctx.lineTo(s.x,baseY-s.h); ctx.stroke();
+    // joints
+    ctx.strokeStyle='#487028';
+    ctx.lineWidth=2;
+    for(let j=0;j<4;j++){
+      const jy=baseY-s.h*0.25*(j+1);
+      ctx.beginPath(); ctx.moveTo(s.x-3,jy); ctx.lineTo(s.x+3,jy); ctx.stroke();
+    }
+    // leaves
+    ctx.fillStyle='#5A8A30';
+    const midY=baseY-s.h*0.6;
+    ctx.beginPath();
+    ctx.ellipse(s.x+s.lx*20, midY-10, 18, 7, s.lx>0?-0.4:0.4, 0, Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(s.x+s.lx*15, midY-30, 14, 5, s.lx>0?-0.6:0.6, 0, Math.PI*2);
+    ctx.fill();
+  }
+}
+
+function drawTeapot(cx, baseY, ts){
+  const scale = 1 + 0.08*teapotPulse;
+  ctx.save();
+  ctx.translate(cx, baseY);
+  ctx.scale(scale, scale);
+
+  // shadow
+  ctx.fillStyle='rgba(100,60,20,0.2)';
+  ctx.beginPath(); ctx.ellipse(0,28,32,8,0,0,Math.PI*2); ctx.fill();
+
+  // Body
+  ctx.fillStyle='#8B6040';
+  ctx.beginPath(); ctx.ellipse(0,5,32,24,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='rgba(60,30,10,0.3)'; ctx.lineWidth=1.5; ctx.stroke();
+
+  // Lid
+  roundRect(-16,-20,32,8,4,'#7A5030');
+  // Lid knob
+  ctx.fillStyle='#C8A060';
+  ctx.beginPath(); ctx.ellipse(0,-22,6,4,0,0,Math.PI*2); ctx.fill();
+
+  // Spout
+  ctx.strokeStyle='#7A5030'; ctx.lineWidth=6; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(30,-2); ctx.quadraticCurveTo(48,-10,52,-18); ctx.stroke();
+  // Spout tip
+  ctx.fillStyle='#7A5030';
+  ctx.beginPath(); ctx.arc(52,-18,5,0,Math.PI*2); ctx.fill();
+
+  // Handle
+  ctx.strokeStyle='#7A5030'; ctx.lineWidth=5; ctx.lineCap='round';
+  ctx.beginPath(); ctx.arc(-38,0,18,-Math.PI*0.5,Math.PI*0.5); ctx.stroke();
+
+  // Shine
+  ctx.fillStyle='rgba(255,255,255,0.15)';
+  ctx.beginPath(); ctx.ellipse(-8,-6,10,6,-0.4,0,Math.PI*2); ctx.fill();
+
+  ctx.restore();
+}
+
+function drawLantern(x, topY, ts){
+  const swing=Math.sin(ts*0.001+x)*2;
+  ctx.save();
+  ctx.translate(x, topY);
+  ctx.rotate(swing*Math.PI/180);
+
+  // String from ceiling
+  ctx.strokeStyle='rgba(140,90,30,0.6)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(0,-topY); ctx.lineTo(0,0); ctx.stroke();
+
+  // Lantern body
+  const lW=24, lH=55;
+  roundRect(-lW/2,0,lW,lH,10,'#C84030');
+  // highlight stripe
+  roundRect(-lW/2+3,5,8,lH-10,4,'#E85040');
+  // top cap
+  roundRect(-lW/2-2,-5,lW+4,8,3,'#8B2010');
+  // bottom cap
+  roundRect(-lW/2-2,lH-3,lW+4,8,3,'#8B2010');
+
+  // Glow
+  const grd=ctx.createRadialGradient(0,lH/2,0,0,lH/2,30);
+  grd.addColorStop(0,'rgba(255,180,60,0.15)');
+  grd.addColorStop(1,'rgba(255,180,60,0)');
+  ctx.fillStyle=grd;
+  ctx.beginPath(); ctx.arc(0,lH/2,30,0,Math.PI*2); ctx.fill();
+
+  // Tassel
+  ctx.strokeStyle='#FFD060'; ctx.lineWidth=1;
+  for(let i=-2;i<=2;i++){
+    ctx.beginPath(); ctx.moveTo(i*3,lH+8); ctx.lineTo(i*3+Math.sin(ts*0.002)*3,lH+25); ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawCustomer(x,y,ts){
+  // Simple customer: circle head + features
+  ctx.fillStyle='#E8C090';
+  ctx.beginPath(); ctx.arc(x,y,10,0,Math.PI*2); ctx.fill();
+  // eyes
+  ctx.fillStyle='rgba(50,30,10,0.8)';
+  ctx.beginPath(); ctx.arc(x-3,y-1,1.5,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+3,y-1,1.5,0,Math.PI*2); ctx.fill();
+  // smile
+  ctx.strokeStyle='rgba(50,30,10,0.7)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.arc(x,y+1,4,0.2,Math.PI-0.2); ctx.stroke();
+  // body
+  ctx.fillStyle='rgba(160,120,80,0.6)';
+  ctx.beginPath(); ctx.ellipse(x,y+20,7,10,0,0,Math.PI*2); ctx.fill();
+}
+
+// ── Draw Right Panel ──
+const RP=481, RW=W-RP;
+
+function drawRight(){
+  // BG
+  ctx.fillStyle='#F5EDD8';
+  ctx.fillRect(RP,0,RW,H);
+
+  // Header
+  drawHeader();
+
+  // Tab bar
+  drawTabs();
+
+  // Content
+  ctx.save();
+  ctx.rect(RP,95,RW,H-95);
+  ctx.clip();
+  ctx.translate(0,-rightScroll);
+  if(tab==='tea') drawTeaTab();
+  else drawUpgradeTab();
+  ctx.restore();
+}
+
+function drawHeader(){
+  ctx.fillStyle='rgba(160,120,60,0.08)';
+  ctx.fillRect(RP,0,RW,65);
+
+  // Silver icon + amount
+  ctx.font='13px "Hiragino Sans","Yu Gothic",sans-serif';
+  ctx.fillStyle='rgba(120,80,40,0.55)';
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText('🏮 银两',RP+16,20);
+
+  ctx.font='bold 28px "Hiragino Sans","Yu Gothic",sans-serif';
+  ctx.fillStyle='#B8860B';
+  ctx.fillText(fmt(silver),RP+16,45);
+
+  // SPS
+  ctx.textAlign='right';
+  ctx.font='12px "Hiragino Sans","Yu Gothic",sans-serif';
+  ctx.fillStyle='rgba(120,80,40,0.55)';
+  ctx.fillText('每秒收入',W-16,18);
+  ctx.font='bold 18px "Hiragino Sans","Yu Gothic",sans-serif';
+  ctx.fillStyle='rgba(50,30,10,0.75)';
+  ctx.fillText(fmtDec(silverPerSec())+' 银',W-16,42);
+
+  // Progress bar to next milestone
+  const milestoneTargets=[1000,50000,500000,5000000,20000000];
+  let nextMs=milestoneTargets.find(m=>totalEarned<m)||null;
+  if(nextMs){
+    const prevMs=milestoneTargets[milestoneTargets.indexOf(nextMs)-1]||0;
+    const prog=Math.min(1,(totalEarned-prevMs)/(nextMs-prevMs));
+    ctx.fillStyle='rgba(160,120,60,0.15)';
+    ctx.fillRect(RP,62,RW,3);
+    ctx.fillStyle='rgba(184,134,11,0.6)';
+    ctx.fillRect(RP,62,RW*prog,3);
+  }
+}
+
+function drawTabs(){
+  const tabH=30, tabY=66;
+  ctx.fillStyle='rgba(160,120,60,0.06)';
+  ctx.fillRect(RP,tabY,RW,tabH);
+
+  const tabs=[{id:'tea',n:'茶叶'},{id:'upgrade',n:'升级'}];
+  const tw=RW/tabs.length;
+  for(let i=0;i<tabs.length;i++){
+    const tx=RP+i*tw;
+    const active=tab===tabs[i].id;
+    ctx.font=(active?'bold ':'')+'14px "Hiragino Sans","Yu Gothic",sans-serif';
+    ctx.fillStyle=active?'rgba(50,30,10,0.85)':'rgba(120,80,40,0.45)';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(tabs[i].n,tx+tw/2,tabY+tabH/2);
+    if(active){
+      ctx.fillStyle='#C84030';
+      ctx.fillRect(tx+tw*0.25,tabY+tabH-2,tw*0.5,2);
+    }
+  }
+  // divider
+  ctx.fillStyle='rgba(160,120,60,0.15)';
+  ctx.fillRect(RP,tabY+tabH,RW,1);
+}
+
+function drawTeaTab(){
+  const rowH=72, startY=95;
+  const totalRate=silverPerSec()||1;
+  let visCount=0;
+
+  for(let i=0;i<TEAS.length;i++){
+    const t=TEAS[i];
+    const visible=t.owned>0||silver>=t.baseCost*0.5||(i===0);
+    if(!visible) continue;
+
+    const y=startY+visCount*rowH;
+    visCount++;
+
+    // Row BG
+    const hover=mouseX>RP&&mouseY+rightScroll>y&&mouseY+rightScroll<y+rowH;
+    if(hover) ctx.fillStyle='rgba(160,120,60,0.07)';
+    else ctx.fillStyle=visCount%2===0?'rgba(160,120,60,0.03)':'rgba(0,0,0,0)';
+    ctx.fillRect(RP,y,RW,rowH);
+
+    // Contribution bar
+    const contribW=(t.baseRate*t.owned/totalRate)*(RW-20);
+    ctx.fillStyle=t.color+'44';
+    ctx.fillRect(RP+10,y+rowH-8,contribW,5);
+    ctx.fillStyle=t.color+'88';
+    ctx.fillRect(RP+10,y+rowH-8,Math.min(contribW,2),5);
+
+    // Emoji
+    ctx.font='28px serif';
+    ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.fillText(t.e,RP+12,y+rowH/2);
+
+    // Name + desc
+    ctx.font='bold 14px "Hiragino Sans","Yu Gothic",sans-serif';
+    ctx.fillStyle='rgba(50,30,10,0.85)';
+    ctx.textAlign='left'; ctx.textBaseline='top';
+    ctx.fillText(t.n,RP+54,y+10);
+
+    ctx.font='11px "Hiragino Sans","Yu Gothic",sans-serif';
+    ctx.fillStyle='rgba(120,80,40,0.55)';
+    ctx.fillText(t.desc,RP+54,y+28);
+
+    // Rate
+    if(t.owned>0){
+      ctx.font='11px "Hiragino Sans","Yu Gothic",sans-serif';
+      ctx.fillStyle='#5A8A30';
+      ctx.fillText('+'+fmtDec(t.baseRate*t.owned)+'/秒',RP+54,y+46);
+    }
+
+    // Owned badge
+    if(t.owned>0){
+      const bx=RP+180, by=y+12;
+      roundRect(bx,by,36,18,9,t.color);
+      ctx.font='bold 11px "Hiragino Sans","Yu Gothic",sans-serif';
+      ctx.fillStyle='#fff';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('×'+t.owned,bx+18,by+9);
+    }
+
+    // BUY button
+    const cost=teaCost(t);
+    const canAfford=silver>=cost;
+    const btnX=W-105, btnY=y+18, btnW=90, btnH=34;
+    const btnHover=mouseX>btnX&&mouseX<btnX+btnW&&mouseY+rightScroll>btnY&&mouseY+rightScroll<btnY+btnH;
+
+    if(t.owned===0&&!visible){
+      // locked
+      ctx.font='18px serif';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('🔒',btnX+btnW/2,btnY+btnH/2);
+    } else {
+      roundRect(btnX,btnY,btnW,btnH,8,
+        canAfford?(btnHover?'#C84030':'#A03020'):'rgba(160,120,60,0.25)',
+        canAfford?'rgba(200,60,30,0.3)':'rgba(160,120,60,0.1)'
+      );
+      ctx.font='bold 12px "Hiragino Sans","Yu Gothic",sans-serif';
+      ctx.fillStyle=canAfford?'#F5EDD8':'rgba(120,80,40,0.4)';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(fmt(cost)+'银',btnX+btnW/2,btnY+btnH/2-6);
+      ctx.font='10px "Hiragino Sans","Yu Gothic",sans-serif';
+      ctx.fillText('购买',btnX+btnW/2,btnY+btnH/2+8);
+    }
+
+    // Row divider
+    ctx.fillStyle='rgba(160,120,60,0.1)';
+    ctx.fillRect(RP+10,y+rowH-1,RW-20,1);
+  }
+
+  // calc total content height for scroll
+  window._teaRows=visCount;
+}
+
+function drawUpgradeTab(){
+  const rowH=65, startY=95;
+
+  for(let i=0;i<UPGRADES.length;i++){
+    const u=UPGRADES[i];
+    const y=startY+i*rowH;
+
+    const hover=mouseX>RP&&mouseY+rightScroll>y&&mouseY+rightScroll<y+rowH;
+    if(hover) ctx.fillStyle='rgba(160,120,60,0.07)';
+    else ctx.fillStyle=i%2===0?'rgba(160,120,60,0.03)':'rgba(0,0,0,0)';
+    ctx.fillRect(RP,y,RW,rowH);
+
+    const isBought=u.type==='staff'?(u.bought>=u.max):(u.bought===true);
+
+    // Emoji
+    ctx.font='24px serif';
+    ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.globalAlpha=isBought&&u.type!=='staff'?0.4:1;
+    ctx.fillText(u.e,RP+12,y+rowH/2);
+    ctx.globalAlpha=1;
+
+    // Name + desc
+    ctx.font=`bold 13px "Hiragino Sans","Yu Gothic",sans-serif`;
+    ctx.fillStyle=isBought&&u.type!=='staff'?'rgba(120,80,40,0.4)':'rgba(50,30,10,0.85)';
+    ctx.textAlign='left'; ctx.textBaseline='top';
+    ctx.fillText(u.n,RP+46,y+10);
+
+    ctx.font='11px "Hiragino Sans","Yu Gothic",sans-serif';
+    ctx.fillStyle='rgba(120,80,40,0.55)';
+    ctx.fillText(u.desc,RP+46,y+27);
+
+    if(u.type==='staff'){
+      ctx.font='11px "Hiragino Sans","Yu Gothic",sans-serif';
+      ctx.fillStyle='rgba(90,138,48,0.8)';
+      ctx.fillText(`${u.bought}/${u.max}人`,RP+46,y+44);
+    }
+
+    // Button
+    const cost=upgradeCost(u);
+    const canAfford=silver>=cost;
+    const btnX=W-105, btnY=y+13, btnW=90, btnH=38;
+    const btnHover=mouseX>btnX&&mouseX<btnX+btnW&&mouseY+rightScroll>btnY&&mouseY+rightScroll<btnY+btnH;
+
+    if(isBought&&u.type!=='staff'){
+      roundRect(btnX,btnY,btnW,btnH,8,'rgba(160,120,60,0.15)');
+      ctx.font='16px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('✓',btnX+btnW/2,btnY+btnH/2);
+    } else if(u.type==='staff'&&u.bought>=u.max){
+      roundRect(btnX,btnY,btnW,btnH,8,'rgba(160,120,60,0.15)');
+      ctx.font='11px "Hiragino Sans","Yu Gothic",sans-serif';
+      ctx.fillStyle='rgba(120,80,40,0.5)';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('满员',btnX+btnW/2,btnY+btnH/2);
+    } else {
+      roundRect(btnX,btnY,btnW,btnH,8,
+        canAfford?(btnHover?'#B8860B':'#8B6010'):'rgba(160,120,60,0.25)',
+        canAfford?'rgba(184,134,11,0.3)':'rgba(160,120,60,0.1)'
+      );
+      ctx.font='bold 11px "Hiragino Sans","Yu Gothic",sans-serif';
+      ctx.fillStyle=canAfford?'#F5EDD8':'rgba(120,80,40,0.4)';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(fmt(cost)+'银',btnX+btnW/2,btnY+btnH/2-7);
+      ctx.font='10px "Hiragino Sans","Yu Gothic",sans-serif';
+      ctx.fillText('购买',btnX+btnW/2,btnY+btnH/2+7);
+    }
+
+    ctx.fillStyle='rgba(160,120,60,0.1)';
+    ctx.fillRect(RP+10,y+rowH-1,RW-20,1);
+  }
+}
+
+function drawToast(){
+  if(!toast) return;
+  const alpha=Math.min(1,toast.life/0.4,toast.maxLife-toast.life<0.4?(toast.life/0.4):1);
+  ctx.globalAlpha=alpha;
+  const tw=320, th=60;
+  const tx=(W-tw)/2, ty=H/2-30;
+  roundRect(tx,ty,tw,th,12,'rgba(245,237,216,0.97)','rgba(184,134,11,0.8)');
+  ctx.strokeStyle='rgba(184,134,11,0.5)';
+  ctx.lineWidth=2;
+  roundRect(tx+4,ty+4,tw-8,th-8,9,null,'rgba(184,134,11,0.3)');
+  ctx.font='bold 17px "Hiragino Sans","Yu Gothic",sans-serif';
+  ctx.fillStyle='#B8860B';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('🎉 '+toast.msg,tx+tw/2,ty+th/2);
+  ctx.globalAlpha=1;
+}
+
+// ── Main draw ──
+function draw(ts){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#F5EDD8';
+  ctx.fillRect(0,0,W,H);
+
+  drawScene(ts);
+  drawRight();
+  drawToast();
+}
+
+// ── Game Loop ──
+function loop(ts){
+  requestAnimationFrame(loop);
+  const dt=Math.min(ts-last,50)/1000;
+  last=ts;
+
+  // Passive income
+  const earned=silverPerSec()*dt;
+  silver+=earned;
+  totalEarned+=earned;
+  customersServed+=dt*0.3;
+
+  // Update teapot pulse
+  teapotPulse=Math.max(0,teapotPulse-dt*3);
+
+  // Update steam particles
+  steamFrames++;
+  if(steamFrames%55===0){
+    spawnSteam(290, 262);
+    spawnSteam(285, 260);
+  }
+  for(const s of steamParticles){
+    s.x+=s.vx; s.y+=s.vy; s.life-=dt;
+  }
+  steamParticles=steamParticles.filter(s=>s.life>0);
+
+  // Update money particles
+  for(const p of particles){
+    p.x+=p.vx; p.y+=p.vy; p.life-=dt;
+  }
+  particles=particles.filter(p=>p.life>0);
+
+  // Passive money particle spawn ~every 1.5s
+  passiveTimer+=dt;
+  if(passiveTimer>1.5&&silverPerSec()>0){
+    passiveTimer=0;
+    spawnMoney(220+Math.random()*40, 260, silverPerSec()*1.5);
+  }
+
+  // Toast timer
+  if(toast){
+    toast.life-=dt;
+    if(toast.life<=0) toast=null;
+  }
+
+  // Save timer
+  saveTimer+=dt;
+  if(saveTimer>10){ saveTimer=0; save(); }
+
+  // Milestone check
+  checkMilestones();
+
+  // Draw
+  draw(ts);
+}
+
+// ── Input ──
+function getCanvasXY(e){
+  const rect=cv.getBoundingClientRect();
+  const scaleX=W/rect.width, scaleY=H/rect.height;
+  return {x:(e.clientX-rect.left)*scaleX, y:(e.clientY-rect.top)*scaleY};
+}
+
+cv.addEventListener('mousemove',e=>{
+  const {x,y}=getCanvasXY(e);
+  mouseX=x; mouseY=y;
+});
+
+cv.addEventListener('click',e=>{
+  const {x,y}=getCanvasXY(e);
+
+  if(x<480){
+    // Click scene — brew tea
+    const cp=getClickPower();
+    silver+=cp;
+    totalEarned+=cp;
+    clicks++;
+    teapotPulse=1;
+    spawnMoney(240+( Math.random()-0.5)*30, 250, cp);
+    return;
+  }
+
+  // Right panel
+  if(y>=66&&y<96){
+    // Tab click
+    const tabs=['tea','upgrade'];
+    const tw=RW/2;
+    const idx=Math.floor((x-RP)/tw);
+    if(idx>=0&&idx<2){ tab=tabs[idx]; rightScroll=0; }
+    return;
+  }
+
+  // Content area
+  const cy=y+rightScroll;
+
+  if(tab==='tea'){
+    const rowH=72;
+    let visIdx=0;
+    for(const t of TEAS){
+      const visible=t.owned>0||silver>=t.baseCost*0.5||(t.id==='white');
+      if(!visible) continue;
+      const ry=95+visIdx*rowH;
+      visIdx++;
+      const btnX=W-105, btnY=ry+18, btnW=90, btnH=34;
+      if(x>btnX&&x<btnX+btnW&&cy>btnY&&cy<btnY+btnH){
+        const cost=teaCost(t);
+        if(silver>=cost){
+          silver-=cost;
+          t.owned++;
+          spawnMoney(240,260,0);
+        }
+        return;
+      }
+    }
+  }
+
+  if(tab==='upgrade'){
+    const rowH=65;
+    for(let i=0;i<UPGRADES.length;i++){
+      const u=UPGRADES[i];
+      const ry=95+i*rowH;
+      const btnX=W-105, btnY=ry+13, btnW=90, btnH=38;
+      if(x>btnX&&x<btnX+btnW&&cy>btnY&&cy<btnY+btnH){
+        const cost=upgradeCost(u);
+        const isBought=u.type==='staff'?(u.bought>=u.max):(u.bought===true);
+        if(!isBought&&silver>=cost){
+          silver-=cost;
+          if(u.type==='staff') u.bought++;
+          else u.bought=true;
+        }
+        return;
+      }
+    }
+  }
+});
+
+cv.addEventListener('wheel',e=>{
+  const rect=cv.getBoundingClientRect();
+  const scaleX=W/rect.width;
+  const cx=(e.clientX-rect.left)*scaleX;
+  if(cx>480){
+    e.preventDefault();
+    const maxScroll=tab==='tea'?(TEAS.length*72+20):(UPGRADES.length*65+20);
+    rightScroll=Math.max(0,Math.min(maxScroll-(H-95), rightScroll+e.deltaY*0.8));
+  }
+},{passive:false});
+
+window.addEventListener('beforeunload',save);
+
+// ── Start ──
+requestAnimationFrame(ts=>{ last=ts; requestAnimationFrame(loop); });
+</script>
+</body>
+</html>
