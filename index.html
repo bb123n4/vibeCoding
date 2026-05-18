@@ -430,6 +430,10 @@ footer {
 .p-roguelite { background:#0a0a0f; position:relative; overflow:hidden; }
 .p-roguelite canvas { display:block; width:100%; height:100%; }
 
+/* ════════════════════════  Antique ════════════════════════ */
+.p-antique { background:#f5ecd9; position:relative; overflow:hidden; }
+.p-antique canvas { display:block; width:100%; height:100%; }
+
 /* ── Responsive ── */
 @media (max-width: 680px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
@@ -446,8 +450,8 @@ footer {
 
   <!-- ── Tab bar ── -->
   <nav class="tabs">
-    <button class="tab-btn active" data-cat="all" onclick="setTab('all')">全部 · 24</button>
-    <button class="tab-btn" data-cat="game" onclick="setTab('game')">🎮 游戏 · 13</button>
+    <button class="tab-btn active" data-cat="all" onclick="setTab('all')">全部 · 25</button>
+    <button class="tab-btn" data-cat="game" onclick="setTab('game')">🎮 游戏 · 14</button>
     <button class="tab-btn" data-cat="mystic" onclick="setTab('mystic')">🔮 玄学 · 5</button>
     <button class="tab-btn" data-cat="create" onclick="setTab('create')">🎨 创作 · 6</button>
     <button class="explore-btn" onclick="goRandom()" style="margin-left:auto">
@@ -466,6 +470,11 @@ footer {
       <a class="card" href="roguelite.html">
         <div class="preview p-roguelite"><canvas id="rogueCanvas"></canvas></div>
         <div class="info"><div class="info-left"><div class="card-name">末日突围</div><div class="card-desc">Roguelite · 自动攻击 · 升级求生</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <a class="card" href="antique.html">
+        <div class="preview p-antique"><canvas id="antiqueCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">古玩摊</div><div class="card-desc">鉴宝识赝 · 还价收购 · 十日盈亏</div></div><div class="card-arrow">→</div></div>
       </a>
 
       <a class="card" href="alchemy.html">
@@ -1186,6 +1195,62 @@ function goRandom() {
   ctx.fillStyle='#F4A44A';ctx.fill();
   ctx.strokeStyle='#C07828';ctx.lineWidth=1.5;ctx.stroke();
   ctx.restore();
+})();
+
+// ── Antique mini ──
+(function(){
+  const cv=document.getElementById('antiqueCanvas');
+  if(!cv) return;
+  const par=cv.parentElement;
+  const W=par.offsetWidth||200, H=par.offsetHeight||160;
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  // paper bg
+  ctx.fillStyle='#f5ecd9'; ctx.fillRect(0,0,W,H);
+  // texture flecks
+  for(let i=0;i<40;i++){
+    ctx.fillStyle='rgba(180,150,110,0.08)';
+    ctx.fillRect(Math.random()*W,Math.random()*H,1.5,1.5);
+  }
+  // top scroll banner
+  ctx.fillStyle='rgba(168,58,42,0.85)';
+  ctx.fillRect(W*.18, H*.08, W*.64, H*.13);
+  ctx.fillStyle='#f5ecd9';
+  ctx.font=`bold ${Math.round(H*.10)}px "STKaiti","KaiTi",serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('古 玩 摊', W*.5, H*.145);
+  // vase center
+  const cx=W*.5, cy=H*.55;
+  ctx.save();
+  ctx.fillStyle='#dde6ee'; ctx.strokeStyle='#3a2c1f'; ctx.lineWidth=1.6;
+  ctx.beginPath();
+  ctx.moveTo(cx-W*.06, cy-H*.18); ctx.lineTo(cx+W*.06, cy-H*.18);
+  ctx.lineTo(cx+W*.06, cy-H*.14);
+  ctx.bezierCurveTo(cx+W*.16, cy-H*.08, cx+W*.16, cy+H*.08, cx+W*.08, cy+H*.16);
+  ctx.lineTo(cx-W*.08, cy+H*.16);
+  ctx.bezierCurveTo(cx-W*.16, cy+H*.08, cx-W*.16, cy-H*.08, cx-W*.06, cy-H*.14);
+  ctx.closePath();
+  ctx.fill(); ctx.stroke();
+  // 青花
+  ctx.strokeStyle='rgba(58,90,122,0.7)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.arc(cx, cy, W*.06, 0, Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, cy-H*.04, W*.02, 0, Math.PI*2); ctx.stroke();
+  ctx.restore();
+  // stars below
+  function star(sx,sy,r,fill){
+    ctx.beginPath();
+    for(let i=0;i<5;i++){
+      const a=-Math.PI/2 + i*Math.PI*2/5;
+      const a2=a+Math.PI/5;
+      ctx.lineTo(sx+Math.cos(a)*r, sy+Math.sin(a)*r);
+      ctx.lineTo(sx+Math.cos(a2)*r*0.45, sy+Math.sin(a2)*r*0.45);
+    }
+    ctx.closePath();
+    if(fill){ctx.fillStyle='#c89030'; ctx.fill();}
+    ctx.strokeStyle='#c89030'; ctx.lineWidth=1; ctx.stroke();
+  }
+  const sr=W*.025, sy=H*.84, sgap=W*.07, sxStart=W*.5-sgap*2;
+  for(let i=0;i<5;i++) star(sxStart+i*sgap, sy, sr, i<4);
 })();
 
 // ── Tower mini (static map thumbnail) ──

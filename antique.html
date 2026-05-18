@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>古玩摊</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;background:#1f1814}
+  body{display:flex;align-items:center;justify-content:center;font-family:"STKaiti","KaiTi","Songti SC","Noto Serif SC",serif;color:#3a2c1f}
+  #wrap{position:relative;width:min(100vw,calc(100vh*900/600));height:min(100vh,calc(100vw*600/900))}
+  canvas{display:block;width:100%;height:100%;background:#f5ecd9;cursor:pointer}
+  .vignette{position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse at center,transparent 55%,rgba(60,40,20,0.35) 100%)}
+  .home{position:absolute;top:14px;left:14px;color:#7a5a3a;background:rgba(255,250,235,0.7);
+    padding:6px 12px;border-radius:14px;text-decoration:none;font-size:14px;font-family:sans-serif;
+    border:1px solid rgba(120,90,60,0.25);z-index:5}
+  .home:hover{background:rgba(255,250,235,0.95)}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+  <div class="vignette"></div>
+  <a class="home" href="index.html">← 返回</a>
+</div>
+<script>
+const W=900,H=600;
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+const dpr=Math.min(devicePixelRatio||1,2);
+cv.width=W*dpr;cv.height=H*dpr;ctx.scale(dpr,dpr);
+
+// ─── 调色 ───
+const C={
+  paper:'#f5ecd9', paperDk:'#ebdcb8', ink:'#3a2c1f', inkLt:'#7a5a3a',
+  red:'#a83a2a', gold:'#b88a2a', jade:'#5a8a6a', blue:'#3a5a7a',
+  star:'#c89030', fake:'#a85050',
+};
+
+// ─── 状态 ───
+let state='start'; // start, day_intro, customer, dialog, day_end, game_over, won
+let day=1, money=200, fame=10;
+let inventory=[]; const INV_CAP=6;
+let customers=[], curCustomer=null, custIdx=0;
+let dialog=null; // {kind:'seller'|'buyer', item, offer, msg, examineLeft:2, negotiateLeft:2, lastPlayerPrice:null}
+let bestRevenue= parseInt(localStorage.getItem('antique_best')||'0');
+let dayStartMoney=200;
+let floatTexts=[];
+let toastMsg=null, toastT=0;
+
+// ─── 物品类型 ───
+const TYPES=[
+  {key:'porcelain', name:'瓷器', mult:1.0, color:'#dde6ee'},
+  {key:'jade',      name:'玉器', mult:1.25, color:'#b8d8b8'},
+  {key:'painting',  name:'字画', mult:1.1, color:'#f0e2c4'},
+  {key:'bronze',    name:'铜器', mult:0.95, color:'#c8a878'},
+];
+const ERAS=['民国','清','明','元','宋','唐'];
+const ERA_NAMES=['','民国','清代','明代','元代','宋代','唐宋'];
+
+// ─── 客人性格 ───
+const PERSONAS=[
+  {key:'rich',   name:'豪爽富商', mood:'出手阔绰', acceptRatio:1.35, rejectRatio:0.7,  patience:3, color:'#a83a2a'},
+  {key:'shrewd', name:'精明商人', mood:'锱铢必较', acceptRatio:1.05, rejectRatio:0.85, patience:2, color:'#b88a2a'},
+  {key:'expert', name:'内行行家', mood:'眼光毒辣', acceptRatio:1.10, rejectRatio:0.92, patience:2, color:'#3a5a7a'},
+  {key:'novice', name:'初入门者', mood:'似懂非懂', acceptRatio:1.50, rejectRatio:0.55, patience:4, color:'#5a8a6a'},
+];
+
+function rand(a,b){return a+Math.random()*(b-a)}
+function rint(a,b){return Math.floor(rand(a,b+1))}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+
+// 生成物品
+function makeItem(){
+  const type=pick(TYPES);
+  const era=rint(1,5);
+  const craft=rint(1,5);
+  const cond=rint(1,5);
+  const fakeChance= 0.10 + Math.min(0.15, day*0.01);
+  const isFake=Math.random()<fakeChance;
+  // 真实价值
+  const baseVal=(era+craft+cond) * type.mult * 8;
+  const trueVal= isFake ? Math.round(baseVal*0.08) : Math.round(baseVal);
+  return {
+    type, era, craft, cond, isFake, trueVal,
+    revealed:{era:false,craft:false,cond:false,authenticity:false},
+    id:Math.random().toString(36).slice(2,8),
+  };
+}
+
+// 生成客人
+function makeCustomer(forceKind){
+  const persona=pick(PERSONAS);
+  const willSell = forceKind ? forceKind==='seller' :
+    (inventory.length===0 ? true :
+     inventory.length>=INV_CAP ? false :
+     Math.random()<0.55);
+  let item, offer;
+  if(willSell){
+    item=makeItem();
+    // 卖家报价：基于真实价值的 40%-130%，但他们不知道真假 → 赝品也报正价
+    const surfaceVal=(item.era+item.craft+item.cond) * item.type.mult * 8;
+    offer=Math.round(surfaceVal * rand(0.45, 1.25));
+  } else {
+    // 买家：从存货里挑一件他想买的
+    item=pick(inventory);
+    // 买家预算：基于物品「表面价值」+ 性格倾向
+    const surfaceVal=(item.era+item.craft+item.cond) * item.type.mult * 8;
+    offer=Math.round(surfaceVal * rand(0.55, 1.4) * persona.acceptRatio/1.2);
+  }
+  return {persona, kind:willSell?'seller':'buyer', item, offer};
+}
+
+// ─── 客人对话生成 ───
+function customerOpening(c){
+  if(c.kind==='seller'){
+    const lines={
+      rich:   ['老板，这宝贝出价'+c.offer+'两，要不要！',
+               '祖上传下来的，'+c.offer+'两出手了。'],
+      shrewd: ['这件不便宜，最低'+c.offer+'两。',
+               '老板，看仔细了，'+c.offer+'两不二价。'],
+      expert: ['您是行家，这件我开'+c.offer+'两。',
+               '此物来路清楚，'+c.offer+'两可还。'],
+      novice: ['这……我看着不错，您给'+c.offer+'两收了？',
+               '我也不太懂，'+c.offer+'两？'],
+    };
+    return pick(lines[c.persona.key]);
+  } else {
+    const lines={
+      rich:   ['这件我喜欢！'+c.offer+'两，让给我吧。',
+               '老板痛快点，'+c.offer+'两怎么样！'],
+      shrewd: ['看了半天，最多'+c.offer+'两。',
+               '老板，这件'+c.offer+'两我就拿走。'],
+      expert: ['此物有些意思，我出'+c.offer+'两。',
+               '说实话不算上品，'+c.offer+'两。'],
+      novice: ['这个看着真好看……能'+c.offer+'两吗？',
+               '我有'+c.offer+'两，能买下不？'],
+    };
+    return pick(lines[c.persona.key]);
+  }
+}
+
+// ─── 鉴定提示 ───
+function examineHint(item, key){
+  if(key==='era'){
+    return '年代：' + ERA_NAMES[item.era];
+  } else if(key==='craft'){
+    const adj=['粗劣','一般','尚可','精良','上乘'][item.craft-1];
+    return '工艺：'+adj;
+  } else if(key==='cond'){
+    const adj=['残破','磕碰','有瑕','完好','无暇'][item.cond-1];
+    return '品相：'+adj;
+  } else if(key==='authenticity'){
+    return item.isFake ? '⚠ 此物乃赝品！' : '✓ 经查为真品';
+  }
+  return '';
+}
+
+// 还价 - 玩家提议价 p；客人会接受、还价或离开
+function tryNegotiate(c, p){
+  const surfaceVal=(c.item.era+c.item.craft+c.item.cond) * c.item.type.mult * 8;
+  if(c.kind==='seller'){
+    // 玩家想用更低价格收购
+    // 客人接受条件：p ≥ surfaceVal × persona.rejectRatio
+    const minAccept=surfaceVal * c.persona.rejectRatio * rand(0.95,1.05);
+    if(p>=minAccept){
+      return {ok:true, msg:'好，就'+p+'两，成交！'};
+    }
+    if(p < surfaceVal * 0.3){
+      return {ok:false, walk:true, msg:'这是侮辱！我走了。'};
+    }
+    // 客人还价
+    const counter=Math.round(c.offer * rand(0.85, 0.97));
+    c.offer=counter;
+    return {ok:false, walk:false, msg:'低了，'+counter+'两如何？'};
+  } else {
+    // 客人想买，玩家定价 p；他出 c.offer
+    // 接受条件：p ≤ surfaceVal × persona.acceptRatio
+    const maxAccept=surfaceVal * c.persona.acceptRatio * rand(0.95,1.05);
+    if(p<=maxAccept){
+      return {ok:true, msg:'行！'+p+'两，给我包起来。'};
+    }
+    if(p > surfaceVal * 2.5){
+      return {ok:false, walk:true, msg:'你这是抢钱！告辞。'};
+    }
+    const counter=Math.round(c.offer * rand(1.03, 1.15));
+    c.offer=counter;
+    return {ok:false, walk:false, msg:'贵了，我加到'+counter+'两。'};
+  }
+}
+
+// ─── 流程 ───
+function startNewGame(){
+  state='day_intro';
+  day=1; money=200; fame=10; inventory=[];
+  dayStartMoney=money;
+  prepareDay();
+  state='day_intro';
+}
+function prepareDay(){
+  customers=[]; custIdx=0;
+  const n=5;
+  for(let i=0;i<n;i++) customers.push(makeCustomer());
+  dayStartMoney=money;
+}
+function nextCustomer(){
+  if(custIdx>=customers.length){ state='day_end'; return; }
+  curCustomer=customers[custIdx++];
+  // 如果是买家但无存货 → 重新生成为卖家
+  if(curCustomer.kind==='buyer' && inventory.length===0){
+    curCustomer=makeCustomer('seller');
+  }
+  if(curCustomer.kind==='seller' && inventory.length>=INV_CAP){
+    // 也强制改为买家
+    curCustomer=makeCustomer('buyer');
+  }
+  dialog={
+    c:curCustomer,
+    msg:customerOpening(curCustomer),
+    examineLeft: 2,
+    negotiateLeft: 2,
+    finished:false,
+  };
+  state='customer';
+}
+function endDay(){
+  // 名声变化
+  const profit=money-dayStartMoney;
+  if(profit>0) fame=Math.min(100, fame+Math.floor(profit/40));
+  if(profit<0) fame=Math.max(0, fame-2);
+  if(money > bestRevenue){
+    bestRevenue=money; localStorage.setItem('antique_best', bestRevenue);
+  }
+  if(money<=0 && inventory.length===0){
+    state='game_over';
+    return;
+  }
+  if(day>=10){
+    state='won';
+    return;
+  }
+  day++;
+  prepareDay();
+  state='day_intro';
+}
+
+function toast(t){toastMsg=t; toastT=2.2;}
+function floatText(x,y,t,col){floatTexts.push({x,y,t,col,life:1.4,age:0,vy:-30})}
+
+// ─── 点击处理 ───
+const buttons=[]; // 当前可点按钮列表 {x,y,w,h,label,onClick,disabled}
+function addBtn(x,y,w,h,label,onClick,disabled){buttons.push({x,y,w,h,label,onClick,disabled:!!disabled})}
+
+function getCanvasPos(e){
+  const r=cv.getBoundingClientRect();
+  const cx=(e.clientX!==undefined?e.clientX:e.changedTouches[0].clientX);
+  const cy=(e.clientY!==undefined?e.clientY:e.changedTouches[0].clientY);
+  return {x:(cx-r.left)*W/r.width, y:(cy-r.top)*H/r.height};
+}
+function handleClick(x,y){
+  for(const b of buttons){
+    if(b.disabled) continue;
+    if(x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h){
+      b.onClick();
+      return;
+    }
+  }
+  // 点击库存物品（买家时）
+  if(state==='customer' && dialog && dialog.c.kind==='seller'){
+    // 卖家界面允许点库存查看 - skip
+  }
+}
+cv.addEventListener('click', e=>{
+  const {x,y}=getCanvasPos(e);
+  handleClick(x,y);
+});
+cv.addEventListener('touchend', e=>{
+  e.preventDefault();
+  const {x,y}=getCanvasPos(e);
+  handleClick(x,y);
+}, {passive:false});
+
+// ─── 绘制 ───
+function clear(){
+  ctx.fillStyle=C.paper; ctx.fillRect(0,0,W,H);
+  // 宣纸纹理
+  for(let i=0;i<60;i++){
+    const x=Math.random()*W, y=Math.random()*H;
+    ctx.fillStyle='rgba(180,150,110,0.05)';
+    ctx.fillRect(x,y, 1+Math.random()*2, 1+Math.random()*2);
+  }
+}
+function inkLine(x1,y1,x2,y2,w,a){
+  ctx.save();
+  ctx.strokeStyle=`rgba(58,44,31,${a||0.8})`;
+  ctx.lineWidth=w||1.5; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  ctx.restore();
+}
+function inkRect(x,y,w,h,fill,strokeA){
+  if(fill){ctx.fillStyle=fill; ctx.fillRect(x,y,w,h);}
+  ctx.strokeStyle=`rgba(58,44,31,${strokeA||0.6})`;
+  ctx.lineWidth=1.5; ctx.strokeRect(x+0.5,y+0.5,w,h);
+}
+function drawText(t,x,y,size,col,align,weight){
+  ctx.fillStyle=col||C.ink;
+  ctx.font=`${weight||'normal'} ${size}px "STKaiti","KaiTi","Songti SC",serif`;
+  ctx.textAlign=align||'left'; ctx.textBaseline='alphabetic';
+  ctx.fillText(t,x,y);
+}
+function drawStar(cx,cy,r,filled,col){
+  ctx.beginPath();
+  for(let i=0;i<5;i++){
+    const a=-Math.PI/2 + i*Math.PI*2/5;
+    const a2=a + Math.PI/5;
+    ctx.lineTo(cx+Math.cos(a)*r, cy+Math.sin(a)*r);
+    ctx.lineTo(cx+Math.cos(a2)*r*0.45, cy+Math.sin(a2)*r*0.45);
+  }
+  ctx.closePath();
+  if(filled){ctx.fillStyle=col||C.star; ctx.fill();}
+  ctx.strokeStyle=col||C.star; ctx.lineWidth=1.2; ctx.stroke();
+}
+function drawStars(x,y,n,total,col){
+  for(let i=0;i<total;i++){
+    drawStar(x+i*18, y, 7, i<n, col);
+  }
+}
+
+// 画一件物品图标
+function drawItemIcon(item, cx, cy, scale){
+  ctx.save();
+  ctx.translate(cx,cy);
+  ctx.scale(scale,scale);
+  const fill=item.type.color;
+  const stroke='rgba(58,44,31,0.85)';
+  ctx.lineWidth=2;
+  if(item.type.key==='porcelain'){
+    // 花瓶
+    ctx.fillStyle=fill; ctx.strokeStyle=stroke;
+    ctx.beginPath();
+    ctx.moveTo(-18,-30); ctx.lineTo(-12,-30); ctx.lineTo(-12,-22);
+    ctx.bezierCurveTo(-30,-15, -30,15, -16,28);
+    ctx.lineTo(16,28);
+    ctx.bezierCurveTo(30,15, 30,-15, 12,-22);
+    ctx.lineTo(12,-30); ctx.lineTo(18,-30);
+    ctx.lineTo(18,-26); ctx.lineTo(-18,-26); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    // 青花装饰
+    ctx.strokeStyle='rgba(58,90,122,0.7)'; ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.arc(0,0,12,0,Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,-8,4,0,Math.PI*2); ctx.stroke();
+  } else if(item.type.key==='jade'){
+    // 玉佩
+    ctx.fillStyle=fill; ctx.strokeStyle=stroke;
+    ctx.beginPath(); ctx.arc(0,0,26,0,Math.PI*2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,0,10,0,Math.PI*2);
+    ctx.fillStyle=C.paper; ctx.fill(); ctx.stroke();
+    // 纹路
+    ctx.strokeStyle='rgba(90,138,106,0.6)'; ctx.lineWidth=1;
+    for(let i=0;i<4;i++){
+      const a=i*Math.PI/2 + Math.PI/4;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a)*12,Math.sin(a)*12);
+      ctx.lineTo(Math.cos(a)*22,Math.sin(a)*22);
+      ctx.stroke();
+    }
+  } else if(item.type.key==='painting'){
+    // 卷轴
+    ctx.fillStyle=fill; ctx.strokeStyle=stroke;
+    ctx.fillRect(-26,-30,52,60); ctx.strokeRect(-26,-30,52,60);
+    ctx.fillStyle='rgba(184,138,42,0.6)'; ctx.fillRect(-30,-32,60,5);
+    ctx.fillRect(-30,27,60,5);
+    ctx.strokeRect(-30,-32,60,5); ctx.strokeRect(-30,27,60,5);
+    // 山水墨痕
+    ctx.strokeStyle='rgba(58,44,31,0.6)'; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    ctx.moveTo(-20,10); ctx.quadraticCurveTo(-10,-5,0,5);
+    ctx.quadraticCurveTo(10,15,20,2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-15,-8); ctx.lineTo(-10,-20); ctx.lineTo(-5,-8);
+    ctx.stroke();
+  } else { // bronze
+    // 鼎
+    ctx.fillStyle=fill; ctx.strokeStyle=stroke;
+    ctx.beginPath();
+    ctx.moveTo(-22,-10); ctx.lineTo(22,-10);
+    ctx.lineTo(22,-6); ctx.lineTo(18,15); ctx.lineTo(-18,15); ctx.lineTo(-22,-6); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    // 三足
+    ctx.beginPath();
+    ctx.moveTo(-14,15); ctx.lineTo(-16,28); ctx.lineTo(-10,28); ctx.lineTo(-10,15);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(14,15); ctx.lineTo(16,28); ctx.lineTo(10,28); ctx.lineTo(10,15);
+    ctx.fill(); ctx.stroke();
+    // 双耳
+    ctx.beginPath();
+    ctx.moveTo(-22,-10); ctx.lineTo(-28,-18); ctx.lineTo(-22,-22);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(22,-10); ctx.lineTo(28,-18); ctx.lineTo(22,-22);
+    ctx.stroke();
+    // 饕餮纹
+    ctx.fillStyle='rgba(58,44,31,0.5)';
+    ctx.fillRect(-8,-3,3,3); ctx.fillRect(5,-3,3,3);
+  }
+  ctx.restore();
+}
+
+// 画客人剪影
+function drawCustomer(cx,cy){
+  const c=curCustomer;
+  // 头部
+  ctx.fillStyle='#e8d4b8'; ctx.strokeStyle=C.ink;
+  ctx.lineWidth=2;
+  ctx.beginPath(); ctx.arc(cx,cy-30,22,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  // 帽子（按性格）
+  ctx.fillStyle=c.persona.color;
+  if(c.persona.key==='rich'){
+    // 圆帽
+    ctx.beginPath(); ctx.arc(cx,cy-42,18,Math.PI,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx,cy-44,22,5,0,0,Math.PI*2); ctx.fill();
+  } else if(c.persona.key==='expert'){
+    // 方巾
+    ctx.fillRect(cx-22,cy-48, 44, 12); ctx.strokeRect(cx-22,cy-48,44,12);
+  } else if(c.persona.key==='shrewd'){
+    // 瓜皮小帽
+    ctx.beginPath(); ctx.arc(cx,cy-44,14,Math.PI,Math.PI*2); ctx.fill();
+  } else {
+    // 短发
+    ctx.beginPath(); ctx.arc(cx,cy-44,18,Math.PI+0.3,Math.PI*2-0.3); ctx.fill();
+  }
+  // 五官
+  ctx.fillStyle=C.ink;
+  ctx.beginPath(); ctx.arc(cx-7,cy-32, 1.6,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx+7,cy-32, 1.6,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle=C.ink; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(cx-4,cy-22); ctx.quadraticCurveTo(cx,cy-19,cx+4,cy-22); ctx.stroke();
+  // 身体（袍）
+  ctx.fillStyle=c.persona.color;
+  ctx.beginPath();
+  ctx.moveTo(cx-25,cy-8); ctx.quadraticCurveTo(cx-35,cy+50, cx-30,cy+70);
+  ctx.lineTo(cx+30,cy+70); ctx.quadraticCurveTo(cx+35,cy+50, cx+25,cy-8);
+  ctx.closePath();
+  ctx.fill(); ctx.strokeStyle=C.ink; ctx.lineWidth=2; ctx.stroke();
+  // 领口
+  ctx.beginPath();
+  ctx.moveTo(cx-12,cy-8); ctx.lineTo(cx,cy+5); ctx.lineTo(cx+12,cy-8);
+  ctx.stroke();
+}
+
+// 顶栏
+function drawHeader(){
+  ctx.fillStyle='rgba(58,44,31,0.06)'; ctx.fillRect(0,0,W,52);
+  inkLine(0,52,W,52, 1.5, 0.4);
+  drawText(`第 ${day} 天 / 共 10 天`, 24,32, 22, C.ink, 'left', 'bold');
+  drawText(`银两 ${money} 两`, 320, 32, 20, C.gold, 'left', 'bold');
+  drawText(`信誉 ${fame}`, 500, 32, 20, C.jade, 'left', 'bold');
+  drawText(`存货 ${inventory.length}/${INV_CAP}`, 650, 32, 20, C.blue, 'left', 'bold');
+  drawText(`最佳 ${bestRevenue}`, W-100, 32, 16, C.inkLt, 'center');
+}
+
+// 库存展示（小图）
+function drawInventoryStrip(){
+  const sx=24, sy=H-100;
+  drawText('架上货：', sx, sy-6, 16, C.inkLt);
+  for(let i=0;i<INV_CAP;i++){
+    const x=sx + i*88; const y=sy;
+    inkRect(x, y, 80, 80, 'rgba(255,250,235,0.7)', 0.35);
+    if(inventory[i]){
+      drawItemIcon(inventory[i], x+40, y+40, 0.7);
+      const sv=Math.round((inventory[i].era+inventory[i].craft+inventory[i].cond)*inventory[i].type.mult*8);
+      drawText(`≈${sv}两`, x+40, y+76, 10, C.inkLt, 'center');
+    }
+  }
+}
+
+// 物品大图鉴卡
+function drawItemCard(item, x, y, w, h, showFull){
+  inkRect(x, y, w, h, '#fff8e8', 0.5);
+  // 类型标签
+  ctx.fillStyle=item.type.color;
+  ctx.fillRect(x+10, y+10, 70, 22);
+  ctx.strokeStyle=C.ink; ctx.lineWidth=1; ctx.strokeRect(x+10.5, y+10.5, 70, 22);
+  drawText(item.type.name, x+45, y+27, 14, C.ink, 'center', 'bold');
+  // 图标
+  drawItemIcon(item, x+w/2, y+h/2-10, 1.4);
+  // 三属性 - 显示星或问号
+  const attrs=[
+    {key:'era',   label:'年代'},
+    {key:'craft', label:'工艺'},
+    {key:'cond',  label:'品相'},
+  ];
+  for(let i=0;i<3;i++){
+    const a=attrs[i];
+    const ay= y+h-90 + i*22;
+    drawText(a.label, x+14, ay, 14, C.ink);
+    if(item.revealed[a.key] || showFull){
+      drawStars(x+62, ay-5, item[a.key], 5);
+    } else {
+      drawText('？？？？？', x+62, ay, 14, C.inkLt);
+    }
+  }
+  // 真伪标记
+  if(item.revealed.authenticity || showFull){
+    drawText(item.isFake ? '⚠ 赝品' : '✓ 真品',
+      x+w-12, y+h-12, 14, item.isFake?C.fake:C.jade, 'right', 'bold');
+  }
+}
+
+// 按钮渲染（每帧重置 buttons 列表）
+function drawButton(b){
+  ctx.save();
+  const hover=false;
+  ctx.fillStyle=b.disabled?'rgba(120,90,60,0.15)':'rgba(168,58,42,0.92)';
+  ctx.fillRect(b.x,b.y,b.w,b.h);
+  ctx.strokeStyle=b.disabled?'rgba(58,44,31,0.3)':'rgba(58,44,31,0.7)';
+  ctx.lineWidth=1.5; ctx.strokeRect(b.x+0.5,b.y+0.5,b.w,b.h);
+  drawText(b.label, b.x+b.w/2, b.y+b.h/2+6, 16,
+    b.disabled?'rgba(58,44,31,0.4)':'#fff8e8', 'center', 'bold');
+  ctx.restore();
+}
+
+// 浮动文字（金钱变动）
+function drawFloats(dt){
+  for(let i=floatTexts.length-1;i>=0;i--){
+    const f=floatTexts[i];
+    f.age+=dt; f.y+=f.vy*dt;
+    const a=Math.max(0, 1-f.age/f.life);
+    ctx.fillStyle=`rgba(${f.col},${a})`;
+    ctx.font='bold 22px "STKaiti","KaiTi",serif';
+    ctx.textAlign='center';
+    ctx.fillText(f.t, f.x, f.y);
+    if(f.age>=f.life) floatTexts.splice(i,1);
+  }
+}
+
+function drawToast(dt){
+  if(!toastMsg) return;
+  toastT-=dt;
+  if(toastT<=0){toastMsg=null; return;}
+  const a=Math.min(1, toastT/0.5);
+  ctx.fillStyle=`rgba(58,44,31,${0.85*a})`;
+  const w=ctx.measureText(toastMsg).width;
+  ctx.font='18px "STKaiti","KaiTi",serif';
+  const tw=ctx.measureText(toastMsg).width;
+  ctx.fillRect(W/2-tw/2-16, 80, tw+32, 36);
+  drawText(toastMsg, W/2, 104, 18, `rgba(245,236,217,${a})`, 'center', 'bold');
+}
+
+// ─── 屏幕：开始 ───
+function drawStart(){
+  clear();
+  // 标题
+  drawText('古 玩 摊', W/2, 200, 80, C.ink, 'center', 'bold');
+  inkLine(W/2-120, 220, W/2+120, 220, 2, 0.7);
+  drawText('— 鉴宝 · 收购 · 转手 —', W/2, 260, 22, C.inkLt, 'center');
+  drawText('十天经营，看你能挣多少银两', W/2, 300, 18, C.ink, 'center');
+  drawText(`历史最佳：${bestRevenue} 两`, W/2, 340, 16, C.gold, 'center');
+
+  // 按钮
+  addBtn(W/2-100, 400, 200, 56, '开张营业', ()=>{ startNewGame(); });
+
+  // 玩法提示
+  drawText('每天 5 位客人，鉴定属性、还价成交', W/2, 500, 14, C.inkLt, 'center');
+  drawText('小心赝品 · 用银两购入 · 转手赚差价', W/2, 522, 14, C.inkLt, 'center');
+}
+
+// ─── 屏幕：日程开始 ───
+function drawDayIntro(){
+  clear();
+  drawHeader();
+  drawText(`— 第 ${day} 天 —`, W/2, 200, 60, C.ink, 'center', 'bold');
+  inkLine(W/2-100, 220, W/2+100, 220, 2, 0.6);
+  // 风评
+  let mood='';
+  if(fame>=70) mood='声名远扬，今日多有行家光顾';
+  else if(fame>=40) mood='略有名气，生意尚可';
+  else if(fame>=15) mood='初入此行，门可罗雀';
+  else mood='籍籍无名，需多加用心';
+  drawText(mood, W/2, 280, 22, C.inkLt, 'center');
+  drawText(`本日将有 ${customers.length} 位客人到访`, W/2, 320, 18, C.ink, 'center');
+  addBtn(W/2-90, 400, 180, 50, '开门迎客', ()=>{ nextCustomer(); });
+}
+
+// ─── 屏幕：客人对话 ───
+function drawCustomerScene(){
+  clear();
+  drawHeader();
+  const d=dialog, c=d.c;
+
+  // 左：客人
+  inkRect(40, 90, 260, 360, 'rgba(255,250,235,0.5)', 0.4);
+  drawCustomer(170, 200);
+  drawText(c.persona.name, 170, 380, 22, C.ink, 'center', 'bold');
+  drawText(c.persona.mood, 170, 408, 16, c.persona.color, 'center');
+  drawText(c.kind==='seller'?'· 想卖给你 ·':'· 想买这件 ·', 170, 434, 14, C.inkLt, 'center');
+
+  // 中：物品
+  drawItemCard(c.item, 340, 90, 240, 360, false);
+
+  // 右：对话+按钮
+  inkRect(610, 90, 260, 360, 'rgba(255,250,235,0.5)', 0.4);
+  drawText('客人说：', 624, 120, 16, C.inkLt);
+  // 多行文字（最长一行约 18 字）
+  const msg=d.msg;
+  const lines=wrapText(msg, 18);
+  for(let i=0;i<lines.length;i++){
+    drawText(lines[i], 624, 152 + i*26, 18, C.ink);
+  }
+
+  // 价位提示
+  const priceY = 220;
+  if(c.kind==='seller'){
+    drawText(`他要：${c.offer} 两`, 624, priceY, 20, C.red, 'left', 'bold');
+  } else {
+    drawText(`他出：${c.offer} 两`, 624, priceY, 20, C.jade, 'left', 'bold');
+  }
+  drawText(`鉴定 ${d.examineLeft}/2 · 还价 ${d.negotiateLeft}/2`, 624, priceY+28, 13, C.inkLt);
+
+  // 按钮（右栏底部）
+  const bx=624, by=270;
+  // 鉴定按钮 - 三选项
+  drawText('鉴定 →', bx, by-8, 14, C.inkLt);
+  addBtn(bx, by, 75, 32, '年代', ()=>doExamine('era'),
+    c.item.revealed.era || d.examineLeft<=0 || d.finished);
+  addBtn(bx+80, by, 75, 32, '工艺', ()=>doExamine('craft'),
+    c.item.revealed.craft || d.examineLeft<=0 || d.finished);
+  addBtn(bx+160, by, 75, 32, '品相', ()=>doExamine('cond'),
+    c.item.revealed.cond || d.examineLeft<=0 || d.finished);
+  addBtn(bx, by+38, 235, 32, '辨真伪', ()=>doExamine('authenticity'),
+    c.item.revealed.authenticity || d.examineLeft<=0 || d.finished);
+
+  // 主动作按钮
+  const ay=by+90;
+  const accLabel = c.kind==='seller' ? `付 ${c.offer} 收下` : `${c.offer} 卖给他`;
+  const accColor='ok';
+  // 接受
+  addBtn(bx, ay, 235, 38, accLabel, ()=>doAccept(), d.finished || (c.kind==='seller' && money<c.offer));
+
+  // 还价
+  if(c.kind==='seller'){
+    // 玩家想压价
+    const lowerOffer = Math.max(1, Math.round(c.offer*0.75));
+    addBtn(bx, ay+45, 113, 34, `压价至 ${lowerOffer}`, ()=>doNegotiate(lowerOffer),
+      d.negotiateLeft<=0 || d.finished || money<lowerOffer);
+    const lowerOffer2 = Math.max(1, Math.round(c.offer*0.55));
+    addBtn(bx+122, ay+45, 113, 34, `狠杀 ${lowerOffer2}`, ()=>doNegotiate(lowerOffer2),
+      d.negotiateLeft<=0 || d.finished || money<lowerOffer2);
+  } else {
+    const higherOffer = Math.round(c.offer*1.3);
+    addBtn(bx, ay+45, 113, 34, `加价 ${higherOffer}`, ()=>doNegotiate(higherOffer),
+      d.negotiateLeft<=0 || d.finished);
+    const higherOffer2 = Math.round(c.offer*1.7);
+    addBtn(bx+122, ay+45, 113, 34, `要价 ${higherOffer2}`, ()=>doNegotiate(higherOffer2),
+      d.negotiateLeft<=0 || d.finished);
+  }
+  // 拒绝
+  addBtn(bx, ay+85, 235, 32, d.finished?'下一位 →':'婉拒不做', ()=>doReject(), false);
+
+  // 库存条
+  drawInventoryStrip();
+}
+
+function wrapText(s, n){
+  const out=[]; let cur='';
+  for(const ch of s){
+    cur+=ch;
+    if(cur.length>=n){out.push(cur); cur='';}
+  }
+  if(cur) out.push(cur);
+  return out;
+}
+
+function doExamine(key){
+  const d=dialog;
+  if(d.examineLeft<=0 || d.finished) return;
+  if(d.c.item.revealed[key]) return;
+  d.c.item.revealed[key]=true;
+  d.examineLeft--;
+  toast(examineHint(d.c.item, key));
+}
+function doAccept(){
+  const d=dialog;
+  if(d.finished) { nextCustomer(); return; }
+  const c=d.c;
+  if(c.kind==='seller'){
+    if(money<c.offer){ toast('银两不够！'); return; }
+    money-=c.offer;
+    inventory.push(c.item);
+    floatText(W/2, 200, `-${c.offer}两`, '168,58,42');
+    d.msg='多谢老板！您日后定会大赚！';
+  } else {
+    money+=c.offer;
+    inventory=inventory.filter(it=>it.id!==c.item.id);
+    floatText(W/2, 200, `+${c.offer}两`, '90,138,106');
+    d.msg='货款奉上，告辞！';
+  }
+  d.finished=true;
+  // 1.2s 后自动下一位
+  setTimeout(()=>{ if(state==='customer') nextCustomer(); }, 1300);
+}
+function doNegotiate(p){
+  const d=dialog;
+  if(d.negotiateLeft<=0 || d.finished) return;
+  d.negotiateLeft--;
+  const r=tryNegotiate(d.c, p);
+  if(r.ok){
+    // 玩家以 p 价成交
+    d.c.offer=p;
+    doAccept();
+    return;
+  }
+  if(r.walk){
+    d.msg=r.msg;
+    d.finished=true;
+    fame=Math.max(0, fame-1);
+    setTimeout(()=>{ if(state==='customer') nextCustomer(); }, 1500);
+    return;
+  }
+  d.msg=r.msg;
+  if(d.negotiateLeft<=0){
+    // 已经用完还价次数
+  }
+}
+function doReject(){
+  const d=dialog;
+  if(d.finished){ nextCustomer(); return; }
+  d.msg='也罢，下次再来。';
+  d.finished=true;
+  setTimeout(()=>{ if(state==='customer') nextCustomer(); }, 800);
+}
+
+// ─── 屏幕：日终 ───
+function drawDayEnd(){
+  clear();
+  drawHeader();
+  const profit=money-dayStartMoney;
+  drawText(`— 第 ${day} 天结束 —`, W/2, 160, 44, C.ink, 'center', 'bold');
+  inkLine(W/2-120, 180, W/2+120, 180, 2, 0.6);
+  drawText(`本日结算`, W/2, 230, 22, C.inkLt, 'center');
+  drawText(`银两进出 ${profit>=0?'+':''}${profit} 两`,
+    W/2, 270, 30, profit>=0?C.jade:C.fake, 'center', 'bold');
+  drawText(`今日总银两：${money} 两`, W/2, 310, 20, C.gold, 'center');
+  drawText(`存货：${inventory.length} 件`, W/2, 340, 18, C.ink, 'center');
+  if(profit>0) drawText('生意兴隆，财源广进', W/2, 380, 18, C.jade, 'center');
+  else if(profit===0) drawText('未赔未赚，再图明日', W/2, 380, 18, C.inkLt, 'center');
+  else drawText('损失惨重，需谨慎选物', W/2, 380, 18, C.fake, 'center');
+
+  if(day>=10){
+    addBtn(W/2-110, 440, 220, 56, '查看十日成绩', ()=>{ state='won'; });
+  } else {
+    addBtn(W/2-110, 440, 220, 56, `进入第 ${day+1} 天 →`, ()=>{ endDay(); });
+  }
+}
+
+// ─── 屏幕：胜利 / 失败 ───
+function drawWon(){
+  clear();
+  drawText('十日已满', W/2, 160, 60, C.ink, 'center', 'bold');
+  inkLine(W/2-100, 180, W/2+100, 180, 2);
+  let title='', col=C.ink;
+  if(money>=2000){title='店铺名震四方'; col=C.red;}
+  else if(money>=1000){title='生意兴隆'; col=C.gold;}
+  else if(money>=400){title='略有盈余'; col=C.jade;}
+  else {title='勉强糊口'; col=C.inkLt;}
+  drawText(title, W/2, 240, 36, col, 'center', 'bold');
+  drawText(`最终家底：${money} 两`, W/2, 300, 28, C.gold, 'center', 'bold');
+  drawText(`信誉：${fame}`, W/2, 340, 22, C.jade, 'center');
+  if(money>bestRevenue-1){
+    drawText('🏆 新纪录！', W/2, 380, 22, C.red, 'center', 'bold');
+  } else {
+    drawText(`历史最佳：${bestRevenue} 两`, W/2, 380, 18, C.inkLt, 'center');
+  }
+  addBtn(W/2-100, 460, 200, 50, '再开一回', ()=>{ startNewGame(); });
+}
+function drawGameOver(){
+  clear();
+  drawText('血本无归', W/2, 180, 60, C.fake, 'center', 'bold');
+  inkLine(W/2-100, 200, W/2+100, 200, 2);
+  drawText(`第 ${day} 天 · 散尽家财`, W/2, 260, 26, C.ink, 'center');
+  drawText('小本生意，须惜每一两', W/2, 310, 18, C.inkLt, 'center');
+  addBtn(W/2-100, 400, 200, 50, '从头再来', ()=>{ startNewGame(); });
+}
+
+// ─── 主循环 ───
+let last=performance.now();
+function loop(t){
+  const dt=Math.min(0.05, (t-last)/1000);
+  last=t;
+  buttons.length=0;
+
+  if(state==='start') drawStart();
+  else if(state==='day_intro') drawDayIntro();
+  else if(state==='customer') drawCustomerScene();
+  else if(state==='day_end') drawDayEnd();
+  else if(state==='won') drawWon();
+  else if(state==='game_over') drawGameOver();
+
+  // 按钮渲染（最后画在上面）
+  for(const b of buttons) drawButton(b);
+  drawFloats(dt);
+  drawToast(dt);
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
