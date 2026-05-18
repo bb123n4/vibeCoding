@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>卡牌爬塔</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;background:#0a0612;
+    font-family:"PingFang SC","Hiragino Sans GB",sans-serif;color:#fff}
+  body{display:flex;align-items:center;justify-content:center}
+  #wrap{position:relative;width:min(100vw,calc(100vh*900/600));height:min(100vh,calc(100vw*600/900))}
+  canvas{display:block;width:100%;height:100%;background:#1a1428;cursor:pointer}
+  .home{position:absolute;top:14px;left:14px;color:#fff;background:rgba(0,0,0,0.5);
+    padding:6px 12px;border-radius:14px;text-decoration:none;font-size:14px;
+    border:1px solid rgba(255,255,255,0.15);z-index:5}
+  .home:hover{background:rgba(0,0,0,0.7)}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+  <a class="home" href="index.html">← 返回</a>
+</div>
+<script>
+const W=900,H=600;
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+const dpr=Math.min(devicePixelRatio||1,2);
+cv.width=W*dpr; cv.height=H*dpr; ctx.scale(dpr,dpr);
+
+// ─── 调色 ───
+const C={
+  bg:'#1a1428', bg2:'#241a3a', panel:'#2a1f44',
+  red:'#e84858', green:'#5ac878', gold:'#f4c440', blue:'#5090e8',
+  purple:'#a458e8', cyan:'#48c8d8',
+  text:'#f0e8d8', textDim:'#9a8aaa', textVDim:'#665578',
+  hp:'#e84858', shield:'#a8b0c0', energy:'#f4c440', card:'#2c2244',
+};
+
+// ─── 卡牌定义 ───
+// type: attack / skill / power
+const CARDS=[
+  {key:'strike', name:'攻击',  type:'attack', cost:1, rarity:'common',  desc:'造成 6 点伤害', effect:{dmg:6}},
+  {key:'defend', name:'格挡',  type:'skill',  cost:1, rarity:'common',  desc:'获得 5 点格挡', effect:{block:5}},
+  {key:'heavy',  name:'重击',  type:'attack', cost:2, rarity:'common',  desc:'造成 14 点伤害', effect:{dmg:14}},
+  {key:'cleave', name:'连击',  type:'attack', cost:1, rarity:'common',  desc:'造成 5 点伤害 2 次', effect:{dmg:5, hits:2}},
+  {key:'iron',   name:'铜墙',  type:'skill',  cost:2, rarity:'common',  desc:'获得 12 点格挡', effect:{block:12}},
+  {key:'heal',   name:'急救',  type:'skill',  cost:1, rarity:'uncommon',desc:'回复 6 点生命', effect:{heal:6}},
+  {key:'burn',   name:'燃烧',  type:'attack', cost:1, rarity:'uncommon',desc:'造成 3 伤害，敌人每回合受 3 灼烧', effect:{dmg:3, burn:3}},
+  {key:'dual',   name:'双击',  type:'skill',  cost:1, rarity:'uncommon',desc:'下一张攻击牌伤害翻倍', effect:{doubleNext:true}},
+  {key:'rush',   name:'冲锋',  type:'skill',  cost:1, rarity:'uncommon',desc:'抽 2 张牌', effect:{draw:2}},
+  {key:'energy', name:'专注',  type:'skill',  cost:0, rarity:'uncommon',desc:'获得 1 点能量', effect:{energy:1}},
+  {key:'pierce', name:'穿透',  type:'attack', cost:2, rarity:'rare',    desc:'造成 18 伤害，无视格挡', effect:{dmg:18, ignoreBlock:true}},
+  {key:'frenzy', name:'狂怒',  type:'power',  cost:2, rarity:'rare',    desc:'本场战斗每张攻击牌伤害 +2', effect:{powerAtk:2}},
+];
+
+// 起始牌组 (10 张)
+const STARTER=['strike','strike','strike','strike','defend','defend','defend','defend','heavy','cleave'];
+
+// ─── 敌人定义 ───
+const ENEMIES={
+  slime:   {name:'史莱姆', hp:[18,22],   color:'#5ac878', pattern:[
+    {kind:'attack', dmg:6},
+    {kind:'attack', dmg:8},
+    {kind:'block', val:6},
+  ]},
+  bat:     {name:'夜枭',   hp:[14,18],   color:'#a458e8', pattern:[
+    {kind:'attack', dmg:5, hits:2},
+    {kind:'attack', dmg:9},
+  ]},
+  goblin:  {name:'妖精',   hp:[22,28],   color:'#48c8d8', pattern:[
+    {kind:'attack', dmg:10},
+    {kind:'block', val:8},
+    {kind:'buff'},  // 增强下次攻击
+  ]},
+  elite:   {name:'石巨人', hp:[55,60],   color:'#8a6a4a', pattern:[
+    {kind:'attack', dmg:14},
+    {kind:'attack', dmg:8, hits:2},
+    {kind:'block', val:14},
+  ]},
+  boss:    {name:'深渊领主', hp:[100,110], color:'#e84858', pattern:[
+    {kind:'attack', dmg:18},
+    {kind:'attack', dmg:6, hits:3},
+    {kind:'block', val:18},
+    {kind:'buff'},
+  ]},
+};
+
+// ─── 游戏状态 ───
+let state='start'; // start, map, battle, reward, dead, win
+let player={hp:50, maxHp:50, block:0, energy:3, maxEnergy:3, atkPower:0, doubleNext:false};
+let deck=[]; // 总牌组
+let drawPile=[], hand=[], discardPile=[], exhaustPile=[];
+let enemy=null; // {key, name, hp, maxHp, color, block, burn, atkBuff, intentIdx}
+let roomIdx=0;
+const ROOMS=[
+  {kind:'normal', enemyKey:'slime'},
+  {kind:'normal', enemyKey:'slime'},
+  {kind:'normal', enemyKey:'bat'},
+  {kind:'normal', enemyKey:'goblin'},
+  {kind:'normal', enemyKey:'bat'},
+  {kind:'normal', enemyKey:'goblin'},
+  {kind:'elite',  enemyKey:'elite'},
+  {kind:'boss',   enemyKey:'boss'},
+];
+let rewardCards=[]; // 3 picks after battle
+let bestRun = parseInt(localStorage.getItem('cards_best')||'0');
+let floatTexts=[];
+let toastMsg=null, toastT=0;
+let animQueue=[]; // {x,y,r,col,life,age,vy}
+let cardAnim=null; // {fromX,fromY,toX,toY,t,duration,card}
+
+function rand(a,b){return a+Math.random()*(b-a)}
+function rint(a,b){return Math.floor(rand(a,b+1))}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)]}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a;}
+function findCard(key){return CARDS.find(c=>c.key===key)}
+
+// ─── 战斗 ───
+function startBattle(){
+  const room=ROOMS[roomIdx];
+  const e=ENEMIES[room.enemyKey];
+  enemy={
+    key:room.enemyKey,
+    name:e.name, color:e.color, pattern:e.pattern,
+    hp: rint(e.hp[0], e.hp[1]),
+    maxHp: 0, block:0, burn:0, atkBuff:0,
+    intentIdx: 0, intentKnown:null,
+  };
+  enemy.maxHp=enemy.hp;
+  // 牌堆重建
+  drawPile = shuffle([...deck]);
+  hand=[]; discardPile=[]; exhaustPile=[];
+  player.block=0;
+  player.energy=player.maxEnergy;
+  player.atkPower=0;
+  player.doubleNext=false;
+  // 选第一个意图
+  enemy.intentKnown = pickIntent(enemy);
+  drawCards(5);
+  state='battle';
+}
+function pickIntent(e){
+  const opts=[...e.pattern];
+  return opts[Math.floor(Math.random()*opts.length)];
+}
+function drawCards(n){
+  for(let i=0;i<n;i++){
+    if(drawPile.length===0){
+      if(discardPile.length===0) break;
+      drawPile = shuffle(discardPile);
+      discardPile=[];
+    }
+    const c=drawPile.pop();
+    hand.push(c);
+    if(hand.length>=10) break; // 手牌上限
+  }
+}
+function discardHand(){
+  for(const c of hand) discardPile.push(c);
+  hand=[];
+}
+
+function playCard(idx){
+  const cardKey=hand[idx];
+  const card=findCard(cardKey);
+  if(!card) return;
+  if(player.energy<card.cost){toast('能量不足'); return;}
+  player.energy-=card.cost;
+  applyCardEffect(card);
+  hand.splice(idx,1);
+  if(card.type==='power'){
+    exhaustPile.push(cardKey);
+  } else {
+    discardPile.push(cardKey);
+  }
+  checkBattleEnd();
+}
+
+function applyCardEffect(card){
+  const e=card.effect;
+  if(e.dmg!==undefined && enemy){
+    const hits = e.hits || 1;
+    let dmg = e.dmg + player.atkPower;
+    if(player.doubleNext){ dmg*=2; player.doubleNext=false; }
+    for(let i=0;i<hits;i++){
+      damageEnemy(dmg, e.ignoreBlock);
+    }
+    if(e.burn) enemy.burn=(enemy.burn||0)+e.burn;
+  }
+  if(e.block!==undefined) player.block+=e.block;
+  if(e.heal!==undefined){
+    player.hp=Math.min(player.maxHp, player.hp+e.heal);
+    floatText(220, 320, `+${e.heal}HP`, '90,200,120');
+  }
+  if(e.draw!==undefined) drawCards(e.draw);
+  if(e.energy!==undefined) player.energy+=e.energy;
+  if(e.doubleNext) player.doubleNext=true;
+  if(e.powerAtk) player.atkPower+=e.powerAtk;
+}
+
+function damageEnemy(dmg, ignoreBlock){
+  if(!enemy) return;
+  let d=dmg;
+  if(!ignoreBlock){
+    const absorb=Math.min(enemy.block, d);
+    enemy.block-=absorb;
+    d-=absorb;
+  }
+  enemy.hp -= d;
+  floatText(620+rand(-20,20), 280, `-${dmg}`, '232,72,88');
+}
+function damagePlayer(dmg){
+  let d=dmg;
+  const absorb=Math.min(player.block, d);
+  player.block-=absorb; d-=absorb;
+  player.hp -= d;
+  if(d>0) floatText(220+rand(-20,20), 320, `-${d}`, '232,72,88');
+  if(absorb>0) floatText(220+rand(-20,20), 360, `🛡${absorb}`, '168,176,192');
+}
+
+function endTurn(){
+  if(state!=='battle') return;
+  // 弃手牌
+  discardHand();
+  // 敌人动作
+  if(enemy && enemy.hp>0){
+    const it=enemy.intentKnown;
+    if(it.kind==='attack'){
+      const hits=it.hits||1;
+      let d=it.dmg + (enemy.atkBuff||0);
+      for(let i=0;i<hits;i++) damagePlayer(d);
+    } else if(it.kind==='block'){
+      enemy.block += it.val;
+    } else if(it.kind==='buff'){
+      enemy.atkBuff = (enemy.atkBuff||0) + 3;
+      floatText(620, 240, '+力量', '244,196,64');
+    }
+    // 燃烧
+    if(enemy.burn>0){
+      enemy.hp -= enemy.burn;
+      floatText(620, 260, `🔥-${enemy.burn}`, '232,128,72');
+      enemy.burn--;
+    }
+    // 下一意图
+    enemy.intentKnown = pickIntent(enemy);
+  }
+  // 玩家回合开始
+  player.block=0;
+  player.energy=player.maxEnergy;
+  drawCards(5);
+  checkBattleEnd();
+}
+
+function checkBattleEnd(){
+  if(enemy && enemy.hp<=0){
+    enemy=null;
+    if(roomIdx>=ROOMS.length-1){
+      state='win';
+      if(player.hp>0){
+        const score = roomIdx+1;
+        if(score>bestRun){bestRun=score; localStorage.setItem('cards_best', bestRun);}
+      }
+    } else {
+      // 给 3 张奖励
+      generateReward();
+      state='reward';
+    }
+    return;
+  }
+  if(player.hp<=0){
+    state='dead';
+    const score=roomIdx;
+    if(score>bestRun){bestRun=score; localStorage.setItem('cards_best', bestRun);}
+  }
+}
+
+function generateReward(){
+  // 按稀有度分布
+  const r=Math.random();
+  let pool;
+  if(roomIdx>=5 && r<0.20) pool=CARDS.filter(c=>c.rarity==='rare');
+  else if(r<0.50) pool=CARDS.filter(c=>c.rarity==='uncommon');
+  else pool=CARDS.filter(c=>c.rarity==='common' && c.key!=='strike' && c.key!=='defend');
+  // 至少 3 张
+  const items=[];
+  const cpool=[...pool];
+  while(items.length<3 && cpool.length>0){
+    const idx=Math.floor(Math.random()*cpool.length);
+    items.push(cpool[idx].key);
+    cpool.splice(idx,1);
+  }
+  while(items.length<3) items.push(pick(CARDS.filter(c=>c.rarity==='common')).key);
+  rewardCards=items;
+}
+
+function pickReward(idx){
+  if(idx>=0) deck.push(rewardCards[idx]);
+  // 进入下一关
+  roomIdx++;
+  if(roomIdx>=ROOMS.length){state='win'; return;}
+  state='map';
+}
+function skipReward(){
+  roomIdx++;
+  if(roomIdx>=ROOMS.length){state='win'; return;}
+  state='map';
+}
+
+function startNewRun(){
+  player={hp:50, maxHp:50, block:0, energy:3, maxEnergy:3, atkPower:0, doubleNext:false};
+  deck=[...STARTER];
+  roomIdx=0;
+  state='map';
+}
+
+function toast(t){toastMsg=t; toastT=1.5;}
+function floatText(x,y,t,col){floatTexts.push({x,y,t,col,life:1.2,age:0,vy:-30})}
+
+// ─── 输入 ───
+const buttons=[];
+function addBtn(x,y,w,h,label,onClick,opts){buttons.push({x,y,w,h,label,onClick,opts:opts||{}})}
+
+function getCanvasPos(e){
+  const r=cv.getBoundingClientRect();
+  const cx=(e.clientX!==undefined?e.clientX:e.changedTouches[0].clientX);
+  const cy=(e.clientY!==undefined?e.clientY:e.changedTouches[0].clientY);
+  return {x:(cx-r.left)*W/r.width, y:(cy-r.top)*H/r.height};
+}
+function handleClick(x,y){
+  for(const b of buttons){
+    if(b.opts.disabled) continue;
+    if(x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h){b.onClick(); return;}
+  }
+}
+cv.addEventListener('click', e=>{const{x,y}=getCanvasPos(e); handleClick(x,y);});
+cv.addEventListener('touchend', e=>{e.preventDefault(); const{x,y}=getCanvasPos(e); handleClick(x,y);}, {passive:false});
+
+// ─── 绘制工具 ───
+function rect(x,y,w,h,col){ctx.fillStyle=col; ctx.fillRect(x,y,w,h);}
+function rectS(x,y,w,h,col,sCol,sw){
+  if(col){ctx.fillStyle=col; ctx.fillRect(x,y,w,h);}
+  if(sCol){ctx.strokeStyle=sCol; ctx.lineWidth=sw||1.5; ctx.strokeRect(x+0.5,y+0.5,w-1,h-1);}
+}
+function rrect(x,y,w,h,r,col,sCol){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+  if(col){ctx.fillStyle=col; ctx.fill();}
+  if(sCol){ctx.strokeStyle=sCol; ctx.lineWidth=1.5; ctx.stroke();}
+}
+function text(t,x,y,size,col,align,weight){
+  ctx.fillStyle=col||C.text;
+  ctx.font=`${weight||'normal'} ${size}px "PingFang SC","Hiragino Sans GB",sans-serif`;
+  ctx.textAlign=align||'left'; ctx.textBaseline='alphabetic';
+  ctx.fillText(t,x,y);
+}
+
+// ─── 卡牌绘制 ───
+function drawCard(card, x, y, w, h, highlight, disabled){
+  // 卡背景按类型
+  const typeCol = card.type==='attack' ? '#4a1c2a' : card.type==='skill' ? '#1c2c4a' : '#4a2c1c';
+  rrect(x, y, w, h, 8, disabled?'#1a1428':typeCol, highlight?'#f4c440':'rgba(255,255,255,0.3)');
+  // 能量花费圆圈
+  ctx.fillStyle=C.energy;
+  ctx.beginPath(); ctx.arc(x+16, y+18, 13, 0, Math.PI*2); ctx.fill();
+  text(card.cost, x+16, y+24, 18, '#000', 'center', 'bold');
+  // 名字
+  text(card.name, x+w/2, y+24, 15, disabled?C.textVDim:C.text, 'center', 'bold');
+  // 中间一条分隔
+  ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(x+10, y+38); ctx.lineTo(x+w-10, y+38); ctx.stroke();
+  // 描述（多行）
+  const lines=wrapText(card.desc, 9);
+  for(let i=0;i<lines.length;i++){
+    text(lines[i], x+w/2, y+58+i*16, 11, disabled?C.textVDim:C.textDim, 'center');
+  }
+  // 类型徽标
+  const typeText = card.type==='attack'?'攻击':card.type==='skill'?'技能':'能力';
+  text(typeText, x+w/2, y+h-10, 10, disabled?C.textVDim:C.textVDim, 'center');
+}
+function wrapText(s, n){
+  const out=[]; let cur='';
+  for(const ch of s){
+    cur+=ch;
+    if(cur.length>=n){out.push(cur); cur='';}
+  }
+  if(cur) out.push(cur);
+  return out;
+}
+
+// ─── 屏幕：开始 ───
+function drawStart(){
+  rect(0,0,W,H,C.bg);
+  // 装饰光环
+  const g=ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, 400);
+  g.addColorStop(0, 'rgba(164,88,232,0.2)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  text('卡 牌 爬 塔', W/2, 180, 56, C.text, 'center', 'bold');
+  text('— Card Roguelite —', W/2, 220, 18, C.purple, 'center');
+  text('攒牌组，斩魔王，闯过八层深渊', W/2, 270, 18, C.textDim, 'center');
+  text(`历史最远：第 ${bestRun} 层`, W/2, 310, 16, C.gold, 'center');
+  // 按钮
+  addBtn(W/2-100, 380, 200, 56, '开始冒险', ()=>startNewRun());
+  // 玩法提示
+  text('· 每回合 3 能量 / 抽 5 张牌', W/2, 478, 14, C.textDim, 'center');
+  text('· 战胜敌人三选一加入牌组', W/2, 500, 14, C.textDim, 'center');
+  text('· 8 个房间，包含精英 + Boss', W/2, 522, 14, C.textDim, 'center');
+}
+
+// ─── 屏幕：地图 ───
+function drawMap(){
+  rect(0,0,W,H,C.bg);
+  text('— 选择前进路径 —', W/2, 60, 28, C.text, 'center', 'bold');
+  text(`第 ${roomIdx+1} 层 / 共 ${ROOMS.length} 层`, W/2, 90, 16, C.textDim, 'center');
+  // 玩家状态条
+  drawPlayerHud(40, 130);
+  // 房间链
+  const startX=80, y=300;
+  const gap=(W-160)/(ROOMS.length-1);
+  ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.lineWidth=2;
+  for(let i=0;i<ROOMS.length-1;i++){
+    ctx.beginPath();
+    ctx.moveTo(startX+i*gap+28, y); ctx.lineTo(startX+(i+1)*gap-28, y);
+    ctx.stroke();
+  }
+  for(let i=0;i<ROOMS.length;i++){
+    const room=ROOMS[i];
+    const x=startX+i*gap;
+    let col, label;
+    if(room.kind==='boss'){col=C.red; label='👑';}
+    else if(room.kind==='elite'){col=C.purple; label='⚔';}
+    else {col=C.green; label='👹';}
+    const isCurrent=i===roomIdx;
+    const isDone=i<roomIdx;
+    ctx.fillStyle=isCurrent?col:isDone?'#3a3a4a':'#2a2a3a';
+    ctx.beginPath(); ctx.arc(x, y, 26, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle=isCurrent?'#fff':'rgba(255,255,255,0.2)';
+    ctx.lineWidth=isCurrent?3:1.5; ctx.stroke();
+    text(label, x, y+8, 22, isDone?'#555':'#fff', 'center');
+    text(i+1, x, y+50, 12, isCurrent?col:C.textVDim, 'center', 'bold');
+    if(isDone) text('✓', x, y-30, 14, '#5ac878', 'center');
+  }
+  // 下一房间信息
+  const room=ROOMS[roomIdx];
+  const e=ENEMIES[room.enemyKey];
+  const tip = room.kind==='boss' ? `⚠ 最终 Boss · ${e.name}` :
+              room.kind==='elite' ? `⚔ 精英 · ${e.name}` :
+              `下一战 · ${e.name}`;
+  text(tip, W/2, 400, 22, room.kind==='boss'?C.red:room.kind==='elite'?C.purple:C.text, 'center', 'bold');
+  // 牌组数
+  text(`牌组：${deck.length} 张`, W/2, 432, 16, C.textDim, 'center');
+  // 按钮
+  addBtn(W/2-110, 460, 220, 56, '进入战斗 →', ()=>startBattle());
+  addBtn(W/2-110, 528, 220, 32, '查看牌组', ()=>{showDeckList=!showDeckList;});
+  if(showDeckList) drawDeckOverlay();
+}
+let showDeckList=false;
+
+function drawDeckOverlay(){
+  // 卡牌列表浮层
+  rect(0,0,W,H,'rgba(0,0,0,0.85)');
+  text('— 当前牌组 —', W/2, 50, 26, C.text, 'center', 'bold');
+  const cards=deck.map(k=>findCard(k));
+  const cw=110, ch=140;
+  const cols=7, rows=Math.ceil(cards.length/cols);
+  const totalW=cols*(cw+8)-8;
+  const sx=(W-totalW)/2;
+  let sy=90;
+  for(let i=0;i<cards.length;i++){
+    const c=cards[i];
+    const x=sx+(i%cols)*(cw+8);
+    const y=sy+Math.floor(i/cols)*(ch+10);
+    drawCard(c, x, y, cw, ch, false, false);
+  }
+  addBtn(W/2-60, H-50, 120, 36, '关闭', ()=>{showDeckList=false;});
+}
+
+// ─── 玩家 HUD ───
+function drawPlayerHud(x,y){
+  // 头像底盘
+  ctx.fillStyle=C.panel;
+  rrect(x, y, 200, 110, 8, C.panel, 'rgba(255,255,255,0.2)');
+  // HP 条
+  const hpBarY=y+40;
+  rect(x+14, hpBarY, 172, 22, '#3a1a22');
+  const hpW=172*(player.hp/player.maxHp);
+  rect(x+14, hpBarY, hpW, 22, C.hp);
+  text(`${player.hp} / ${player.maxHp}`, x+100, hpBarY+15, 13, '#fff', 'center', 'bold');
+  text('生命', x+14, y+34, 12, C.textDim);
+  // 格挡
+  if(player.block>0){
+    ctx.fillStyle=C.shield;
+    ctx.beginPath(); ctx.arc(x+14, y+88, 14, 0, Math.PI*2); ctx.fill();
+    text(player.block, x+14, y+93, 14, '#000', 'center', 'bold');
+    text('格挡', x+30, y+90, 12, C.shield);
+  }
+  // 能量（仅战斗中）
+  if(state==='battle'){
+    ctx.fillStyle=C.energy;
+    ctx.beginPath(); ctx.arc(x+170, y+90, 16, 0, Math.PI*2); ctx.fill();
+    text(`${player.energy}/${player.maxEnergy}`, x+170, y+95, 14, '#000', 'center', 'bold');
+    text('能量', x+138, y+90, 12, C.energy);
+  }
+}
+
+// ─── 屏幕：战斗 ───
+function drawBattle(){
+  rect(0,0,W,H,C.bg);
+  // 背景图案
+  for(let i=0;i<30;i++){
+    const x=(i*73 + roomIdx*40)%W, y=(i*53)%H;
+    ctx.fillStyle='rgba(255,255,255,0.02)';
+    ctx.fillRect(x, y, 2, 2);
+  }
+
+  // 玩家侧
+  drawPlayer(220, 220);
+  drawPlayerHud(40, 360);
+
+  // 敌人侧
+  if(enemy) drawEnemy(620, 220);
+
+  // 敌人 HP + 意图
+  if(enemy){
+    rectS(540, 360, 200, 110, C.panel, 'rgba(255,255,255,0.2)');
+    text(enemy.name, 640, 384, 16, C.text, 'center', 'bold');
+    // HP bar
+    rect(554, 394, 172, 20, '#3a1a22');
+    const ehp=172*(enemy.hp/enemy.maxHp);
+    rect(554, 394, ehp, 20, C.hp);
+    text(`${enemy.hp} / ${enemy.maxHp}`, 640, 408, 12, '#fff', 'center', 'bold');
+    // intent
+    const it=enemy.intentKnown;
+    if(it){
+      let iconCol=C.red, iconText='?', desc='';
+      if(it.kind==='attack'){
+        const dmg=(it.dmg+(enemy.atkBuff||0));
+        const hits=it.hits||1;
+        iconCol=C.red; iconText='⚔';
+        desc= hits>1 ? `${dmg} × ${hits}` : `${dmg}`;
+      } else if(it.kind==='block'){
+        iconCol=C.shield; iconText='🛡';
+        desc=`${it.val}`;
+      } else if(it.kind==='buff'){
+        iconCol=C.gold; iconText='✦';
+        desc='+力';
+      }
+      ctx.fillStyle=iconCol;
+      ctx.beginPath(); ctx.arc(560, 442, 12, 0, Math.PI*2); ctx.fill();
+      text(iconText, 560, 447, 16, '#000', 'center', 'bold');
+      text(desc, 580, 447, 14, C.text, 'left', 'bold');
+    }
+    // 状态
+    if(enemy.block>0){
+      ctx.fillStyle=C.shield;
+      ctx.beginPath(); ctx.arc(672, 442, 11, 0, Math.PI*2); ctx.fill();
+      text(enemy.block, 672, 446, 12, '#000', 'center', 'bold');
+    }
+    if(enemy.burn>0){
+      text(`🔥${enemy.burn}`, 700, 446, 13, '#e88848', 'left', 'bold');
+    }
+    if(enemy.atkBuff>0){
+      text(`✦+${enemy.atkBuff}`, 700, 462, 13, C.gold, 'left', 'bold');
+    }
+  }
+
+  // 顶部牌堆信息
+  text(`第 ${roomIdx+1} 层`, 14, 28, 16, C.text, 'left', 'bold');
+  text(`抽牌堆 ${drawPile.length}`, W-180, 24, 13, C.textDim);
+  text(`弃牌堆 ${discardPile.length}`, W-180, 42, 13, C.textDim);
+  text(`手牌 ${hand.length}`, W-80, 24, 13, C.textDim);
+  if(exhaustPile.length>0) text(`消耗 ${exhaustPile.length}`, W-80, 42, 13, C.textDim);
+
+  // 手牌区
+  drawHand();
+
+  // 结束回合按钮
+  addBtn(W-150, H-66, 130, 50, '结束回合 →', ()=>endTurn());
+
+  // 状态指示
+  if(player.atkPower>0){
+    text(`狂怒 攻击+${player.atkPower}`, 40, 502, 14, C.gold, 'left', 'bold');
+  }
+  if(player.doubleNext){
+    text('下张攻击 ×2', 40, 522, 14, C.purple, 'left', 'bold');
+  }
+}
+
+function drawPlayer(cx, cy){
+  // 简笔英雄
+  ctx.save();
+  // 身体
+  ctx.fillStyle='#4a7ac8';
+  ctx.beginPath();
+  ctx.moveTo(cx-25, cy-20); ctx.lineTo(cx-30, cy+40);
+  ctx.lineTo(cx+30, cy+40); ctx.lineTo(cx+25, cy-20); ctx.closePath();
+  ctx.fill();
+  // 头
+  ctx.fillStyle='#e8c898';
+  ctx.beginPath(); ctx.arc(cx, cy-35, 18, 0, Math.PI*2); ctx.fill();
+  // 头盔
+  ctx.fillStyle='#7a8aaa';
+  ctx.beginPath(); ctx.arc(cx, cy-42, 19, Math.PI, Math.PI*2); ctx.fill();
+  ctx.fillRect(cx-19, cy-42, 38, 4);
+  // 眼
+  ctx.fillStyle='#222';
+  ctx.fillRect(cx-7, cy-35, 2, 3);
+  ctx.fillRect(cx+5, cy-35, 2, 3);
+  // 剑
+  ctx.fillStyle='#cccccc';
+  ctx.fillRect(cx+28, cy-20, 4, 50);
+  ctx.fillStyle='#8a5a3a';
+  ctx.fillRect(cx+24, cy+25, 12, 8);
+  ctx.restore();
+}
+
+function drawEnemy(cx, cy){
+  if(!enemy) return;
+  ctx.save();
+  const col=enemy.color;
+  if(enemy.key==='slime'){
+    ctx.fillStyle=col;
+    ctx.beginPath();
+    ctx.moveTo(cx-35, cy+25);
+    ctx.quadraticCurveTo(cx-40, cy-20, cx, cy-25);
+    ctx.quadraticCurveTo(cx+40, cy-20, cx+35, cy+25);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#222';
+    ctx.beginPath(); ctx.arc(cx-12, cy-8, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx+12, cy-8, 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(cx-10, cy-10, 1.5, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx+14, cy-10, 1.5, 0, Math.PI*2); ctx.fill();
+    // 嘴
+    ctx.strokeStyle='#222'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(cx, cy+5, 8, 0, Math.PI); ctx.stroke();
+  } else if(enemy.key==='bat'){
+    ctx.fillStyle=col;
+    // 翼
+    ctx.beginPath();
+    ctx.moveTo(cx-30, cy);
+    ctx.quadraticCurveTo(cx-50, cy-15, cx-45, cy+15);
+    ctx.quadraticCurveTo(cx-40, cy+5, cx-25, cy+10);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx+30, cy);
+    ctx.quadraticCurveTo(cx+50, cy-15, cx+45, cy+15);
+    ctx.quadraticCurveTo(cx+40, cy+5, cx+25, cy+10);
+    ctx.closePath(); ctx.fill();
+    // 身体
+    ctx.beginPath(); ctx.arc(cx, cy, 25, 0, Math.PI*2); ctx.fill();
+    // 眼
+    ctx.fillStyle='#f4c440';
+    ctx.beginPath(); ctx.arc(cx-8, cy-3, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx+8, cy-3, 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='#000';
+    ctx.beginPath(); ctx.arc(cx-8, cy-3, 2, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx+8, cy-3, 2, 0, Math.PI*2); ctx.fill();
+    // 牙
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.moveTo(cx-3,cy+8); ctx.lineTo(cx-5,cy+14); ctx.lineTo(cx-1,cy+10); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx+3,cy+8); ctx.lineTo(cx+5,cy+14); ctx.lineTo(cx+1,cy+10); ctx.fill();
+  } else if(enemy.key==='goblin'){
+    ctx.fillStyle=col;
+    // 身
+    ctx.beginPath();
+    ctx.moveTo(cx-22, cy+30); ctx.lineTo(cx-25, cy-10);
+    ctx.lineTo(cx+25, cy-10); ctx.lineTo(cx+22, cy+30); ctx.closePath();
+    ctx.fill();
+    // 头
+    ctx.beginPath(); ctx.arc(cx, cy-22, 18, 0, Math.PI*2); ctx.fill();
+    // 耳
+    ctx.beginPath();
+    ctx.moveTo(cx-18, cy-22); ctx.lineTo(cx-30, cy-30); ctx.lineTo(cx-18, cy-15);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx+18, cy-22); ctx.lineTo(cx+30, cy-30); ctx.lineTo(cx+18, cy-15);
+    ctx.fill();
+    // 眼
+    ctx.fillStyle='#222';
+    ctx.fillRect(cx-7, cy-25, 4, 3);
+    ctx.fillRect(cx+3, cy-25, 4, 3);
+    // 牙
+    ctx.fillStyle='#fff';
+    ctx.fillRect(cx-2, cy-15, 2, 4);
+    ctx.fillRect(cx+1, cy-15, 2, 4);
+  } else if(enemy.key==='elite'){
+    // 石巨人
+    ctx.fillStyle=col;
+    // 身
+    ctx.fillRect(cx-32, cy-15, 64, 50);
+    // 头
+    ctx.fillRect(cx-22, cy-45, 44, 35);
+    // 手
+    ctx.fillRect(cx-46, cy, 14, 30);
+    ctx.fillRect(cx+32, cy, 14, 30);
+    // 裂纹
+    ctx.strokeStyle='#5a4a3a'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(cx-10, cy-30); ctx.lineTo(cx-5, cy-15); ctx.lineTo(cx+5, cy-5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+10, cy+5); ctx.lineTo(cx+15, cy+20); ctx.stroke();
+    // 眼
+    ctx.fillStyle='#f44';
+    ctx.fillRect(cx-12, cy-32, 6, 5);
+    ctx.fillRect(cx+6, cy-32, 6, 5);
+  } else { // boss
+    ctx.fillStyle=col;
+    // 大兜帽
+    ctx.beginPath();
+    ctx.moveTo(cx-50, cy+40);
+    ctx.quadraticCurveTo(cx-55, cy-40, cx, cy-50);
+    ctx.quadraticCurveTo(cx+55, cy-40, cx+50, cy+40);
+    ctx.closePath(); ctx.fill();
+    // 黑面
+    ctx.fillStyle='#1a0a14';
+    ctx.beginPath(); ctx.arc(cx, cy-20, 22, 0, Math.PI*2); ctx.fill();
+    // 红眼
+    ctx.fillStyle='#ff2244';
+    ctx.beginPath(); ctx.arc(cx-8, cy-22, 4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx+8, cy-22, 4, 0, Math.PI*2); ctx.fill();
+    // 光晕
+    ctx.fillStyle='rgba(232,72,88,0.3)';
+    ctx.beginPath(); ctx.arc(cx, cy-10, 60, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawHand(){
+  // 卡牌从中心扇形展开
+  const cw=120, ch=160;
+  const n=hand.length;
+  if(n===0) return;
+  const baseY=H-ch-10;
+  const totalW=Math.min(W-200, n*(cw+6));
+  const gap = n>1 ? (totalW-cw)/(n-1) : 0;
+  const startX = W/2 - totalW/2;
+  for(let i=0;i<n;i++){
+    const key=hand[i];
+    const card=findCard(key);
+    if(!card) continue;
+    const x=startX + i*gap;
+    const y=baseY + (n>1 ? Math.abs(i-(n-1)/2)*4 : 0);
+    const canPlay = player.energy>=card.cost;
+    drawCard(card, x, y, cw, ch, false, !canPlay);
+    addBtn(x, y, cw, ch, '', ((idx)=>()=>{
+      if(player.energy>=findCard(hand[idx]).cost) playCard(idx);
+      else toast('能量不足');
+    })(i), {});
+  }
+}
+
+// ─── 屏幕：奖励 ───
+function drawReward(){
+  rect(0,0,W,H,C.bg);
+  text('— 战利品 —', W/2, 60, 32, C.gold, 'center', 'bold');
+  text('选择一张卡牌加入牌组（或跳过）', W/2, 100, 16, C.textDim, 'center');
+  // 三选一
+  const cw=160, ch=220;
+  const gap=40;
+  const totalW=cw*3+gap*2;
+  const sx=(W-totalW)/2;
+  const sy=160;
+  for(let i=0;i<3;i++){
+    const card=findCard(rewardCards[i]);
+    const x=sx+i*(cw+gap);
+    drawCard(card, x, sy, cw, ch, true, false);
+    // 稀有度标签
+    let rarCol=C.textDim, rarText='普通';
+    if(card.rarity==='uncommon'){rarCol=C.blue; rarText='稀有';}
+    else if(card.rarity==='rare'){rarCol=C.purple; rarText='史诗';}
+    text(rarText, x+cw/2, sy-8, 12, rarCol, 'center', 'bold');
+    addBtn(x, sy, cw, ch, '', ((idx)=>()=>pickReward(idx))(i), {});
+  }
+  addBtn(W/2-80, H-80, 160, 40, '跳过奖励', ()=>skipReward());
+  // 进度
+  text(`已通过 ${roomIdx+1} / ${ROOMS.length} 房间`, W/2, H-30, 14, C.textDim, 'center');
+}
+
+// ─── 屏幕：失败 / 胜利 ───
+function drawDead(){
+  rect(0,0,W,H,C.bg);
+  text('☠ 命断深渊 ☠', W/2, 180, 50, C.red, 'center', 'bold');
+  text(`第 ${roomIdx+1} 层 战败`, W/2, 240, 24, C.text, 'center');
+  text(`牌组规模：${deck.length} 张`, W/2, 280, 16, C.textDim, 'center');
+  text(`历史最远：第 ${bestRun} 层`, W/2, 310, 16, C.gold, 'center');
+  addBtn(W/2-100, 400, 200, 50, '再次冒险', ()=>startNewRun());
+  addBtn(W/2-100, 460, 200, 36, '回到主页', ()=>{state='start'});
+}
+function drawWin(){
+  rect(0,0,W,H,C.bg);
+  const g=ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, 400);
+  g.addColorStop(0, 'rgba(244,196,64,0.3)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  text('🏆 通关胜利 🏆', W/2, 180, 50, C.gold, 'center', 'bold');
+  text('深渊领主已被斩落', W/2, 240, 22, C.text, 'center');
+  text(`残血：${player.hp} / ${player.maxHp}`, W/2, 280, 18, C.green, 'center');
+  text(`牌组规模：${deck.length} 张`, W/2, 310, 16, C.textDim, 'center');
+  addBtn(W/2-100, 400, 200, 50, '再战一回', ()=>startNewRun());
+  addBtn(W/2-100, 460, 200, 36, '回到主页', ()=>{state='start'});
+}
+
+// ─── 浮动文字 / Toast ───
+function drawFloats(dt){
+  for(let i=floatTexts.length-1;i>=0;i--){
+    const f=floatTexts[i];
+    f.age+=dt; f.y+=f.vy*dt;
+    const a=Math.max(0, 1-f.age/f.life);
+    ctx.fillStyle=`rgba(${f.col},${a})`;
+    ctx.font='bold 22px "PingFang SC",sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText(f.t, f.x, f.y);
+    if(f.age>=f.life) floatTexts.splice(i,1);
+  }
+}
+function drawToast(dt){
+  if(!toastMsg) return;
+  toastT-=dt;
+  if(toastT<=0){toastMsg=null; return;}
+  const a=Math.min(1, toastT/0.4);
+  ctx.font='bold 18px "PingFang SC",sans-serif';
+  const tw=ctx.measureText(toastMsg).width;
+  ctx.fillStyle=`rgba(0,0,0,${0.85*a})`;
+  ctx.fillRect(W/2-tw/2-14, 100, tw+28, 36);
+  text(toastMsg, W/2, 124, 18, `rgba(255,200,80,${a})`, 'center', 'bold');
+}
+
+// ─── 通用按钮渲染 ───
+function drawButtons(){
+  for(const b of buttons){
+    if(!b.label) continue;
+    rrect(b.x, b.y, b.w, b.h, 6, b.opts.disabled?'rgba(60,40,80,0.5)':C.purple, 'rgba(255,255,255,0.4)');
+    text(b.label, b.x+b.w/2, b.y+b.h/2+6, 16, '#fff', 'center', 'bold');
+  }
+}
+
+// ─── 主循环 ───
+let last=performance.now();
+function loop(t){
+  const dt=Math.min(0.05, (t-last)/1000);
+  last=t;
+  buttons.length=0;
+
+  if(state==='start') drawStart();
+  else if(state==='map') drawMap();
+  else if(state==='battle') drawBattle();
+  else if(state==='reward') drawReward();
+  else if(state==='dead') drawDead();
+  else if(state==='win') drawWin();
+
+  drawButtons();
+  drawFloats(dt);
+  drawToast(dt);
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

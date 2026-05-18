@@ -438,6 +438,10 @@ footer {
 .p-farm { background:#88b057; position:relative; overflow:hidden; }
 .p-farm canvas { display:block; width:100%; height:100%; image-rendering:pixelated; }
 
+/* ════════════════════════  Cards ════════════════════════ */
+.p-cards { background:#1a1428; position:relative; overflow:hidden; }
+.p-cards canvas { display:block; width:100%; height:100%; }
+
 /* ── Responsive ── */
 @media (max-width: 680px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
@@ -454,8 +458,8 @@ footer {
 
   <!-- ── Tab bar ── -->
   <nav class="tabs">
-    <button class="tab-btn active" data-cat="all" onclick="setTab('all')">全部 · 26</button>
-    <button class="tab-btn" data-cat="game" onclick="setTab('game')">🎮 游戏 · 15</button>
+    <button class="tab-btn active" data-cat="all" onclick="setTab('all')">全部 · 27</button>
+    <button class="tab-btn" data-cat="game" onclick="setTab('game')">🎮 游戏 · 16</button>
     <button class="tab-btn" data-cat="mystic" onclick="setTab('mystic')">🔮 玄学 · 5</button>
     <button class="tab-btn" data-cat="create" onclick="setTab('create')">🎨 创作 · 6</button>
     <button class="explore-btn" onclick="goRandom()" style="margin-left:auto">
@@ -484,6 +488,11 @@ footer {
       <a class="card" href="farm.html">
         <div class="preview p-farm"><canvas id="farmCanvas"></canvas></div>
         <div class="info"><div class="info-left"><div class="card-name">像素农场</div><div class="card-desc">开垦种菜 · 四季轮转 · 浇水收获</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <a class="card" href="cards.html">
+        <div class="preview p-cards"><canvas id="cardsCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">卡牌爬塔</div><div class="card-desc">Slay-like · 组牌斩怪 · 八层深渊</div></div><div class="card-arrow">→</div></div>
       </a>
 
       <a class="card" href="alchemy.html">
@@ -1204,6 +1213,72 @@ function goRandom() {
   ctx.fillStyle='#F4A44A';ctx.fill();
   ctx.strokeStyle='#C07828';ctx.lineWidth=1.5;ctx.stroke();
   ctx.restore();
+})();
+
+// ── Cards mini ──
+(function(){
+  const cv=document.getElementById('cardsCanvas');
+  if(!cv) return;
+  const par=cv.parentElement;
+  const W=par.offsetWidth||200, H=par.offsetHeight||160;
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  // dark bg with purple gradient
+  ctx.fillStyle='#1a1428'; ctx.fillRect(0,0,W,H);
+  const g=ctx.createRadialGradient(W/2,H*.65,0,W/2,H*.65,W*.7);
+  g.addColorStop(0,'rgba(164,88,232,0.25)'); g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  // 3 cards fanned at bottom
+  function card(cx, cy, rot, type){
+    ctx.save();
+    ctx.translate(cx, cy); ctx.rotate(rot);
+    const cw=W*0.22, ch=H*0.62;
+    const col=type==='atk'?'#4a1c2a':type==='skill'?'#1c2c4a':'#4a2c1c';
+    ctx.fillStyle=col;
+    ctx.beginPath();
+    const r=4;
+    ctx.moveTo(-cw/2+r,-ch/2);
+    ctx.lineTo(cw/2-r,-ch/2); ctx.quadraticCurveTo(cw/2,-ch/2, cw/2,-ch/2+r);
+    ctx.lineTo(cw/2,ch/2-r); ctx.quadraticCurveTo(cw/2,ch/2, cw/2-r,ch/2);
+    ctx.lineTo(-cw/2+r,ch/2); ctx.quadraticCurveTo(-cw/2,ch/2, -cw/2,ch/2-r);
+    ctx.lineTo(-cw/2,-ch/2+r); ctx.quadraticCurveTo(-cw/2,-ch/2, -cw/2+r,-ch/2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=1; ctx.stroke();
+    // energy circle
+    ctx.fillStyle='#f4c440';
+    ctx.beginPath(); ctx.arc(-cw/2+cw*0.15, -ch/2+ch*0.13, cw*0.13, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='#000';
+    ctx.font=`bold ${Math.round(cw*0.20)}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(type==='atk'?'1':'1', -cw/2+cw*0.15, -ch/2+ch*0.135);
+    // mini icon
+    if(type==='atk'){
+      ctx.fillStyle='#e84858';
+      ctx.beginPath(); ctx.moveTo(0,-ch*0.05); ctx.lineTo(cw*0.18,ch*0.15); ctx.lineTo(-cw*0.18,ch*0.15); ctx.closePath(); ctx.fill();
+    } else if(type==='skill'){
+      ctx.fillStyle='#a8b0c0';
+      ctx.beginPath(); ctx.arc(0,ch*0.06,cw*0.18,0,Math.PI*2); ctx.fill();
+    } else {
+      ctx.fillStyle='#f4c440';
+      ctx.beginPath();
+      for(let i=0;i<5;i++){
+        const a=-Math.PI/2 + i*Math.PI*2/5;
+        const a2=a+Math.PI/5;
+        ctx.lineTo(Math.cos(a)*cw*0.16, ch*0.06+Math.sin(a)*cw*0.16);
+        ctx.lineTo(Math.cos(a2)*cw*0.07, ch*0.06+Math.sin(a2)*cw*0.07);
+      }
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+  card(W*0.30, H*0.65, -0.18, 'atk');
+  card(W*0.50, H*0.70, 0, 'skill');
+  card(W*0.70, H*0.65, 0.18, 'power');
+  // title
+  ctx.fillStyle='rgba(244,196,64,0.8)';
+  ctx.font=`bold ${Math.round(H*0.13)}px sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.fillText('卡牌爬塔', W*0.5, H*0.07);
 })();
 
 // ── Farm mini ──
