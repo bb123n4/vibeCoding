@@ -492,11 +492,11 @@ function draw() {
 
   // XP orbs
   ctx.shadowBlur = 6;
-  ctx.shadowColor = '#60E080';
+  ctx.shadowColor = '#58A0FF';
   for (const orb of orbs) {
     ctx.beginPath();
     ctx.arc(orb.x, orb.y, orb.r, 0, Math.PI * 2);
-    ctx.fillStyle = '#60E080';
+    ctx.fillStyle = '#58A0FF';
     ctx.fill();
   }
   ctx.shadowBlur = 0;
