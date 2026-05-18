@@ -588,18 +588,23 @@ function draw() {
     ctx.fillRect(0, 0, W, H);
   }
 
-  // Virtual joystick overlay
-  if (joystick && state === 'playing') {
-    const JR = 52, TR = 22;
+  // Virtual joystick overlay — fixed bottom-right
+  if (state === 'playing') {
+    const JR = JOYSTICK_R, TR = 22;
+    const active = !!joystick;
+    const tdx = active ? joystick.dx * JR : 0;
+    const tdy = active ? joystick.dy * JR : 0;
     ctx.save();
-    ctx.globalAlpha = 0.22;
-    ctx.beginPath(); ctx.arc(joystick.baseX, joystick.baseY, JR, 0, Math.PI*2);
+    // Base ring
+    ctx.globalAlpha = active ? 0.38 : 0.18;
+    ctx.beginPath(); ctx.arc(JOY_BASE_X, JOY_BASE_Y, JR, 0, Math.PI*2);
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-    ctx.globalAlpha = 0.12;
+    ctx.globalAlpha = active ? 0.12 : 0.05;
     ctx.fillStyle = '#fff'; ctx.fill();
-    ctx.globalAlpha = 0.50;
+    // Thumb
+    ctx.globalAlpha = active ? 0.60 : 0.22;
     ctx.beginPath();
-    ctx.arc(joystick.baseX + joystick.dx*JR, joystick.baseY + joystick.dy*JR, TR, 0, Math.PI*2);
+    ctx.arc(JOY_BASE_X + tdx, JOY_BASE_Y + tdy, TR, 0, Math.PI*2);
     ctx.fillStyle = '#fff'; ctx.fill();
     ctx.restore();
   }
@@ -885,14 +890,16 @@ canvas.addEventListener('click', e => {
 });
 
 // ─── Touch / virtual joystick ────────────────────────────────────────────────
-const JOYSTICK_R = 52;
+const JOYSTICK_R = 56;
+// Fixed base position: bottom-right corner
+const JOY_BASE_X = W - 90;
+const JOY_BASE_Y = H - 80;
 
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
   for (const t of e.changedTouches) {
-    const { x, y } = getCanvasPos(t);
     if (state === 'playing' && !joystick) {
-      joystick = { id: t.identifier, baseX: x, baseY: y, dx: 0, dy: 0 };
+      joystick = { id: t.identifier, dx: 0, dy: 0 };
     }
   }
 }, { passive: false });
@@ -902,7 +909,7 @@ canvas.addEventListener('touchmove', e => {
   for (const t of e.changedTouches) {
     if (joystick && t.identifier === joystick.id) {
       const { x, y } = getCanvasPos(t);
-      let dx = x - joystick.baseX, dy = y - joystick.baseY;
+      let dx = x - JOY_BASE_X, dy = y - JOY_BASE_Y;
       const len = Math.sqrt(dx*dx + dy*dy);
       if (len > JOYSTICK_R) { dx = dx/len*JOYSTICK_R; dy = dy/len*JOYSTICK_R; }
       joystick.dx = dx / JOYSTICK_R;
