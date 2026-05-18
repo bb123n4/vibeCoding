@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>像素农场</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;background:#1a2014;
+    font-family:"PingFang SC","Hiragino Sans GB",sans-serif;color:#fff}
+  body{display:flex;align-items:center;justify-content:center}
+  #wrap{position:relative;width:min(100vw,calc(100vh*900/600));height:min(100vh,calc(100vw*600/900))}
+  canvas{display:block;width:100%;height:100%;background:#88b057;cursor:pointer;image-rendering:pixelated}
+  .home{position:absolute;top:14px;left:14px;color:#fff;background:rgba(0,0,0,0.4);
+    padding:6px 12px;border-radius:14px;text-decoration:none;font-size:14px;
+    border:1px solid rgba(255,255,255,0.15);z-index:5}
+  .home:hover{background:rgba(0,0,0,0.6)}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+  <a class="home" href="index.html">← 返回</a>
+</div>
+<script>
+const W=900,H=600;
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+const dpr=Math.min(devicePixelRatio||1,2);
+cv.width=W*dpr; cv.height=H*dpr; ctx.scale(dpr,dpr);
+ctx.imageSmoothingEnabled=false;
+
+// ─── 调色 ───
+const C={
+  sky:'#a8d8e8', skyDk:'#7eb8d0',
+  grass:'#88b057', grassDk:'#6a8a44', grassLt:'#a8c878',
+  soil:'#7d5a3a', soilDk:'#5d3a20', soilWet:'#4a3220',
+  ui:'#2a2018', uiLt:'#3a3028',
+  gold:'#f4d030', red:'#d04848', green:'#5ab058', blue:'#5090d8',
+  text:'#fff', textDim:'#c8b898',
+  panel:'rgba(20,16,10,0.85)',
+};
+
+// ─── 作物定义 ───
+const CROPS=[
+  { key:'radish',  name:'萝卜',     emoji:'🥕', seed:5,  sell:12, growT:24,  seasons:['spring','autumn'], color:'#e87060', leafCol:'#5ab058'},
+  { key:'cabbage', name:'白菜',     emoji:'🥬', seed:8,  sell:22, growT:36,  seasons:['spring','autumn','winter'], color:'#9ad880', leafCol:'#5ab058'},
+  { key:'corn',    name:'玉米',     emoji:'🌽', seed:12, sell:36, growT:52,  seasons:['summer','autumn'], color:'#f4d030', leafCol:'#5ab058'},
+  { key:'pumpkin', name:'南瓜',     emoji:'🎃', seed:18, sell:65, growT:80,  seasons:['summer','autumn'], color:'#e88838', leafCol:'#5ab058'},
+  { key:'sunflower',name:'向日葵',  emoji:'🌻', seed:10, sell:30, growT:48,  seasons:['summer'], color:'#f4d030', leafCol:'#5ab058'},
+];
+const SEASON_NAMES={spring:'春', summer:'夏', autumn:'秋', winter:'冬'};
+const SEASON_COLORS={spring:'#a8d878', summer:'#f4c060', autumn:'#d88848', winter:'#bcd0e0'};
+const SEASON_ORDER=['spring','summer','autumn','winter'];
+
+// ─── 农场状态 ───
+const COLS=8, ROWS=5;
+const TILE=58;
+const farmX = 60, farmY = 130;
+let money = parseInt(localStorage.getItem('farm_money')||'30');
+let day = parseInt(localStorage.getItem('farm_day')||'1');
+let totalEarned = parseInt(localStorage.getItem('farm_total')||'0');
+// 农场格子: type 'empty'|'crop', cropKey, plantedAt(day), waterLeft(0-3), withered
+let plots = null;
+function loadPlots(){
+  const s=localStorage.getItem('farm_plots');
+  if(s){
+    try { plots = JSON.parse(s); if(plots.length===ROWS && plots[0].length===COLS) return; } catch(e){}
+  }
+  plots = [];
+  for(let r=0;r<ROWS;r++){
+    const row=[];
+    for(let c=0;c<COLS;c++) row.push({type:'empty', tilled:false});
+    plots.push(row);
+  }
+}
+loadPlots();
+
+// 时间进展: 每帧 dt 累加到 dayProgress (0-1)，到 1 后 day++
+let dayProgress = 0;
+const DAY_LENGTH = 4.0; // 秒
+let paused=false, speedMul=1;
+
+// 工具选择
+let selectedTool = 'till'; // till / water / radish / cabbage / corn / pumpkin / sunflower / harvest
+let toolEmoji = {till:'🪓', water:'💧', harvest:'✂️'};
+
+// 浮动文字
+let floatTexts=[];
+function floatText(x,y,t,col){floatTexts.push({x,y,t,col,life:1.4,age:0,vy:-30})}
+
+let toastMsg=null, toastT=0;
+function toast(t){toastMsg=t; toastT=2;}
+
+function getSeason(){
+  // 每 7 天换一季
+  const sIdx = Math.floor((day-1)/7) % 4;
+  return SEASON_ORDER[sIdx];
+}
+
+function save(){
+  localStorage.setItem('farm_money', money);
+  localStorage.setItem('farm_day', day);
+  localStorage.setItem('farm_total', totalEarned);
+  localStorage.setItem('farm_plots', JSON.stringify(plots));
+}
+
+// ─── 输入 ───
+function getCanvasPos(e){
+  const r=cv.getBoundingClientRect();
+  const cx=(e.clientX!==undefined?e.clientX:e.changedTouches[0].clientX);
+  const cy=(e.clientY!==undefined?e.clientY:e.changedTouches[0].clientY);
+  return {x:(cx-r.left)*W/r.width, y:(cy-r.top)*H/r.height};
+}
+const buttons=[];
+function addBtn(x,y,w,h,label,onClick,opts){
+  buttons.push({x,y,w,h,label,onClick,opts:opts||{}});
+}
+
+function handleClick(x,y){
+  // 优先按钮
+  for(const b of buttons){
+    if(b.opts.disabled) continue;
+    if(x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h){
+      b.onClick(); return;
+    }
+  }
+  // 点击农田
+  if(x>=farmX && x<farmX+COLS*TILE && y>=farmY && y<farmY+ROWS*TILE){
+    const c=Math.floor((x-farmX)/TILE), r=Math.floor((y-farmY)/TILE);
+    onTileClick(r,c);
+  }
+}
+
+function onTileClick(r,c){
+  const p=plots[r][c];
+  if(selectedTool==='till'){
+    if(p.type==='empty'){
+      p.tilled=true;
+      floatText(farmX+c*TILE+TILE/2, farmY+r*TILE+TILE/2, '已开垦', '255,255,255');
+    } else if(p.type==='crop' && p.withered){
+      // 清理枯萎
+      plots[r][c]={type:'empty', tilled:true};
+      floatText(farmX+c*TILE+TILE/2, farmY+r*TILE+TILE/2, '已清理', '255,255,255');
+    }
+  } else if(selectedTool==='water'){
+    if(p.type==='crop' && !p.withered){
+      p.waterLeft=3;
+      floatText(farmX+c*TILE+TILE/2, farmY+r*TILE+TILE/2, '💧', '90,144,216');
+    }
+  } else if(selectedTool==='harvest'){
+    if(p.type==='crop' && p.matured && !p.withered){
+      const crop=CROPS.find(cr=>cr.key===p.cropKey);
+      money+=crop.sell;
+      totalEarned+=crop.sell;
+      floatText(farmX+c*TILE+TILE/2, farmY+r*TILE+TILE/2, `+${crop.sell}金`, '244,208,48');
+      plots[r][c]={type:'empty', tilled:true};
+      save();
+    }
+  } else {
+    // 种植
+    const crop=CROPS.find(cr=>cr.key===selectedTool);
+    if(!crop) return;
+    if(p.type!=='empty' || !p.tilled){
+      toast('需先开垦土地'); return;
+    }
+    const season=getSeason();
+    if(!crop.seasons.includes(season)){
+      toast(`${crop.name}不适合${SEASON_NAMES[season]}季`); return;
+    }
+    if(money<crop.seed){
+      toast('金币不够买种子'); return;
+    }
+    money-=crop.seed;
+    plots[r][c]={
+      type:'crop', tilled:true, cropKey:crop.key,
+      plantedDay:day, plantedProgress:dayProgress,
+      waterLeft:3, matured:false, withered:false,
+      growT: crop.growT,
+    };
+    floatText(farmX+c*TILE+TILE/2, farmY+r*TILE+TILE/2, `-${crop.seed}金`, '208,72,72');
+    save();
+  }
+}
+
+cv.addEventListener('click', e=>{
+  const {x,y}=getCanvasPos(e);
+  handleClick(x,y);
+});
+cv.addEventListener('touchend', e=>{
+  e.preventDefault();
+  const {x,y}=getCanvasPos(e);
+  handleClick(x,y);
+}, {passive:false});
+
+// ─── 更新 ───
+function update(dt){
+  if(paused) return;
+  const eff = dt * speedMul;
+  dayProgress += eff / DAY_LENGTH;
+  if(dayProgress >= 1){
+    dayProgress -= 1;
+    advanceDay();
+  }
+  // 平滑：作物成长基于实时 (day*1 + dayProgress)
+}
+function advanceDay(){
+  day++;
+  // 每个作物消耗 1 水
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    const p=plots[r][c];
+    if(p.type==='crop' && !p.withered){
+      p.waterLeft = Math.max(0, p.waterLeft-1);
+    }
+  }
+  save();
+}
+function getCropProgress(p){
+  if(!p || p.type!=='crop') return 0;
+  // 当前总天数小数表示
+  const now = day + dayProgress;
+  const planted = p.plantedDay + p.plantedProgress;
+  let elapsed = now - planted;
+  // 缺水时减慢: waterLeft==0 时不长
+  // 简化：用 waterLeft 当作 boolean (>0 全速；=0 不长)
+  // 这里就直接用 elapsed
+  const grown = elapsed * 5; // 5 ticks/day for grow speed
+  return Math.min(1, grown / p.growT);
+}
+function refreshMatured(){
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    const p=plots[r][c];
+    if(p.type==='crop' && !p.withered){
+      const prog=getCropProgress(p);
+      if(prog>=1) p.matured=true;
+      // 缺水太久会枯萎
+      if(p.waterLeft<=0 && (day - p.plantedDay) >= 3 && !p.matured) p.withered=true;
+    }
+  }
+}
+
+// ─── 绘制 ───
+function rect(x,y,w,h,col){ctx.fillStyle=col; ctx.fillRect(x,y,w,h);}
+function rectS(x,y,w,h,col,sCol){
+  ctx.fillStyle=col; ctx.fillRect(x,y,w,h);
+  ctx.strokeStyle=sCol||'rgba(0,0,0,0.4)'; ctx.lineWidth=1.5; ctx.strokeRect(x+0.75,y+0.75,w-1.5,h-1.5);
+}
+function text(t,x,y,size,col,align,weight){
+  ctx.fillStyle=col||C.text;
+  ctx.font=`${weight||'normal'} ${size}px "PingFang SC","Hiragino Sans GB",sans-serif`;
+  ctx.textAlign=align||'left'; ctx.textBaseline='alphabetic';
+  ctx.fillText(t,x,y);
+}
+
+function drawBg(){
+  // 天空 (取决于一天的进度)
+  const t=dayProgress;
+  const isNight = t<0.1 || t>0.9;
+  ctx.fillStyle = isNight ? '#2c3050' : C.sky;
+  ctx.fillRect(0,0,W,H);
+  // 太阳/月亮
+  const sx = 40 + t*(W-80);
+  const sy = 80 - Math.sin(t*Math.PI)*40;
+  ctx.fillStyle = isNight ? '#e8e8d8' : '#fff5b0';
+  ctx.beginPath(); ctx.arc(sx, sy, 18, 0, Math.PI*2); ctx.fill();
+  if(!isNight){
+    ctx.fillStyle='rgba(255,245,176,0.3)';
+    ctx.beginPath(); ctx.arc(sx, sy, 28, 0, Math.PI*2); ctx.fill();
+  }
+  // 远山
+  ctx.fillStyle='#5e7a48';
+  ctx.beginPath();
+  ctx.moveTo(0, 130);
+  for(let i=0;i<=10;i++){
+    const x=i*90;
+    const h=130 - 30 - 20*Math.sin(i*1.7);
+    ctx.lineTo(x, h);
+  }
+  ctx.lineTo(W, 130); ctx.lineTo(W, 200); ctx.lineTo(0,200);
+  ctx.closePath(); ctx.fill();
+  // 地面（农场背景）
+  ctx.fillStyle = C.grass;
+  ctx.fillRect(0, 110, W, H-110);
+  // 草纹
+  ctx.fillStyle = C.grassDk;
+  for(let i=0;i<80;i++){
+    const x=(i*37 + day*3)%W, y=110+((i*53)%(H-110));
+    ctx.fillRect(x, y, 2, 4);
+  }
+}
+
+function drawTopBar(){
+  // 顶部 HUD
+  rect(0, 0, W, 60, 'rgba(0,0,0,0.45)');
+  text(`金币 ${money}`, 16, 36, 22, C.gold, 'left', 'bold');
+  const season=getSeason();
+  text(`第 ${day} 天`, 200, 36, 20, C.text, 'left', 'bold');
+  // 季节标签
+  ctx.fillStyle = SEASON_COLORS[season];
+  ctx.fillRect(310, 18, 64, 26);
+  text(`${SEASON_NAMES[season]} 季`, 342, 36, 16, '#000', 'center', 'bold');
+  text(`累计 ${totalEarned}`, 410, 36, 14, C.textDim);
+  // 时间进度条
+  rect(560, 22, 200, 8, 'rgba(0,0,0,0.4)');
+  rect(560, 22, 200*dayProgress, 8, '#f4d030');
+  ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=1;
+  ctx.strokeRect(560.5,22.5,200,8);
+  text('今日进度', 660, 18, 11, C.textDim, 'center');
+
+  // 暂停/加速
+  addBtn(780, 14, 36, 36, paused?'▶':'⏸', ()=>{paused=!paused});
+  addBtn(820, 14, 60, 36, speedMul===1?'×1':(speedMul===2?'×2':'×4'), ()=>{
+    speedMul = speedMul===1?2:speedMul===2?4:1;
+  });
+}
+
+function drawFarm(){
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    const x=farmX+c*TILE, y=farmY+r*TILE;
+    const p=plots[r][c];
+    // 土壤
+    if(p.tilled){
+      // 浇水后偏深色
+      const isWet = p.type==='crop' && p.waterLeft>=2;
+      ctx.fillStyle = isWet ? C.soilWet : C.soil;
+      ctx.fillRect(x+2, y+2, TILE-4, TILE-4);
+      // 沟纹
+      ctx.fillStyle = C.soilDk;
+      ctx.fillRect(x+4, y+TILE/2-2, TILE-8, 2);
+    } else {
+      // 草地
+      ctx.fillStyle = C.grassLt;
+      ctx.fillRect(x+2, y+2, TILE-4, TILE-4);
+      ctx.fillStyle = C.grassDk;
+      ctx.fillRect(x+8, y+12, 3, 6);
+      ctx.fillRect(x+28, y+30, 3, 6);
+      ctx.fillRect(x+44, y+18, 3, 6);
+    }
+    // 边框
+    ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=1;
+    ctx.strokeRect(x+1.5, y+1.5, TILE-3, TILE-3);
+    // 作物
+    if(p.type==='crop'){
+      drawCrop(x, y, p);
+    }
+  }
+}
+
+function drawCrop(x,y,p){
+  const crop=CROPS.find(cr=>cr.key===p.cropKey);
+  if(!crop) return;
+  const prog=getCropProgress(p);
+  const cx=x+TILE/2, cy=y+TILE/2;
+  if(p.withered){
+    // 枯萎
+    ctx.fillStyle='#6a4030';
+    ctx.fillRect(cx-2, cy-8, 4, 16);
+    ctx.fillStyle='#4a2818';
+    ctx.fillRect(cx-8, cy-2, 5, 3);
+    ctx.fillRect(cx+3, cy-2, 5, 3);
+    text('×', cx, cy+22, 12, '#a83030', 'center', 'bold');
+    return;
+  }
+  // 苗 → 茎 → 果实
+  const stage = prog<0.3 ? 0 : prog<0.7 ? 1 : 2;
+  // 茎/叶
+  const h = 8 + prog*22;
+  ctx.fillStyle = crop.leafCol;
+  ctx.fillRect(cx-2, cy+8-h, 4, h);
+  // 叶子
+  if(stage>=1){
+    ctx.fillRect(cx-10, cy+4-h/2, 8, 4);
+    ctx.fillRect(cx+2, cy+4-h/2-3, 8, 4);
+  }
+  // 成熟果实
+  if(stage===2){
+    drawFruit(cx, cy-h+6, crop, prog>=1);
+  }
+  // 浇水图标
+  if(p.waterLeft<=0 && !p.matured){
+    text('💧?', x+TILE-14, y+12, 12, '#5090d8', 'center');
+  }
+  // 成熟标记
+  if(p.matured){
+    text('✓', x+TILE-10, y+14, 16, '#f4d030', 'center', 'bold');
+  }
+}
+
+function drawFruit(cx, cy, crop, mature){
+  ctx.save();
+  if(crop.key==='radish'){
+    ctx.fillStyle=crop.color;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, 6, 8, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle=crop.leafCol;
+    ctx.fillRect(cx-3, cy-10, 2, 4);
+    ctx.fillRect(cx+1, cy-10, 2, 4);
+  } else if(crop.key==='cabbage'){
+    ctx.fillStyle=crop.color;
+    ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle=crop.leafCol; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.arc(cx, cy, 6, 0, Math.PI*2); ctx.stroke();
+  } else if(crop.key==='corn'){
+    ctx.fillStyle=crop.color;
+    ctx.fillRect(cx-3, cy-6, 6, 12);
+    ctx.fillStyle='#c89018';
+    for(let i=0;i<3;i++){
+      ctx.fillRect(cx-2, cy-5+i*4, 4, 2);
+    }
+  } else if(crop.key==='pumpkin'){
+    ctx.fillStyle=crop.color;
+    ctx.beginPath(); ctx.ellipse(cx, cy, 10, 8, 0, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#a85820'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(cx-7, cy-3); ctx.lineTo(cx-7, cy+5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy-7); ctx.lineTo(cx, cy+7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx+7, cy-3); ctx.lineTo(cx+7, cy+5); ctx.stroke();
+    ctx.fillStyle='#5a8a3a';
+    ctx.fillRect(cx-1, cy-10, 2, 4);
+  } else if(crop.key==='sunflower'){
+    ctx.fillStyle='#3a2820';
+    ctx.beginPath(); ctx.arc(cx, cy, 5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle=crop.color;
+    for(let i=0;i<8;i++){
+      const a=i*Math.PI/4;
+      const px=cx+Math.cos(a)*8, py=cy+Math.sin(a)*8;
+      ctx.beginPath(); ctx.ellipse(px, py, 3, 5, a, 0, Math.PI*2); ctx.fill();
+    }
+  }
+  if(mature){
+    // 闪光
+    ctx.fillStyle='rgba(255,255,255,0.5)';
+    ctx.fillRect(cx-1, cy-12, 2, 2);
+    ctx.fillRect(cx+8, cy-2, 2, 2);
+  }
+  ctx.restore();
+}
+
+function drawSidebar(){
+  // 右侧工具/作物面板
+  const sx = farmX + COLS*TILE + 20;
+  const sy = farmY;
+  text('工具', sx, sy-8, 16, C.text, 'left', 'bold');
+  const tools=[
+    {key:'till',    label:'开垦', icon:'🪓'},
+    {key:'water',   label:'浇水', icon:'💧'},
+    {key:'harvest', label:'收获', icon:'✂️'},
+  ];
+  for(let i=0;i<tools.length;i++){
+    const t=tools[i];
+    const bx = sx + (i%3)*68; const by = sy;
+    const sel = selectedTool===t.key;
+    rectS(bx, by, 62, 56, sel?'#f4c060':'rgba(255,255,255,0.15)', sel?'#fff':'rgba(255,255,255,0.3)');
+    text(t.icon, bx+31, by+30, 22, sel?'#000':C.text, 'center');
+    text(t.label, bx+31, by+50, 11, sel?'#000':C.textDim, 'center');
+    addBtn(bx, by, 62, 56, '', ()=>{selectedTool=t.key}, {});
+  }
+  // 种子区
+  text('种子', sx, sy+90, 16, C.text, 'left', 'bold');
+  const season=getSeason();
+  for(let i=0;i<CROPS.length;i++){
+    const crop=CROPS[i];
+    const bx = sx + (i%3)*68;
+    const by = sy + 100 + Math.floor(i/3)*70;
+    const sel = selectedTool===crop.key;
+    const ok = crop.seasons.includes(season);
+    const afford = money>=crop.seed;
+    const usable = ok && afford;
+    rectS(bx, by, 62, 62, sel?'#f4c060':(usable?'rgba(255,255,255,0.15)':'rgba(0,0,0,0.3)'),
+      sel?'#fff':'rgba(255,255,255,0.3)');
+    // 作物小图标
+    ctx.save();
+    ctx.globalAlpha = usable?1:0.35;
+    drawFruit(bx+31, by+22, crop, true);
+    ctx.restore();
+    text(crop.name, bx+31, by+44, 11, sel?'#000':C.text, 'center');
+    text(`${crop.seed}金`, bx+31, by+56, 10, sel?'#000':(afford?C.gold:C.red), 'center');
+    addBtn(bx, by, 62, 62, '', ()=>{
+      if(!ok){toast(`${crop.name}不适合${SEASON_NAMES[season]}季`); return;}
+      selectedTool=crop.key;
+    }, {});
+  }
+
+  // 说明
+  const ty = sy+270;
+  text('— 说明 —', sx, ty, 13, C.textDim, 'left');
+  text('1. 选工具/种子', sx, ty+22, 12, C.textDim);
+  text('2. 点击空地开垦', sx, ty+40, 12, C.textDim);
+  text('3. 种子按季节种植', sx, ty+58, 12, C.textDim);
+  text('4. 不浇水会枯萎', sx, ty+76, 12, C.textDim);
+  text('5. 成熟后收获卖钱', sx, ty+94, 12, C.textDim);
+}
+
+function drawButtons(){
+  for(const b of buttons){
+    if(b.label==='') continue; // 隐形按钮（叠在格子上）
+    rect(b.x, b.y, b.w, b.h, 'rgba(0,0,0,0.5)');
+    ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.lineWidth=1;
+    ctx.strokeRect(b.x+0.5, b.y+0.5, b.w, b.h);
+    text(b.label, b.x+b.w/2, b.y+b.h/2+6, 16, C.text, 'center', 'bold');
+  }
+}
+
+function drawFloats(dt){
+  for(let i=floatTexts.length-1;i>=0;i--){
+    const f=floatTexts[i];
+    f.age+=dt; f.y+=f.vy*dt;
+    const a=Math.max(0, 1-f.age/f.life);
+    ctx.fillStyle=`rgba(${f.col},${a})`;
+    ctx.font='bold 18px "PingFang SC",sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText(f.t, f.x, f.y);
+    if(f.age>=f.life) floatTexts.splice(i,1);
+  }
+}
+function drawToast(dt){
+  if(!toastMsg) return;
+  toastT-=dt;
+  if(toastT<=0){toastMsg=null; return;}
+  const a=Math.min(1, toastT/0.5);
+  ctx.font='bold 16px "PingFang SC",sans-serif';
+  const tw=ctx.measureText(toastMsg).width;
+  ctx.fillStyle=`rgba(0,0,0,${0.85*a})`;
+  ctx.fillRect(W/2-tw/2-14, 70, tw+28, 32);
+  text(toastMsg, W/2, 91, 16, `rgba(255,255,255,${a})`, 'center', 'bold');
+}
+
+// ─── 主循环 ───
+let last=performance.now();
+function loop(t){
+  const dt=Math.min(0.05, (t-last)/1000);
+  last=t;
+  buttons.length=0;
+
+  update(dt);
+  refreshMatured();
+
+  drawBg();
+  drawTopBar();
+  drawFarm();
+  drawSidebar();
+  drawButtons();
+  drawFloats(dt);
+  drawToast(dt);
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
