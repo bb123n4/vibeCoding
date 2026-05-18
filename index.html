@@ -426,6 +426,10 @@ footer {
 .p-fishing { background:#0c0820; position:relative; overflow:hidden; }
 .p-fishing canvas { display:block; width:100%; height:100%; }
 
+/* ════════════════════════  Roguelite ════════════════════════ */
+.p-roguelite { background:#0a0a0f; position:relative; overflow:hidden; }
+.p-roguelite canvas { display:block; width:100%; height:100%; }
+
 /* ── Responsive ── */
 @media (max-width: 680px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
@@ -442,8 +446,8 @@ footer {
 
   <!-- ── Tab bar ── -->
   <nav class="tabs">
-    <button class="tab-btn active" data-cat="all" onclick="setTab('all')">全部 · 23</button>
-    <button class="tab-btn" data-cat="game" onclick="setTab('game')">🎮 游戏 · 12</button>
+    <button class="tab-btn active" data-cat="all" onclick="setTab('all')">全部 · 24</button>
+    <button class="tab-btn" data-cat="game" onclick="setTab('game')">🎮 游戏 · 13</button>
     <button class="tab-btn" data-cat="mystic" onclick="setTab('mystic')">🔮 玄学 · 5</button>
     <button class="tab-btn" data-cat="create" onclick="setTab('create')">🎨 创作 · 6</button>
     <button class="explore-btn" onclick="goRandom()" style="margin-left:auto">
@@ -458,6 +462,11 @@ footer {
       <div class="cat-label-line"></div>
     </div>
     <div class="grid-wrap"><div class="grid">
+
+      <a class="card" href="roguelite.html">
+        <div class="preview p-roguelite"><canvas id="rogueCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">末日突围</div><div class="card-desc">Roguelite · 自动攻击 · 升级求生</div></div><div class="card-arrow">→</div></div>
+      </a>
 
       <a class="card" href="alchemy.html">
         <div class="preview p-alchemy"><canvas id="alchCanvas"></canvas></div>
@@ -608,7 +617,7 @@ footer {
 const ALL_APPS = [
   '2048.html','breakout.html','minesweeper.html','rhythm.html','slots.html','adventure.html',
   'luckToday.html','tarot.html','energy.html','namescore.html','iching.html',
-  'instruments.html','pixel.html','fireworks.html','sand.html','fractal.html','ink.html','tower.html','invaders.html','fishing.html','merge.html','alchemy.html','teahouse.html'
+  'instruments.html','pixel.html','fireworks.html','sand.html','fractal.html','ink.html','tower.html','invaders.html','fishing.html','merge.html','alchemy.html','teahouse.html','roguelite.html'
 ];
 function goRandom() {
   const btn = document.querySelector('.explore-btn');
@@ -1132,6 +1141,51 @@ function goRandom() {
   ctx.font=`500 ${Math.round(W*.075)}px "STKaiti","KaiTi","楷体",serif`;
   ctx.textAlign='center'; ctx.textBaseline='top';
   ctx.fillText('小 茶 馆', W*.5, H*.06);
+})();
+
+// ── Roguelite mini ──
+(function(){
+  const cv=document.getElementById('rogueCanvas');
+  if(!cv)return;
+  const par=cv.parentElement;
+  const W=par.offsetWidth||200,H=par.offsetHeight||160;
+  cv.width=W;cv.height=H;
+  const ctx=cv.getContext('2d');
+  // dark bg + vignette
+  ctx.fillStyle='#0a0a0f';ctx.fillRect(0,0,W,H);
+  const vg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,W*.7);
+  vg.addColorStop(0,'rgba(30,20,60,0.0)');vg.addColorStop(1,'rgba(0,0,0,0.55)');
+  ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
+  // faint grid
+  ctx.strokeStyle='rgba(255,255,255,0.04)';ctx.lineWidth=0.8;
+  const gs=Math.round(W/8);
+  for(let x=0;x<W;x+=gs){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<H;y+=gs){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  // enemies (red)
+  const enms=[{x:.15,y:.22},{x:.82,y:.18},{x:.88,y:.72},{x:.10,y:.78},{x:.55,y:.88},{x:.78,y:.45}];
+  enms.forEach(e=>{
+    ctx.save();ctx.shadowBlur=8;ctx.shadowColor='#E05050';
+    ctx.beginPath();ctx.arc(e.x*W,e.y*H,W*.042,0,Math.PI*2);
+    ctx.fillStyle='#E05050';ctx.fill();ctx.restore();
+  });
+  // bullets (yellow)
+  [[.38,.42],[.52,.36],[.6,.55]].forEach(([bx,by])=>{
+    ctx.save();ctx.shadowBlur=6;ctx.shadowColor='#FFE566';
+    ctx.beginPath();ctx.arc(bx*W,by*H,W*.018,0,Math.PI*2);
+    ctx.fillStyle='#FFE566';ctx.fill();ctx.restore();
+  });
+  // xp orbs (green)
+  [[.30,.60],[.65,.30]].forEach(([ox,oy])=>{
+    ctx.save();ctx.shadowBlur=5;ctx.shadowColor='#60E080';
+    ctx.beginPath();ctx.arc(ox*W,oy*H,W*.014,0,Math.PI*2);
+    ctx.fillStyle='#60E080';ctx.fill();ctx.restore();
+  });
+  // player (orange, center)
+  ctx.save();ctx.shadowBlur=16;ctx.shadowColor='#F4A44A';
+  ctx.beginPath();ctx.arc(W*.5,H*.5,W*.062,0,Math.PI*2);
+  ctx.fillStyle='#F4A44A';ctx.fill();
+  ctx.strokeStyle='#C07828';ctx.lineWidth=1.5;ctx.stroke();
+  ctx.restore();
 })();
 
 // ── Tower mini (static map thumbnail) ──
