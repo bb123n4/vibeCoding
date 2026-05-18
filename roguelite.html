@@ -70,6 +70,9 @@ let orbs = [];
 let particles = [];
 let enemyIdCounter = 0;
 
+// ─── Virtual joystick ────────────────────────────────────────────────────────
+let joystick = null; // { id, baseX, baseY, dx, dy } — dx/dy normalised -1..1
+
 // ─── Game state vars ─────────────────────────────────────────────────────────
 let waveNumber = 1;
 let waveTimer = 0;
@@ -278,14 +281,18 @@ function update(dt) {
   // Screen flash decay
   if (screenFlash > 0) screenFlash = Math.max(0, screenFlash - dt * 2);
 
-  // Player movement
+  // Player movement — keyboard or virtual joystick
   let mx = 0, my = 0;
-  const k = player.keys;
-  if (k['ArrowLeft']  || k['a'] || k['A']) mx -= 1;
-  if (k['ArrowRight'] || k['d'] || k['D']) mx += 1;
-  if (k['ArrowUp']    || k['w'] || k['W']) my -= 1;
-  if (k['ArrowDown']  || k['s'] || k['S']) my += 1;
-  if (mx !== 0 && my !== 0) { mx *= 0.707; my *= 0.707; }
+  if (joystick) {
+    mx = joystick.dx; my = joystick.dy;
+  } else {
+    const k = player.keys;
+    if (k['ArrowLeft']  || k['a'] || k['A']) mx -= 1;
+    if (k['ArrowRight'] || k['d'] || k['D']) mx += 1;
+    if (k['ArrowUp']    || k['w'] || k['W']) my -= 1;
+    if (k['ArrowDown']  || k['s'] || k['S']) my += 1;
+    if (mx !== 0 && my !== 0) { mx *= 0.707; my *= 0.707; }
+  }
   player.x = Math.max(player.r, Math.min(W - player.r, player.x + mx * player.speed * dt));
   player.y = Math.max(player.r, Math.min(H - player.r, player.y + my * player.speed * dt));
 
@@ -581,6 +588,22 @@ function draw() {
     ctx.fillRect(0, 0, W, H);
   }
 
+  // Virtual joystick overlay
+  if (joystick && state === 'playing') {
+    const JR = 52, TR = 22;
+    ctx.save();
+    ctx.globalAlpha = 0.22;
+    ctx.beginPath(); ctx.arc(joystick.baseX, joystick.baseY, JR, 0, Math.PI*2);
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.globalAlpha = 0.50;
+    ctx.beginPath();
+    ctx.arc(joystick.baseX + joystick.dx*JR, joystick.baseY + joystick.dy*JR, TR, 0, Math.PI*2);
+    ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.restore();
+  }
+
   // HUD
   drawHUD();
 
@@ -826,25 +849,17 @@ canvas.addEventListener('mousemove', e => {
   }
 });
 
-canvas.addEventListener('click', e => {
-  const { x, y } = getCanvasPos(e);
-
+function handleTap(x, y) {
   if (state === 'start') {
     const bw = 180, bh = 52, bx = W/2 - bw/2, by = H/2 + 40;
-    if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
-      startGame();
-    }
+    if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) startGame();
     return;
   }
-
   if (state === 'dead') {
     const bw = 180, bh = 52, bx = W/2 - bw/2, by = H/2 + 90;
-    if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
-      startGame();
-    }
+    if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) startGame();
     return;
   }
-
   if (state === 'levelup') {
     const cardW = 200, cardH = 120, gap = 20;
     const totalW = pendingUpgrades.length * cardW + (pendingUpgrades.length - 1) * gap;
@@ -862,7 +877,53 @@ canvas.addEventListener('click', e => {
       }
     }
   }
+}
+
+canvas.addEventListener('click', e => {
+  const { x, y } = getCanvasPos(e);
+  handleTap(x, y);
 });
+
+// ─── Touch / virtual joystick ────────────────────────────────────────────────
+const JOYSTICK_R = 52;
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    const { x, y } = getCanvasPos(t);
+    if (state === 'playing' && !joystick) {
+      joystick = { id: t.identifier, baseX: x, baseY: y, dx: 0, dy: 0 };
+    }
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (joystick && t.identifier === joystick.id) {
+      const { x, y } = getCanvasPos(t);
+      let dx = x - joystick.baseX, dy = y - joystick.baseY;
+      const len = Math.sqrt(dx*dx + dy*dy);
+      if (len > JOYSTICK_R) { dx = dx/len*JOYSTICK_R; dy = dy/len*JOYSTICK_R; }
+      joystick.dx = dx / JOYSTICK_R;
+      joystick.dy = dy / JOYSTICK_R;
+    }
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  for (const t of e.changedTouches) {
+    if (joystick && t.identifier === joystick.id) {
+      joystick = null;
+    }
+    // UI screens: treat lift-off as tap
+    if (state !== 'playing') {
+      const { x, y } = getCanvasPos(t);
+      handleTap(x, y);
+    }
+  }
+}, { passive: false });
 
 // ─── Game loop ────────────────────────────────────────────────────────────────
 let last = 0;
