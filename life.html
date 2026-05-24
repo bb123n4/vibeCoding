@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>生命游戏</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;background:#06080c;
+    font-family:"PingFang SC","Hiragino Sans GB",sans-serif;color:#cce}
+  body{display:flex;align-items:center;justify-content:center}
+  #wrap{position:relative;width:min(100vw,calc(100vh*900/600));height:min(100vh,calc(100vw*600/900))}
+  canvas{display:block;width:100%;height:100%;background:#0a0e16;cursor:crosshair;touch-action:none}
+  .home{position:absolute;top:14px;left:14px;color:#cce;background:rgba(0,0,0,0.5);
+    padding:6px 12px;border-radius:14px;text-decoration:none;font-size:14px;
+    border:1px solid rgba(120,180,255,0.18);z-index:5}
+  .home:hover{background:rgba(0,0,0,0.75)}
+</style>
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="vibe coding">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F2785C">
+<link rel="manifest" href="manifest.webmanifest">
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+  <a class="home" href="index.html">← 返回</a>
+</div>
+<script>
+const W=900, H=600;
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+const dpr=Math.min(devicePixelRatio||1,2);
+cv.width=W*dpr; cv.height=H*dpr; ctx.scale(dpr,dpr);
+
+// ─── 网格 ───
+const COLS=90, ROWS=56;
+const HUD_H=44;          // 顶部 HUD
+const PAD_BOTTOM=56;     // 底部预设条
+const gridX=0, gridY=HUD_H;
+const gridW=W, gridH=H-HUD_H-PAD_BOTTOM;
+const CELL=Math.min(gridW/COLS, gridH/ROWS); // 10px
+const offsetX=(gridW-CELL*COLS)/2;
+
+// state[r][c] = 0 死 / >0 存活 (值=年龄)
+let state=null, next=null;
+function newGrid(){
+  const g=new Array(ROWS);
+  for(let r=0;r<ROWS;r++) g[r]=new Uint16Array(COLS);
+  return g;
+}
+state=newGrid(); next=newGrid();
+
+let generation=0;
+let population=0;
+let running=false;
+let speedIdx=2;
+const SPEEDS=[2, 5, 10, 20, 40]; // ticks/sec
+let lastTick=0;
+
+let toast=null, toastT=0;
+function showToast(t){toast=t; toastT=1.4;}
+
+// 鼠标/触摸绘制
+let isDrawing=false;
+let drawValue=0; // 1=画活, 0=擦
+let lastCell=null;
+
+// ─── 经典图案 ───
+const PATTERNS = {
+  glider: {
+    name: '滑翔机',
+    cells: [[0,1],[1,2],[2,0],[2,1],[2,2]]
+  },
+  pulsar: {
+    name: '脉冲星',
+    cells: (() => {
+      // pulsar = period-3 oscillator (13x13)
+      const base = [
+        [0,2],[0,3],[0,4],[0,8],[0,9],[0,10],
+        [2,0],[3,0],[4,0],[2,5],[3,5],[4,5],
+        [2,7],[3,7],[4,7],[2,12],[3,12],[4,12],
+        [5,2],[5,3],[5,4],[5,8],[5,9],[5,10],
+        [7,2],[7,3],[7,4],[7,8],[7,9],[7,10],
+        [8,0],[9,0],[10,0],[8,5],[9,5],[10,5],
+        [8,7],[9,7],[10,7],[8,12],[9,12],[10,12],
+        [12,2],[12,3],[12,4],[12,8],[12,9],[12,10],
+      ];
+      return base;
+    })()
+  },
+  gun: {
+    name: '高斯帕枪',
+    cells: [
+      [0,24],
+      [1,22],[1,24],
+      [2,12],[2,13],[2,20],[2,21],[2,34],[2,35],
+      [3,11],[3,15],[3,20],[3,21],[3,34],[3,35],
+      [4,0],[4,1],[4,10],[4,16],[4,20],[4,21],
+      [5,0],[5,1],[5,10],[5,14],[5,16],[5,17],[5,22],[5,24],
+      [6,10],[6,16],[6,24],
+      [7,11],[7,15],
+      [8,12],[8,13],
+    ]
+  },
+  pentomino: {
+    name: 'R-五连',
+    cells: [[0,1],[0,2],[1,0],[1,1],[2,1]]
+  },
+  acorn: {
+    name: '橡子',
+    cells: [[0,1],[1,3],[2,0],[2,1],[2,4],[2,5],[2,6]]
+  },
+};
+
+function placePattern(key, anchorR, anchorC){
+  const p=PATTERNS[key]; if(!p) return;
+  // Center pattern around anchor
+  let minR=Infinity,minC=Infinity,maxR=-Infinity,maxC=-Infinity;
+  for(const [r,c] of p.cells){
+    if(r<minR)minR=r; if(c<minC)minC=c;
+    if(r>maxR)maxR=r; if(c>maxC)maxC=c;
+  }
+  const offR = anchorR - Math.floor((minR+maxR)/2);
+  const offC = anchorC - Math.floor((minC+maxC)/2);
+  for(const [r,c] of p.cells){
+    const rr=r+offR, cc=c+offC;
+    if(rr>=0 && rr<ROWS && cc>=0 && cc<COLS) state[rr][cc]=1;
+  }
+}
+
+// ─── 更新一代 ───
+function step(){
+  let pop=0;
+  for(let r=0;r<ROWS;r++){
+    const up=(r-1+ROWS)%ROWS, dn=(r+1)%ROWS;
+    for(let c=0;c<COLS;c++){
+      const le=(c-1+COLS)%COLS, ri=(c+1)%COLS;
+      const n = (state[up][le]?1:0)+(state[up][c]?1:0)+(state[up][ri]?1:0)
+              + (state[r ][le]?1:0)+                     (state[r ][ri]?1:0)
+              + (state[dn][le]?1:0)+(state[dn][c]?1:0)+(state[dn][ri]?1:0);
+      const alive=state[r][c];
+      if(alive){
+        if(n===2 || n===3){ next[r][c] = Math.min(alive+1, 60); pop++; }
+        else next[r][c]=0;
+      } else {
+        if(n===3){ next[r][c]=1; pop++; }
+        else next[r][c]=0;
+      }
+    }
+  }
+  // swap
+  [state, next]=[next, state];
+  generation++;
+  population=pop;
+}
+
+function clearGrid(){
+  for(let r=0;r<ROWS;r++) state[r].fill(0);
+  generation=0; population=0;
+}
+function randomize(){
+  clearGrid();
+  let p=0;
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    if(Math.random()<0.3){ state[r][c]=1; p++; }
+  }
+  generation=0; population=p;
+}
+function countPop(){
+  let p=0;
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(state[r][c]) p++;
+  population=p;
+}
+
+// ─── 输入 ───
+const buttons=[];
+function addBtn(x,y,w,h,label,onClick,opts){buttons.push({x,y,w,h,label,onClick,opts:opts||{}})}
+
+function getCanvasPos(e){
+  const r=cv.getBoundingClientRect();
+  const cx=(e.clientX!==undefined?e.clientX:(e.touches?e.touches[0]:e.changedTouches[0]).clientX);
+  const cy=(e.clientY!==undefined?e.clientY:(e.touches?e.touches[0]:e.changedTouches[0]).clientY);
+  return {x:(cx-r.left)*W/r.width, y:(cy-r.top)*H/r.height};
+}
+function cellFromPos(x,y){
+  if(y<gridY || y>=gridY+ROWS*CELL) return null;
+  const c=Math.floor((x-offsetX)/CELL);
+  const r=Math.floor((y-gridY)/CELL);
+  if(r<0||r>=ROWS||c<0||c>=COLS) return null;
+  return {r,c};
+}
+function handleButtonClick(x,y){
+  for(const b of buttons){
+    if(b.opts.disabled) continue;
+    if(x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h){b.onClick(); return true;}
+  }
+  return false;
+}
+function paintAt(x,y){
+  const cell=cellFromPos(x,y);
+  if(!cell) return;
+  if(lastCell && lastCell.r===cell.r && lastCell.c===cell.c) return;
+  state[cell.r][cell.c] = drawValue;
+  lastCell=cell;
+  countPop();
+}
+
+cv.addEventListener('mousedown', e=>{
+  const {x,y}=getCanvasPos(e);
+  if(handleButtonClick(x,y)) return;
+  const cell=cellFromPos(x,y);
+  if(!cell) return;
+  // toggle - if dead, draw alive, if alive, erase
+  drawValue = state[cell.r][cell.c] ? 0 : 1;
+  state[cell.r][cell.c]=drawValue;
+  lastCell=cell;
+  isDrawing=true;
+  countPop();
+});
+cv.addEventListener('mousemove', e=>{
+  if(!isDrawing) return;
+  const {x,y}=getCanvasPos(e);
+  paintAt(x,y);
+});
+window.addEventListener('mouseup', ()=>{isDrawing=false; lastCell=null;});
+
+cv.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  const {x,y}=getCanvasPos(e);
+  if(handleButtonClick(x,y)) return;
+  const cell=cellFromPos(x,y);
+  if(!cell) return;
+  drawValue = state[cell.r][cell.c] ? 0 : 1;
+  state[cell.r][cell.c]=drawValue;
+  lastCell=cell;
+  isDrawing=true;
+  countPop();
+}, {passive:false});
+cv.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  if(!isDrawing) return;
+  const {x,y}=getCanvasPos(e);
+  paintAt(x,y);
+}, {passive:false});
+cv.addEventListener('touchend', e=>{
+  e.preventDefault();
+  isDrawing=false; lastCell=null;
+}, {passive:false});
+
+// ─── 颜色：按年龄渐变 ───
+function ageColor(age){
+  // 1 (newborn) → 青蓝色；高龄 → 紫红色
+  const t = Math.min(1, age/30);
+  // hsl interpolate hue 180 → 320
+  const h = 180 + t*140;
+  const l = 55 + (1-t)*10;
+  return `hsl(${h},75%,${l}%)`;
+}
+
+// ─── 绘制 ───
+function drawHud(){
+  ctx.fillStyle='rgba(8,12,20,0.85)';
+  ctx.fillRect(0,0,W,HUD_H);
+  ctx.strokeStyle='rgba(120,180,255,0.18)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(0,HUD_H); ctx.lineTo(W,HUD_H); ctx.stroke();
+
+  // Title
+  ctx.fillStyle='#cce'; ctx.font='bold 18px monospace';
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText('LIFE', 88, HUD_H/2);
+
+  // counters
+  ctx.fillStyle='#7aebff'; ctx.font='14px monospace';
+  ctx.fillText(`GEN ${String(generation).padStart(5,'0')}`, 150, HUD_H/2);
+  ctx.fillStyle='#ff9ad8';
+  ctx.fillText(`POP ${String(population).padStart(4,'0')}`, 280, HUD_H/2);
+
+  // 控制按钮（右侧）
+  let x = W - 20;
+  function btn(w, label, on, hot){
+    x -= w + 6;
+    addBtn(x, 8, w, HUD_H-16, label, on, {hot});
+    return null;
+  }
+  // 顺序从右到左
+  btn(64, '随机', ()=>{randomize(); running=false;});
+  btn(64, '清空', ()=>{clearGrid(); running=false;});
+  btn(48, '⏭', ()=>{if(!running) step();});
+  btn(72, running?'⏸ 暂停':'▶ 开始', ()=>{running=!running;}, running);
+  // 速度
+  btn(70, `× ${SPEEDS[speedIdx]}fps`, ()=>{speedIdx=(speedIdx+1)%SPEEDS.length;});
+}
+
+function drawGrid(){
+  // 背景网格
+  ctx.fillStyle='#0a0e16';
+  ctx.fillRect(0, gridY, W, ROWS*CELL);
+  // 网格线
+  ctx.strokeStyle='rgba(120,180,255,0.06)';
+  ctx.lineWidth=0.5;
+  ctx.beginPath();
+  for(let c=0;c<=COLS;c++){
+    ctx.moveTo(offsetX+c*CELL, gridY);
+    ctx.lineTo(offsetX+c*CELL, gridY+ROWS*CELL);
+  }
+  for(let r=0;r<=ROWS;r++){
+    ctx.moveTo(offsetX, gridY+r*CELL);
+    ctx.lineTo(offsetX+COLS*CELL, gridY+r*CELL);
+  }
+  ctx.stroke();
+  // 活细胞
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const v=state[r][c];
+      if(!v) continue;
+      const x=offsetX+c*CELL, y=gridY+r*CELL;
+      ctx.fillStyle=ageColor(v);
+      ctx.fillRect(x+0.5, y+0.5, CELL-1, CELL-1);
+    }
+  }
+  // 发光层（仅活细胞）— 用透明叠加
+  ctx.save();
+  ctx.globalCompositeOperation='lighter';
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const v=state[r][c];
+      if(!v) continue;
+      const x=offsetX+c*CELL+CELL/2, y=gridY+r*CELL+CELL/2;
+      const col=ageColor(v);
+      const grd=ctx.createRadialGradient(x,y,0,x,y,CELL*1.2);
+      grd.addColorStop(0, col.replace('hsl','hsla').replace(')',',0.25)'));
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle=grd;
+      ctx.fillRect(x-CELL*1.2, y-CELL*1.2, CELL*2.4, CELL*2.4);
+    }
+  }
+  ctx.restore();
+}
+
+function drawPresetBar(){
+  const by = H - PAD_BOTTOM + 4;
+  ctx.fillStyle='rgba(8,12,20,0.85)';
+  ctx.fillRect(0, H-PAD_BOTTOM, W, PAD_BOTTOM);
+  ctx.strokeStyle='rgba(120,180,255,0.18)';
+  ctx.beginPath(); ctx.moveTo(0, H-PAD_BOTTOM); ctx.lineTo(W, H-PAD_BOTTOM); ctx.stroke();
+
+  ctx.fillStyle='#9ab'; ctx.font='12px monospace';
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText('放置图案 →', 18, by+22);
+
+  const keys=['glider','pulsar','gun','pentomino','acorn'];
+  const startX=120;
+  const bw=130, gap=8;
+  for(let i=0;i<keys.length;i++){
+    const k=keys[i];
+    const x=startX + i*(bw+gap);
+    addBtn(x, by, bw, PAD_BOTTOM-12, PATTERNS[k].name, ()=>{
+      placePattern(k, Math.floor(ROWS/2), Math.floor(COLS/2));
+      countPop();
+    }, {preset:true});
+  }
+  // 提示
+  ctx.fillStyle='#586';
+  ctx.font='11px monospace';
+  ctx.textAlign='right';
+  ctx.fillText('点击/拖拽绘制 · 边界环绕', W-18, by+22);
+}
+
+function drawButtons(){
+  for(const b of buttons){
+    if(!b.label) continue;
+    const hot = b.opts.hot;
+    const preset = b.opts.preset;
+    ctx.fillStyle = hot ? 'rgba(122,235,255,0.18)' :
+                    preset ? 'rgba(255,154,216,0.08)' :
+                    'rgba(120,180,255,0.06)';
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    ctx.strokeStyle = hot ? 'rgba(122,235,255,0.5)' :
+                      preset ? 'rgba(255,154,216,0.35)' :
+                      'rgba(120,180,255,0.25)';
+    ctx.lineWidth=1;
+    ctx.strokeRect(b.x+0.5, b.y+0.5, b.w-1, b.h-1);
+    ctx.fillStyle = hot ? '#7aebff' : preset ? '#ff9ad8' : '#cce';
+    ctx.font=`${preset?13:13}px monospace`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(b.label, b.x+b.w/2, b.y+b.h/2);
+  }
+}
+
+function drawToast(dt){
+  if(!toast) return;
+  toastT-=dt;
+  if(toastT<=0){toast=null; return;}
+  const a=Math.min(1, toastT/0.4);
+  ctx.font='14px monospace';
+  const tw=ctx.measureText(toast).width;
+  ctx.fillStyle=`rgba(0,0,0,${0.85*a})`;
+  ctx.fillRect(W/2-tw/2-14, HUD_H+12, tw+28, 30);
+  ctx.fillStyle=`rgba(122,235,255,${a})`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(toast, W/2, HUD_H+27);
+}
+
+// ─── 主循环 ───
+let last=performance.now();
+function loop(t){
+  const dt=Math.min(0.1,(t-last)/1000); last=t;
+  buttons.length=0;
+
+  if(running){
+    const interval=1/SPEEDS[speedIdx];
+    lastTick += dt;
+    while(lastTick >= interval){
+      step();
+      lastTick -= interval;
+    }
+  }
+
+  drawHud();
+  drawGrid();
+  drawPresetBar();
+  drawButtons();
+  drawToast(dt);
+
+  requestAnimationFrame(loop);
+}
+
+// 初始：放一个滑翔机让用户看到效果
+placePattern('glider', 10, 15);
+placePattern('pulsar', 28, 45);
+countPop();
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
