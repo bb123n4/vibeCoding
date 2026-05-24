@@ -55,8 +55,11 @@ const MUT_SCALE = 0.18;    // 突变幅度（相对范围）
 // 能量参数
 const REPRO_E = 70;
 const START_E = 50;
-const MAX_E = 100;
 const FOOD_E = 14;
+// 大体型 → 能量上限更高（扛饥更强）
+function maxEnergy(size){ return 60 + size * 5; }  // size 4 → 80, size 14 → 130
+// 捕食阈值：体型差 ≥ 此值时大的可吃小的
+const PREDATE_DIFF = 2.5;
 
 function rand(a,b){return a+Math.random()*(b-a)}
 function rint(a,b){return Math.floor(rand(a,b+1))}
@@ -182,6 +185,29 @@ function update(dt){
       if(child.gen > maxGen) maxGen = child.gen;
     }
   }
+  // 捕食：大生物吃小生物（体型差 ≥ PREDATE_DIFF 且圆相撞）
+  for(let i=critters.length-1;i>=0;i--){
+    const a=critters[i]; if(!a) continue;
+    for(let j=i-1;j>=0;j--){
+      const b=critters[j]; if(!b) continue;
+      const dx=a.x-b.x, dy=a.y-b.y;
+      const rsum=a.dna.size+b.dna.size;
+      if(dx*dx+dy*dy < rsum*rsum){
+        // 判断谁吃谁
+        let big, small, smallIdx;
+        if(a.dna.size - b.dna.size >= PREDATE_DIFF){ big=a; small=b; smallIdx=j; }
+        else if(b.dna.size - a.dna.size >= PREDATE_DIFF){ big=b; small=a; smallIdx=i; }
+        else continue;
+        // 大生物吸收小生物一半能量 + 部分体积价值
+        const gain = small.energy*0.5 + small.dna.size*1.5;
+        big.energy = Math.min(maxEnergy(big.dna.size), big.energy + gain);
+        critters.splice(smallIdx,1);
+        totalDied++;
+        if(smallIdx <= i) i--; // 已删除小的，索引下调
+        break;
+      }
+    }
+  }
   // 历史采样
   histTimer += dt; // wallclock for the chart
   if(histTimer >= 0.4){
@@ -198,23 +224,44 @@ function updateCritter(c, dt){
   const sizeCost = (c.dna.size/8) * 0.6;
   c.energy -= (baseCost + moveCost + sizeCost) * dt;
 
-  // 寻找视野内最近食物
-  if(!c.target || foods.indexOf(c.target) === -1){
+  // 寻找视野内最近目标（猎物优先于食物）
+  // target.kind = 'food' | 'prey'
+  const targetGone = !c.target ||
+    (c.target.kind==='food' && foods.indexOf(c.target.ref)===-1) ||
+    (c.target.kind==='prey' && critters.indexOf(c.target.ref)===-1);
+  if(targetGone){
     c.target = null;
-    let bestD = c.dna.sense * c.dna.sense;
-    for(const f of foods){
-      const dx=f.x-c.x, dy=f.y-c.y;
-      const d2 = dx*dx + dy*dy;
-      if(d2 < bestD){ bestD = d2; c.target = f; }
+    const senseSq = c.dna.sense * c.dna.sense;
+    // 先找猎物（比自己小 PREDATE_DIFF 以上的生物）
+    let bestPrey=null, bestPreyD=senseSq;
+    for(const o of critters){
+      if(o===c) continue;
+      if(c.dna.size - o.dna.size < PREDATE_DIFF) continue;
+      const dx=o.x-c.x, dy=o.y-c.y;
+      const d2=dx*dx+dy*dy;
+      if(d2 < bestPreyD){ bestPreyD=d2; bestPrey=o; }
+    }
+    if(bestPrey){
+      c.target={kind:'prey', ref:bestPrey};
+    } else {
+      // 否则找食物
+      let bestF=null, bestD=senseSq;
+      for(const f of foods){
+        const dx=f.x-c.x, dy=f.y-c.y;
+        const d2=dx*dx+dy*dy;
+        if(d2 < bestD){ bestD=d2; bestF=f; }
+      }
+      if(bestF) c.target={kind:'food', ref:bestF};
     }
   }
   if(c.target){
-    const dx=c.target.x-c.x, dy=c.target.y-c.y;
+    const t=c.target.ref;
+    const dx=t.x-c.x, dy=t.y-c.y;
     const d=Math.sqrt(dx*dx+dy*dy);
-    if(d < c.dna.size + 4){
-      // 吃掉
-      c.energy = Math.min(MAX_E, c.energy + c.target.e);
-      const idx=foods.indexOf(c.target);
+    if(c.target.kind==='food' && d < c.dna.size + 4){
+      // 吃食物
+      c.energy = Math.min(maxEnergy(c.dna.size), c.energy + t.e);
+      const idx=foods.indexOf(t);
       if(idx>=0) foods.splice(idx,1);
       c.target = null;
     } else if(d > 0){
@@ -344,7 +391,7 @@ function drawFood(){
 function drawCritters(){
   for(const c of critters){
     const r=c.dna.size;
-    const energyPct = clamp(c.energy/MAX_E, 0, 1);
+    const energyPct = clamp(c.energy/maxEnergy(c.dna.size), 0, 1);
     const sat = 50 + energyPct*30;
     const lit = 35 + energyPct*30;
     const col = `hsl(${c.dna.hue|0},${sat}%,${lit}%)`;
