@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>数字生态圈</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;background:#070a07;
+    font-family:"PingFang SC","Hiragino Sans GB",sans-serif;color:#dde4d8}
+  body{display:flex;align-items:center;justify-content:center}
+  #wrap{position:relative;width:min(100vw,calc(100vh*900/600));height:min(100vh,calc(100vw*600/900))}
+  canvas{display:block;width:100%;height:100%;background:#0e1610;cursor:crosshair;touch-action:none}
+  .home{position:absolute;top:14px;left:14px;color:#dde4d8;background:rgba(0,0,0,0.5);
+    padding:6px 12px;border-radius:14px;text-decoration:none;font-size:14px;
+    border:1px solid rgba(120,200,140,0.18);z-index:5}
+  .home:hover{background:rgba(0,0,0,0.75)}
+</style>
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="vibe coding">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F2785C">
+<link rel="manifest" href="manifest.webmanifest">
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+  <a class="home" href="index.html">← 返回</a>
+</div>
+<script>
+const W=900, H=600;
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+const dpr=Math.min(devicePixelRatio||1,2);
+cv.width=W*dpr; cv.height=H*dpr; ctx.scale(dpr,dpr);
+
+// 布局
+const PANEL_W=230;         // 右侧统计面板
+const HUD_H=44;            // 顶部状态条
+const simX=0, simY=HUD_H;
+const simW=W-PANEL_W, simH=H-HUD_H;
+
+// ─── 基因范围 ───
+const GENE_RANGES = {
+  speed:  {min:15,  max:90,  label:'速度'},
+  size:   {min:4,   max:14,  label:'体型'},
+  sense:  {min:30,  max:160, label:'感知'},
+  hue:    {min:0,   max:360, label:'色调'},
+};
+const MUT_RATE = 0.10;     // 每个基因的突变概率
+const MUT_SCALE = 0.18;    // 突变幅度（相对范围）
+
+// 能量参数
+const REPRO_E = 70;
+const START_E = 50;
+const MAX_E = 100;
+const FOOD_E = 14;
+
+function rand(a,b){return a+Math.random()*(b-a)}
+function rint(a,b){return Math.floor(rand(a,b+1))}
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
+
+// ─── DNA ───
+function randomDNA(){
+  const dna={};
+  for(const k in GENE_RANGES){
+    const r=GENE_RANGES[k];
+    dna[k]=rand(r.min, r.max);
+  }
+  return dna;
+}
+function mutateDNA(d){
+  const out={};
+  for(const k in GENE_RANGES){
+    const r=GENE_RANGES[k];
+    let v=d[k];
+    if(Math.random()<MUT_RATE){
+      const span=(r.max-r.min)*MUT_SCALE;
+      v += rand(-span, span);
+      // hue wraps around
+      if(k==='hue'){
+        v=((v%360)+360)%360;
+      } else {
+        v=clamp(v, r.min, r.max);
+      }
+    }
+    out[k]=v;
+  }
+  return out;
+}
+
+// ─── 实体 ───
+let critters=[];
+let foods=[];
+let idCounter=0;
+
+function makeCritter(x,y,dna,gen){
+  return {
+    id: idCounter++,
+    x, y,
+    vx: rand(-1,1), vy: rand(-1,1),
+    dna,
+    gen: gen||0,
+    energy: START_E,
+    age: 0,
+    target: null,
+    wanderTimer: 0,
+  };
+}
+
+function spawnInitialPopulation(n){
+  critters=[];
+  for(let i=0;i<n;i++){
+    critters.push(makeCritter(
+      rand(simX+20, simX+simW-20),
+      rand(simY+20, simY+simH-20),
+      randomDNA(),
+      0,
+    ));
+  }
+}
+
+function spawnFood(){
+  foods.push({
+    x: rand(simX+10, simX+simW-10),
+    y: rand(simY+10, simY+simH-10),
+    e: FOOD_E,
+  });
+}
+
+function spawnFoodAt(x,y){
+  foods.push({x, y, e: FOOD_E});
+}
+
+// ─── 模拟参数 ───
+let paused=false;
+let speedMul=1;
+const SPEED_MULS=[1,2,4,8];
+let foodRate=14; // food per second
+let foodAccum=0;
+let elapsed=0;
+let totalBorn=0, totalDied=0;
+let maxGen=0;
+
+// 历史记录用于绘图
+const HISTORY_LEN=180;
+let histAvgSpeed=[], histAvgSize=[], histAvgSense=[], histPop=[];
+let histTimer=0;
+
+// ─── 更新 ───
+function update(dt){
+  if(paused) return;
+  const ef = dt * speedMul;
+  elapsed += ef;
+  // food spawn
+  foodAccum += foodRate * ef;
+  while(foodAccum >= 1){
+    if(foods.length < 220) spawnFood();
+    foodAccum -= 1;
+  }
+  // critter update
+  for(let i=critters.length-1;i>=0;i--){
+    const c=critters[i];
+    updateCritter(c, ef);
+    if(c.energy <= 0 || c.age > 50){
+      critters.splice(i,1);
+      totalDied++;
+      continue;
+    }
+    // 繁殖
+    if(c.energy >= REPRO_E && critters.length < 220){
+      c.energy *= 0.45;
+      const childDNA = mutateDNA(c.dna);
+      const ang = Math.random()*Math.PI*2;
+      const off = c.dna.size*2 + 4;
+      const child = makeCritter(c.x + Math.cos(ang)*off, c.y + Math.sin(ang)*off, childDNA, c.gen+1);
+      child.energy = c.energy * 0.6;
+      critters.push(child);
+      totalBorn++;
+      if(child.gen > maxGen) maxGen = child.gen;
+    }
+  }
+  // 历史采样
+  histTimer += dt; // wallclock for the chart
+  if(histTimer >= 0.4){
+    histTimer = 0;
+    sampleHistory();
+  }
+}
+
+function updateCritter(c, dt){
+  c.age += dt * 0.3;
+  // base cost + speed^2 cost + size cost
+  const baseCost = 0.6;
+  const moveCost = (c.dna.speed/60) * (c.dna.speed/60) * 1.4;
+  const sizeCost = (c.dna.size/8) * 0.6;
+  c.energy -= (baseCost + moveCost + sizeCost) * dt;
+
+  // 寻找视野内最近食物
+  if(!c.target || foods.indexOf(c.target) === -1){
+    c.target = null;
+    let bestD = c.dna.sense * c.dna.sense;
+    for(const f of foods){
+      const dx=f.x-c.x, dy=f.y-c.y;
+      const d2 = dx*dx + dy*dy;
+      if(d2 < bestD){ bestD = d2; c.target = f; }
+    }
+  }
+  if(c.target){
+    const dx=c.target.x-c.x, dy=c.target.y-c.y;
+    const d=Math.sqrt(dx*dx+dy*dy);
+    if(d < c.dna.size + 4){
+      // 吃掉
+      c.energy = Math.min(MAX_E, c.energy + c.target.e);
+      const idx=foods.indexOf(c.target);
+      if(idx>=0) foods.splice(idx,1);
+      c.target = null;
+    } else if(d > 0){
+      c.vx = dx/d; c.vy = dy/d;
+    }
+  } else {
+    // 漫游
+    c.wanderTimer -= dt;
+    if(c.wanderTimer <= 0){
+      const ang = Math.random()*Math.PI*2;
+      c.vx = Math.cos(ang); c.vy = Math.sin(ang);
+      c.wanderTimer = rand(0.6, 1.6);
+    }
+  }
+  // 应用速度
+  c.x += c.vx * c.dna.speed * dt;
+  c.y += c.vy * c.dna.speed * dt;
+  // 边界（弹回）
+  if(c.x < simX+c.dna.size){c.x=simX+c.dna.size; c.vx=Math.abs(c.vx);}
+  if(c.x > simX+simW-c.dna.size){c.x=simX+simW-c.dna.size; c.vx=-Math.abs(c.vx);}
+  if(c.y < simY+c.dna.size){c.y=simY+c.dna.size; c.vy=Math.abs(c.vy);}
+  if(c.y > simY+simH-c.dna.size){c.y=simY+simH-c.dna.size; c.vy=-Math.abs(c.vy);}
+}
+
+function sampleHistory(){
+  let s=0,z=0,e=0;
+  for(const c of critters){
+    s += c.dna.speed; z += c.dna.size; e += c.dna.sense;
+  }
+  const n = Math.max(1, critters.length);
+  histAvgSpeed.push(s/n); if(histAvgSpeed.length>HISTORY_LEN) histAvgSpeed.shift();
+  histAvgSize .push(z/n); if(histAvgSize .length>HISTORY_LEN) histAvgSize .shift();
+  histAvgSense.push(e/n); if(histAvgSense.length>HISTORY_LEN) histAvgSense.shift();
+  histPop.push(critters.length); if(histPop.length>HISTORY_LEN) histPop.shift();
+}
+
+// ─── 输入 ───
+const buttons=[];
+function addBtn(x,y,w,h,label,onClick,opts){buttons.push({x,y,w,h,label,onClick,opts:opts||{}})}
+
+let isPainting=false, lastPaint=0;
+function getCanvasPos(e){
+  const r=cv.getBoundingClientRect();
+  const cx=(e.clientX!==undefined?e.clientX:(e.touches?e.touches[0]:e.changedTouches[0]).clientX);
+  const cy=(e.clientY!==undefined?e.clientY:(e.touches?e.touches[0]:e.changedTouches[0]).clientY);
+  return {x:(cx-r.left)*W/r.width, y:(cy-r.top)*H/r.height};
+}
+function handleBtn(x,y){
+  for(const b of buttons){
+    if(b.opts.disabled) continue;
+    if(x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h){b.onClick(); return true;}
+  }
+  return false;
+}
+function paintFoodAt(x,y){
+  if(x<simX||x>=simX+simW||y<simY||y>=simY+simH) return;
+  const now=performance.now();
+  if(now-lastPaint < 35) return;
+  lastPaint=now;
+  // 撒一小撮食物
+  for(let i=0;i<3;i++){
+    spawnFoodAt(x+rand(-12,12), y+rand(-12,12));
+  }
+}
+cv.addEventListener('mousedown', e=>{
+  const {x,y}=getCanvasPos(e);
+  if(handleBtn(x,y)) return;
+  isPainting=true;
+  paintFoodAt(x,y);
+});
+cv.addEventListener('mousemove', e=>{
+  if(!isPainting) return;
+  const {x,y}=getCanvasPos(e);
+  paintFoodAt(x,y);
+});
+window.addEventListener('mouseup', ()=>{isPainting=false;});
+cv.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  const {x,y}=getCanvasPos(e);
+  if(handleBtn(x,y)) return;
+  isPainting=true; paintFoodAt(x,y);
+}, {passive:false});
+cv.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  if(!isPainting) return;
+  const {x,y}=getCanvasPos(e);
+  paintFoodAt(x,y);
+}, {passive:false});
+cv.addEventListener('touchend', e=>{e.preventDefault(); isPainting=false;}, {passive:false});
+
+// ─── 绘制 ───
+function clearBg(){
+  // 顶部 HUD
+  ctx.fillStyle='#0a0e0a';
+  ctx.fillRect(0,0,W,HUD_H);
+  ctx.strokeStyle='rgba(120,200,140,0.15)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(0,HUD_H); ctx.lineTo(W,HUD_H); ctx.stroke();
+  // 模拟区
+  ctx.fillStyle='#0e1610';
+  ctx.fillRect(simX, simY, simW, simH);
+  // 草地噪点
+  for(let i=0;i<30;i++){
+    ctx.fillStyle='rgba(70,130,80,0.10)';
+    ctx.fillRect(simX + (i*73 + (elapsed*5|0))%simW, simY + (i*53)%simH, 1, 1);
+  }
+  // 面板分隔
+  ctx.fillStyle='#0a100a';
+  ctx.fillRect(simX+simW, simY, PANEL_W, simH);
+  ctx.beginPath(); ctx.moveTo(simX+simW,simY); ctx.lineTo(simX+simW,simY+simH); ctx.stroke();
+}
+
+function drawFood(){
+  for(const f of foods){
+    ctx.fillStyle='#8ed87a';
+    ctx.beginPath(); ctx.arc(f.x, f.y, 2.5, 0, Math.PI*2); ctx.fill();
+    // glow
+    ctx.save();
+    ctx.globalCompositeOperation='lighter';
+    const g=ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, 8);
+    g.addColorStop(0, 'rgba(142,216,122,0.25)');
+    g.addColorStop(1, 'rgba(142,216,122,0)');
+    ctx.fillStyle=g; ctx.fillRect(f.x-8, f.y-8, 16, 16);
+    ctx.restore();
+  }
+}
+
+function drawCritters(){
+  for(const c of critters){
+    const r=c.dna.size;
+    const energyPct = clamp(c.energy/MAX_E, 0, 1);
+    const sat = 50 + energyPct*30;
+    const lit = 35 + energyPct*30;
+    const col = `hsl(${c.dna.hue|0},${sat}%,${lit}%)`;
+    // 感知范围（透明）
+    ctx.fillStyle=`hsla(${c.dna.hue|0},60%,50%,0.04)`;
+    ctx.beginPath(); ctx.arc(c.x, c.y, c.dna.sense, 0, Math.PI*2); ctx.fill();
+    // 身体
+    ctx.fillStyle=col;
+    ctx.beginPath(); ctx.arc(c.x, c.y, r, 0, Math.PI*2); ctx.fill();
+    // 朝向小眼睛
+    const nx = c.vx, ny = c.vy;
+    const len = Math.sqrt(nx*nx+ny*ny) || 1;
+    ctx.fillStyle='rgba(255,255,255,0.85)';
+    ctx.beginPath();
+    ctx.arc(c.x + (nx/len)*r*0.5, c.y + (ny/len)*r*0.5, Math.max(1, r*0.25), 0, Math.PI*2);
+    ctx.fill();
+    // 高能光晕
+    if(energyPct > 0.75){
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      const g=ctx.createRadialGradient(c.x,c.y,0,c.x,c.y,r*2.2);
+      g.addColorStop(0, `hsla(${c.dna.hue|0},80%,70%,0.30)`);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle=g; ctx.fillRect(c.x-r*2.2, c.y-r*2.2, r*4.4, r*4.4);
+      ctx.restore();
+    }
+  }
+}
+
+function drawHud(){
+  ctx.fillStyle='#dde4d8'; ctx.font='bold 16px monospace';
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText('EVOLVE', 88, HUD_H/2);
+  ctx.font='13px monospace';
+  ctx.fillStyle='#8ed87a';
+  ctx.fillText(`POP ${String(critters.length).padStart(3,' ')}`, 170, HUD_H/2);
+  ctx.fillStyle='#dca0e8';
+  ctx.fillText(`GEN ${String(maxGen).padStart(3,' ')}`, 260, HUD_H/2);
+  ctx.fillStyle='#e8d870';
+  ctx.fillText(`FOOD ${String(foods.length).padStart(3,' ')}`, 340, HUD_H/2);
+  ctx.fillStyle='#9ab';
+  ctx.fillText(`+${totalBorn} / -${totalDied}`, 440, HUD_H/2);
+  ctx.fillText(`T ${elapsed.toFixed(0)}s`, 560, HUD_H/2);
+
+  // 右上按钮
+  let x = W - 16;
+  function rbtn(w, label, on, hot){
+    x -= w + 6;
+    addBtn(x, 8, w, HUD_H-16, label, on, {hot});
+  }
+  rbtn(64, '重置', ()=>{
+    spawnInitialPopulation(25);
+    foods=[]; for(let i=0;i<60;i++) spawnFood();
+    elapsed=0; totalBorn=0; totalDied=0; maxGen=0;
+    histAvgSpeed=[]; histAvgSize=[]; histAvgSense=[]; histPop=[];
+    paused=false;
+  });
+  rbtn(72, '+ 生物', ()=>{
+    for(let i=0;i<5;i++){
+      critters.push(makeCritter(
+        rand(simX+20, simX+simW-20),
+        rand(simY+20, simY+simH-20),
+        randomDNA(), 0,
+      ));
+    }
+  });
+  rbtn(64, paused?'▶ 继续':'⏸ 暂停', ()=>{paused=!paused;}, paused);
+  rbtn(54, `×${speedMul}`, ()=>{
+    const i=SPEED_MULS.indexOf(speedMul);
+    speedMul=SPEED_MULS[(i+1)%SPEED_MULS.length];
+  });
+}
+
+function drawPanel(){
+  const px = simX+simW+12, py = simY+14;
+  ctx.fillStyle='#dde4d8'; ctx.font='bold 12px monospace';
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText('— 基因平均值 —', px, py);
+
+  let s=0,z=0,e=0,h=0;
+  for(const c of critters){
+    s+=c.dna.speed; z+=c.dna.size; e+=c.dna.sense; h+=c.dna.hue;
+  }
+  const n = Math.max(1, critters.length);
+  const aSpd = s/n, aSize = z/n, aSense = e/n, aHue = h/n;
+
+  function bar(label, val, vmin, vmax, y, col){
+    ctx.font='11px monospace';
+    ctx.fillStyle='#9ab';
+    ctx.fillText(label, px, y);
+    ctx.fillStyle=col;
+    ctx.textAlign='right';
+    ctx.fillText(val.toFixed(1), px+PANEL_W-24, y);
+    ctx.textAlign='left';
+    // bar
+    const bw=PANEL_W-30, bx=px, by=y+14;
+    ctx.fillStyle='rgba(255,255,255,0.05)';
+    ctx.fillRect(bx, by, bw, 6);
+    const pct = clamp((val-vmin)/(vmax-vmin), 0, 1);
+    ctx.fillStyle=col;
+    ctx.fillRect(bx, by, bw*pct, 6);
+  }
+  bar('速度 SPEED', aSpd, GENE_RANGES.speed.min, GENE_RANGES.speed.max, py+22, '#7ec8e8');
+  bar('体型 SIZE',  aSize, GENE_RANGES.size.min, GENE_RANGES.size.max, py+50, '#e88a78');
+  bar('感知 SENSE', aSense, GENE_RANGES.sense.min, GENE_RANGES.sense.max, py+78, '#e8c478');
+  // 色调示意
+  ctx.font='11px monospace';
+  ctx.fillStyle='#9ab';
+  ctx.fillText('主流色调 HUE', px, py+106);
+  ctx.fillStyle=`hsl(${aHue|0},70%,55%)`;
+  ctx.beginPath();
+  ctx.arc(px+PANEL_W-32, py+114, 7, 0, Math.PI*2); ctx.fill();
+
+  // 曲线区
+  const cx = px, cy = py+140;
+  const cwid = PANEL_W-30, chig = 130;
+  ctx.fillStyle='#dde4d8'; ctx.font='bold 12px monospace';
+  ctx.fillText('— 基因漂移 —', cx, cy);
+  ctx.fillStyle='rgba(255,255,255,0.04)';
+  ctx.fillRect(cx, cy+18, cwid, chig);
+  // 网格
+  ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+  ctx.beginPath();
+  for(let i=1;i<4;i++){
+    const y=cy+18+chig*i/4;
+    ctx.moveTo(cx,y); ctx.lineTo(cx+cwid,y);
+  }
+  ctx.stroke();
+  function plot(arr, vmin, vmax, col){
+    if(arr.length<2) return;
+    ctx.strokeStyle=col; ctx.lineWidth=1.4;
+    ctx.beginPath();
+    for(let i=0;i<arr.length;i++){
+      const x=cx + cwid*i/(HISTORY_LEN-1);
+      const pct=clamp((arr[i]-vmin)/(vmax-vmin),0,1);
+      const y=cy+18+chig*(1-pct);
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+  }
+  plot(histAvgSpeed, GENE_RANGES.speed.min, GENE_RANGES.speed.max, '#7ec8e8');
+  plot(histAvgSize,  GENE_RANGES.size.min,  GENE_RANGES.size.max,  '#e88a78');
+  plot(histAvgSense, GENE_RANGES.sense.min, GENE_RANGES.sense.max, '#e8c478');
+  // 图例
+  ctx.font='10px monospace';
+  ctx.fillStyle='#7ec8e8'; ctx.fillText('— 速度', cx, cy+18+chig+6);
+  ctx.fillStyle='#e88a78'; ctx.fillText('— 体型', cx+60, cy+18+chig+6);
+  ctx.fillStyle='#e8c478'; ctx.fillText('— 感知', cx+120, cy+18+chig+6);
+
+  // 食物速率控制
+  const fy = cy+18+chig+30;
+  ctx.fillStyle='#dde4d8'; ctx.font='bold 12px monospace';
+  ctx.fillText('— 食物速率 —', cx, fy);
+  ctx.font='11px monospace'; ctx.fillStyle='#8ed87a';
+  ctx.textAlign='right';
+  ctx.fillText(`${foodRate}/s`, cx+cwid, fy);
+  ctx.textAlign='left';
+  // - / + buttons
+  addBtn(cx, fy+12, 24, 22, '-', ()=>{foodRate=Math.max(0, foodRate-2);});
+  addBtn(cx+30, fy+12, 24, 22, '+', ()=>{foodRate=Math.min(50, foodRate+2);});
+  // 滑动条视觉
+  const bx=cx+62, bw=cwid-64;
+  ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fillRect(bx, fy+19, bw, 6);
+  ctx.fillStyle='#8ed87a';
+  ctx.fillRect(bx, fy+19, bw*(foodRate/50), 6);
+
+  // 提示
+  ctx.font='10px monospace'; ctx.fillStyle='#557';
+  ctx.fillText('点击/拖拽撒食物', cx, fy+50);
+  ctx.fillText('能量满 → 分裂 + 突变', cx, fy+64);
+}
+
+function drawButtons(){
+  for(const b of buttons){
+    if(!b.label) continue;
+    const hot=b.opts.hot;
+    ctx.fillStyle=hot?'rgba(220,160,232,0.20)':'rgba(120,200,140,0.08)';
+    ctx.fillRect(b.x,b.y,b.w,b.h);
+    ctx.strokeStyle=hot?'rgba(220,160,232,0.55)':'rgba(120,200,140,0.25)';
+    ctx.lineWidth=1; ctx.strokeRect(b.x+0.5,b.y+0.5,b.w-1,b.h-1);
+    ctx.fillStyle=hot?'#dca0e8':'#dde4d8';
+    ctx.font='12px monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(b.label, b.x+b.w/2, b.y+b.h/2);
+  }
+}
+
+// 灭绝处理：自动播种 5 只
+function checkExtinction(){
+  if(critters.length===0){
+    for(let i=0;i<5;i++){
+      critters.push(makeCritter(
+        rand(simX+20, simX+simW-20),
+        rand(simY+20, simY+simH-20),
+        randomDNA(), 0,
+      ));
+    }
+  }
+}
+
+// ─── 主循环 ───
+let last=performance.now();
+function loop(t){
+  const dt=Math.min(0.06, (t-last)/1000);
+  last=t;
+  buttons.length=0;
+
+  update(dt);
+  checkExtinction();
+
+  clearBg();
+  drawFood();
+  drawCritters();
+  drawHud();
+  drawPanel();
+  drawButtons();
+
+  requestAnimationFrame(loop);
+}
+
+// 初始化
+spawnInitialPopulation(25);
+for(let i=0;i<60;i++) spawnFood();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

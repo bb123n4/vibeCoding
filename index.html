@@ -457,6 +457,10 @@ footer {
 .p-life { background:#0a0e16; position:relative; overflow:hidden; }
 .p-life canvas { display:block; width:100%; height:100%; }
 
+/* ════════════════════════  Evolve ════════════════════════ */
+.p-evolve { background:#0e1610; position:relative; overflow:hidden; }
+.p-evolve canvas { display:block; width:100%; height:100%; }
+
 /* ── Responsive ── */
 @media (max-width: 680px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
@@ -473,10 +477,10 @@ footer {
 
   <!-- ── Tab bar ── -->
   <nav class="tabs">
-    <button class="tab-btn active" data-cat="all" onclick="setTab('all')">全部 · 28</button>
+    <button class="tab-btn active" data-cat="all" onclick="setTab('all')">全部 · 29</button>
     <button class="tab-btn" data-cat="game" onclick="setTab('game')">🎮 游戏 · 16</button>
     <button class="tab-btn" data-cat="mystic" onclick="setTab('mystic')">🔮 玄学 · 5</button>
-    <button class="tab-btn" data-cat="create" onclick="setTab('create')">🎨 创作 · 7</button>
+    <button class="tab-btn" data-cat="create" onclick="setTab('create')">🎨 创作 · 8</button>
     <button class="explore-btn" onclick="goRandom()" style="margin-left:auto">
       <span class="dice">🎲</span> 带我探索！
     </button>
@@ -630,6 +634,11 @@ footer {
       <a class="card" href="life.html">
         <div class="preview p-life"><canvas id="lifeCanvas"></canvas></div>
         <div class="info"><div class="info-left"><div class="card-name">生命游戏</div><div class="card-desc">Conway · 元胞自动机 · 滑翔机与脉冲星</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <a class="card" href="evolve.html">
+        <div class="preview p-evolve"><canvas id="evolveCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">数字生态圈</div><div class="card-desc">遗传算法 · 觅食繁殖 · 看基因漂移</div></div><div class="card-arrow">→</div></div>
       </a>
 
       <a class="card" href="fireworks.html">
@@ -1233,6 +1242,58 @@ function goRandom() {
   ctx.fillStyle='#F4A44A';ctx.fill();
   ctx.strokeStyle='#C07828';ctx.lineWidth=1.5;ctx.stroke();
   ctx.restore();
+})();
+
+// ── Evolve mini ──
+(function(){
+  const cv=document.getElementById('evolveCanvas');
+  if(!cv) return;
+  const par=cv.parentElement;
+  const W=par.offsetWidth||200, H=par.offsetHeight||160;
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  ctx.fillStyle='#0e1610'; ctx.fillRect(0,0,W,H);
+  // grass flecks
+  for(let i=0;i<30;i++){
+    ctx.fillStyle='rgba(70,130,80,0.15)';
+    ctx.fillRect(Math.random()*W, Math.random()*H, 1, 1);
+  }
+  // food dots
+  const foods=[[0.20,0.30],[0.32,0.62],[0.58,0.22],[0.72,0.50],[0.45,0.78],[0.85,0.72],[0.15,0.80]];
+  foods.forEach(([fx,fy])=>{
+    const x=fx*W, y=fy*H;
+    ctx.fillStyle='#8ed87a';
+    ctx.beginPath(); ctx.arc(x,y, Math.max(1.5,W*0.012), 0, Math.PI*2); ctx.fill();
+    ctx.save(); ctx.globalCompositeOperation='lighter';
+    const g=ctx.createRadialGradient(x,y,0,x,y,W*0.04);
+    g.addColorStop(0,'rgba(142,216,122,0.4)'); g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g; ctx.fillRect(x-W*0.04, y-W*0.04, W*0.08, W*0.08);
+    ctx.restore();
+  });
+  // critters with sense halos
+  const crits=[
+    {x:0.30, y:0.45, r:0.040, hue:200},
+    {x:0.60, y:0.65, r:0.055, hue:340},
+    {x:0.50, y:0.35, r:0.035, hue:50},
+    {x:0.78, y:0.30, r:0.045, hue:120},
+  ];
+  crits.forEach(c=>{
+    const x=c.x*W, y=c.y*H, r=c.r*W;
+    // sense halo
+    ctx.fillStyle=`hsla(${c.hue},60%,50%,0.10)`;
+    ctx.beginPath(); ctx.arc(x,y, r*4, 0, Math.PI*2); ctx.fill();
+    // body
+    ctx.fillStyle=`hsl(${c.hue},60%,55%)`;
+    ctx.beginPath(); ctx.arc(x,y, r, 0, Math.PI*2); ctx.fill();
+    // eye
+    ctx.fillStyle='rgba(255,255,255,0.85)';
+    ctx.beginPath(); ctx.arc(x+r*0.4, y-r*0.1, r*0.35, 0, Math.PI*2); ctx.fill();
+  });
+  // label
+  ctx.fillStyle='rgba(220,160,232,0.75)';
+  ctx.font=`bold ${Math.round(H*0.10)}px monospace`;
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText('EVOLVE', 8, 6);
 })();
 
 // ── Life mini ──
