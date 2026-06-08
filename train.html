@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>电车驾驶</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;background:#0c1018;
+    font-family:"PingFang SC","Hiragino Sans GB",sans-serif;color:#fff}
+  body{display:flex;align-items:center;justify-content:center}
+  #wrap{position:relative;width:min(100vw,calc(100vh*900/600));height:min(100vh,calc(100vw*600/900))}
+  canvas{display:block;width:100%;height:100%;background:#8cc4e8;cursor:pointer;touch-action:none}
+  .home{position:absolute;top:14px;left:14px;color:#fff;background:rgba(0,0,0,0.4);
+    padding:6px 12px;border-radius:14px;text-decoration:none;font-size:14px;
+    border:1px solid rgba(255,255,255,0.2);z-index:5}
+  .home:hover{background:rgba(0,0,0,0.65)}
+</style>
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="vibe coding">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#F2785C">
+<link rel="manifest" href="manifest.webmanifest">
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+  <a class="home" href="index.html">← 返回</a>
+</div>
+<script>
+const W=900, H=600;
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+const dpr=Math.min(devicePixelRatio||1,2);
+cv.width=W*dpr; cv.height=H*dpr; ctx.scale(dpr,dpr);
+
+// ─── 调色 ───
+const C={
+  sky1:'#a8d8f0', sky2:'#dcecf6',
+  mtnFar:'#8fa9b8', mtnMid:'#6c8597',
+  treeDk:'#3a6a3a', treeLt:'#5a9050',
+  ground:'#b8c878', groundDk:'#94a45a',
+  rail:'#5a4a3a', tie:'#3a2a1a', railShine:'#a08470',
+  train:'#d24838', trainDk:'#a01818', window:'#7ec8e8',
+  platform:'#c4b890', platformDk:'#8a7a55',
+  station:'#e0d4b0', stationRoof:'#7a4030',
+  text:'#2a3040', textLt:'#fff',
+  hud:'rgba(20,28,40,0.85)', accent:'#f4c440',
+};
+
+// ─── 路线 ───
+const ROUTE_LEN = 4000; // 米
+const STATIONS = [
+  {x: 0,    name:'起点·樱川'},
+  {x: 1100, name:'青木町'},
+  {x: 2200, name:'河津桥'},
+  {x: 3200, name:'山中谷'},
+  {x: 4000, name:'终点·云海台'},
+];
+const SPEED_LIMITS = [
+  {x: 0,    limit: 50},
+  {x: 350,  limit: 80},
+  {x: 1500, limit: 100},
+  {x: 2700, limit: 80},
+  {x: 3650, limit: 50},
+];
+const TARGET_TIME = 280; // 秒，建议时间
+
+function speedLimitAt(pos){
+  let lim=SPEED_LIMITS[0].limit;
+  for(const s of SPEED_LIMITS) if(pos>=s.x) lim=s.limit;
+  return lim;
+}
+
+// ─── 状态 ───
+let state='start'; // start, driving, paused, arrived, gameover
+let trainPos=0;       // 米
+let trainSpeedKmh=0;  // km/h（实际显示）
+let throttle=0;       // 0..8
+let brake=8;          // 0..8（开始停车状态满刹车）
+let nextStationIdx=1;
+let score=0;
+let elapsed=0;
+let overSpeedTime=0;
+let bestScore=parseInt(localStorage.getItem('train_best')||'0');
+let stationsDone=[]; // 已停的站
+let toast=null, toastT=0;
+function showToast(t,col){toast={t,col:col||'#fff'}; toastT=2.2;}
+
+// ─── 输入 ───
+const buttons=[];
+function addBtn(x,y,w,h,label,onClick,opts){buttons.push({x,y,w,h,label,onClick,opts:opts||{}});}
+
+function getCanvasPos(e){
+  const r=cv.getBoundingClientRect();
+  const cx=(e.clientX!==undefined?e.clientX:(e.touches?e.touches[0]:e.changedTouches[0]).clientX);
+  const cy=(e.clientY!==undefined?e.clientY:(e.touches?e.touches[0]:e.changedTouches[0]).clientY);
+  return {x:(cx-r.left)*W/r.width, y:(cy-r.top)*H/r.height};
+}
+function handleClick(x,y){
+  for(const b of buttons){
+    if(b.opts.disabled) continue;
+    if(x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h){b.onClick(); return true;}
+  }
+  return false;
+}
+cv.addEventListener('click', e=>{const{x,y}=getCanvasPos(e); handleClick(x,y);});
+cv.addEventListener('touchend', e=>{e.preventDefault(); const{x,y}=getCanvasPos(e); handleClick(x,y);}, {passive:false});
+
+// 键盘
+window.addEventListener('keydown', e=>{
+  if(state!=='driving') return;
+  if(e.key==='w' || e.key==='W' || e.key==='ArrowUp'){
+    if(throttle<8 && brake>0){ brake=0; throttle=1; }
+    else if(throttle<8){ throttle++; }
+  } else if(e.key==='s' || e.key==='S' || e.key==='ArrowDown'){
+    if(throttle>0){ throttle--; }
+    else if(brake<8){ brake++; }
+  } else if(e.key===' '){
+    throttle=0; brake=8;  // 紧急刹车
+  }
+});
+
+// ─── 物理 ───
+function update(dt){
+  if(state!=='driving') return;
+  elapsed += dt;
+  // 控制约束
+  if(throttle>0 && brake>0) brake=0; // 不能同时
+  // 速度换算
+  let v = trainSpeedKmh / 3.6; // m/s
+  const MAX_ACC = 1.4;     // 满油门下加速度 m/s²（约 100km/h 25s）
+  const MAX_BRAKE = 2.4;   // 满刹车减速度
+  const FRIC = 0.18;       // 自然阻力
+  let a = (throttle/8) * MAX_ACC;
+  a -= (brake/8) * MAX_BRAKE;
+  a -= FRIC;
+  v += a * dt;
+  if(v<0) v=0;
+  trainSpeedKmh = v * 3.6;
+  trainPos += v * dt;
+  if(trainPos > ROUTE_LEN + 60) trainPos = ROUTE_LEN + 60;
+
+  // 超速检测
+  const lim = speedLimitAt(trainPos);
+  if(trainSpeedKmh > lim + 2){
+    overSpeedTime += dt;
+    if(overSpeedTime > 0.15){ score = Math.max(0, score - 6); overSpeedTime -= 0.15; }
+  } else {
+    overSpeedTime = Math.max(0, overSpeedTime - dt);
+  }
+
+  // 进站检测
+  if(nextStationIdx < STATIONS.length){
+    const st = STATIONS[nextStationIdx];
+    // 错过：开过去 30 米还没停
+    if(trainPos > st.x + 30 && !stationsDone.includes(nextStationIdx) && trainSpeedKmh > 5){
+      showToast(`错过 ${st.name}！-200`, '#ff7070');
+      score = Math.max(0, score - 200);
+      nextStationIdx++;
+    }
+    // 停车在 ±25m 内 算到站
+    if(trainSpeedKmh < 0.8 && Math.abs(trainPos - st.x) < 25 && !stationsDone.includes(nextStationIdx)){
+      const diff = Math.abs(trainPos - st.x);
+      let pts;
+      if(diff<2) pts=1000;
+      else if(diff<5) pts=700;
+      else if(diff<10) pts=400;
+      else pts=150;
+      score += pts;
+      stationsDone.push(nextStationIdx);
+      showToast(`${st.name} 到站！偏差 ${diff.toFixed(1)}m  +${pts}`, '#7eff90');
+      // 终点
+      if(nextStationIdx >= STATIONS.length-1){
+        // 时间奖励
+        const timeBonus = Math.max(0, Math.floor((TARGET_TIME - elapsed) * 5));
+        if(timeBonus>0){score += timeBonus; showToast(`时间奖励 +${timeBonus}`, '#7ec8ff');}
+        if(score>bestScore){bestScore=score; localStorage.setItem('train_best', score);}
+        state='arrived';
+      } else {
+        nextStationIdx++;
+      }
+    }
+  }
+}
+
+// ─── 绘制 ───
+const camOffset = 200; // 列车在屏幕上的 x 位置（米→像素后）
+const PX_PER_M = 0.6;  // 1 米 = 0.6 像素（让 4000m 路线适合显示）
+const SCENE_Y = 280;   // 主场景顶 y
+const HORIZON = 240;
+const GROUND_Y = 380;
+const RAIL_Y = 440;
+const TRAIN_Y = 380;
+const HUD_BOTTOM = 510;
+
+function worldX(metric){
+  return metric*PX_PER_M - trainPos*PX_PER_M + camOffset;
+}
+
+function drawSky(){
+  const g=ctx.createLinearGradient(0,0,0,HORIZON);
+  g.addColorStop(0, C.sky1); g.addColorStop(1, C.sky2);
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,HORIZON);
+  // 太阳/云
+  ctx.fillStyle='rgba(255,250,200,0.85)';
+  ctx.beginPath(); ctx.arc(720, 80, 26, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.5)';
+  function cloud(x,y,s){
+    ctx.beginPath();
+    ctx.arc(x,y, 14*s, 0, Math.PI*2);
+    ctx.arc(x+15*s,y-4*s, 12*s, 0, Math.PI*2);
+    ctx.arc(x+30*s,y, 14*s, 0, Math.PI*2);
+    ctx.fill();
+  }
+  const off = trainPos*0.04;
+  cloud(((150-off)%900+900)%900, 50, 1);
+  cloud(((420-off)%900+900)%900, 90, 0.8);
+  cloud(((680-off)%900+900)%900, 60, 1.1);
+}
+
+function drawMountains(){
+  // 远山
+  ctx.fillStyle=C.mtnFar;
+  const off1 = trainPos*0.08;
+  ctx.beginPath();
+  ctx.moveTo(0, HORIZON);
+  for(let i=0;i<=12;i++){
+    const x=i*80 - off1%160;
+    const h=HORIZON - 40 - 20*Math.sin(i*1.3);
+    ctx.lineTo(x, h);
+  }
+  ctx.lineTo(W,HORIZON); ctx.closePath(); ctx.fill();
+  // 中山
+  ctx.fillStyle=C.mtnMid;
+  const off2 = trainPos*0.2;
+  ctx.beginPath();
+  ctx.moveTo(0, HORIZON+30);
+  for(let i=0;i<=10;i++){
+    const x=i*100 - off2%200;
+    const h=HORIZON + 30 - 35*Math.abs(Math.sin(i*0.7+1));
+    ctx.lineTo(x, h);
+  }
+  ctx.lineTo(W,HORIZON+30); ctx.closePath(); ctx.fill();
+}
+
+function drawGround(){
+  // 地面（草地）
+  ctx.fillStyle=C.ground;
+  ctx.fillRect(0, GROUND_Y-30, W, H-GROUND_Y+30);
+  // 远景树木
+  const off3 = trainPos*0.5;
+  for(let i=0;i<20;i++){
+    const baseX = i*70 - off3%140;
+    const tx = baseX;
+    if(tx<-30 || tx>W+30) continue;
+    ctx.fillStyle=C.treeDk;
+    ctx.beginPath(); ctx.arc(tx, GROUND_Y-10, 14, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle=C.treeLt;
+    ctx.beginPath(); ctx.arc(tx-3, GROUND_Y-14, 11, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='#5a3a20';
+    ctx.fillRect(tx-2, GROUND_Y-2, 4, 8);
+  }
+}
+
+function drawRails(){
+  // 道砟
+  ctx.fillStyle='#a89880';
+  ctx.fillRect(0, RAIL_Y-12, W, 36);
+  // 枕木 - 按列车位置滚动
+  const tieSpacing = 18;
+  const off = (trainPos*PX_PER_M) % tieSpacing;
+  ctx.fillStyle=C.tie;
+  for(let x=-off; x<W+tieSpacing; x+=tieSpacing){
+    ctx.fillRect(x, RAIL_Y-6, 12, 16);
+  }
+  // 钢轨
+  ctx.fillStyle=C.rail;
+  ctx.fillRect(0, RAIL_Y-2, W, 3);
+  ctx.fillRect(0, RAIL_Y+8, W, 3);
+  ctx.fillStyle=C.railShine;
+  ctx.fillRect(0, RAIL_Y-2, W, 1);
+  ctx.fillRect(0, RAIL_Y+8, W, 1);
+}
+
+function drawStations(){
+  for(let i=0;i<STATIONS.length;i++){
+    const st=STATIONS[i];
+    const x=worldX(st.x);
+    if(x<-200 || x>W+200) continue;
+    // 站台
+    ctx.fillStyle=C.platform;
+    ctx.fillRect(x-90, RAIL_Y-2, 180, 30);
+    ctx.fillStyle=C.platformDk;
+    ctx.fillRect(x-90, RAIL_Y+24, 180, 4);
+    // 站房（除终点和起点显示在轨道后）
+    ctx.fillStyle=C.station;
+    ctx.fillRect(x-50, RAIL_Y-90, 100, 60);
+    ctx.fillStyle=C.stationRoof;
+    ctx.beginPath();
+    ctx.moveTo(x-58, RAIL_Y-90);
+    ctx.lineTo(x, RAIL_Y-115);
+    ctx.lineTo(x+58, RAIL_Y-90);
+    ctx.closePath(); ctx.fill();
+    // 窗户
+    ctx.fillStyle='#7ec8e8';
+    ctx.fillRect(x-38, RAIL_Y-70, 18, 22);
+    ctx.fillRect(x-8, RAIL_Y-70, 18, 22);
+    ctx.fillRect(x+22, RAIL_Y-70, 18, 22);
+    // 站名
+    ctx.fillStyle=C.text; ctx.font='bold 14px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(st.name, x, RAIL_Y-30);
+    // 目标停车点（中心标记）
+    ctx.fillStyle='#e85050';
+    ctx.fillRect(x-1, RAIL_Y-12, 2, 8);
+    ctx.fillStyle='rgba(232,80,80,0.5)';
+    ctx.fillRect(x-1, RAIL_Y-22, 2, 6);
+  }
+}
+
+function drawSpeedSigns(){
+  for(const sl of SPEED_LIMITS){
+    const x=worldX(sl.x);
+    if(x<-50 || x>W+50) continue;
+    // 杆
+    ctx.fillStyle='#444';
+    ctx.fillRect(x-2, RAIL_Y-50, 4, 22);
+    // 圆牌
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(x, RAIL_Y-60, 14, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#e84040'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(x, RAIL_Y-60, 13, 0, Math.PI*2); ctx.stroke();
+    ctx.fillStyle='#2a2030'; ctx.font='bold 12px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(sl.limit, x, RAIL_Y-60);
+  }
+}
+
+function drawTrain(){
+  const x = camOffset;
+  // 阴影
+  ctx.fillStyle='rgba(0,0,0,0.25)';
+  ctx.fillRect(x-72, RAIL_Y+12, 220, 4);
+  // 车身
+  ctx.fillStyle=C.train;
+  ctx.fillRect(x-70, TRAIN_Y-32, 200, 40);
+  ctx.fillStyle=C.trainDk;
+  ctx.fillRect(x-70, TRAIN_Y+4, 200, 4);
+  // 车头斜角
+  ctx.fillStyle=C.train;
+  ctx.beginPath();
+  ctx.moveTo(x+130, TRAIN_Y-32);
+  ctx.lineTo(x+148, TRAIN_Y-18);
+  ctx.lineTo(x+148, TRAIN_Y+8);
+  ctx.lineTo(x+130, TRAIN_Y+8);
+  ctx.closePath(); ctx.fill();
+  // 头灯
+  ctx.fillStyle='#fff8d0';
+  ctx.fillRect(x+140, TRAIN_Y-10, 6, 6);
+  // 司机室窗
+  ctx.fillStyle=C.window;
+  ctx.fillRect(x+105, TRAIN_Y-26, 24, 18);
+  // 客车窗
+  for(let i=0;i<5;i++){
+    ctx.fillStyle=C.window;
+    ctx.fillRect(x-60+i*36, TRAIN_Y-24, 24, 14);
+  }
+  // 红色腰带
+  ctx.fillStyle='#fff';
+  ctx.fillRect(x-70, TRAIN_Y-5, 200, 3);
+  // 车轮
+  ctx.fillStyle='#1a1a1a';
+  for(const wx of [-50,-18,80,112]){
+    ctx.beginPath(); ctx.arc(x+wx, TRAIN_Y+12, 7, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#444'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.arc(x+wx, TRAIN_Y+12, 5, 0, Math.PI*2); ctx.stroke();
+  }
+  // 受电弓
+  ctx.strokeStyle='#222'; ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(x-20, TRAIN_Y-32); ctx.lineTo(x-10, TRAIN_Y-48);
+  ctx.lineTo(x+30, TRAIN_Y-48); ctx.lineTo(x+40, TRAIN_Y-32);
+  ctx.stroke();
+  ctx.fillStyle='#222';
+  ctx.fillRect(x-15, TRAIN_Y-50, 50, 2);
+}
+
+function drawHud(){
+  // 上 HUD 半透明条
+  ctx.fillStyle=C.hud;
+  ctx.fillRect(0, 0, W, 56);
+
+  // 速度表
+  ctx.fillStyle='#fff'; ctx.font='bold 14px monospace';
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText('速度', 16, 6);
+  // 大数字
+  const lim = speedLimitAt(trainPos);
+  const over = trainSpeedKmh > lim + 1;
+  ctx.fillStyle = over ? '#ff5070' : '#7eff90';
+  ctx.font='bold 30px monospace';
+  ctx.fillText(`${trainSpeedKmh.toFixed(0).padStart(3,' ')}`, 14, 20);
+  ctx.fillStyle='#aab'; ctx.font='12px monospace';
+  ctx.fillText('km/h', 76, 36);
+
+  // 限速
+  ctx.fillStyle='#fff'; ctx.font='bold 13px monospace';
+  ctx.fillText('当前限速', 130, 6);
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(152, 38, 14, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#e84040'; ctx.lineWidth=2.5;
+  ctx.beginPath(); ctx.arc(152, 38, 13, 0, Math.PI*2); ctx.stroke();
+  ctx.fillStyle='#2a2030'; ctx.font='bold 13px sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(lim, 152, 38);
+
+  // 距下一站
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillStyle='#fff'; ctx.font='bold 13px monospace';
+  ctx.fillText('下一站', 200, 6);
+  if(nextStationIdx < STATIONS.length){
+    const next = STATIONS[nextStationIdx];
+    const dist = next.x - trainPos;
+    ctx.fillStyle='#f4c440'; ctx.font='bold 18px monospace';
+    ctx.fillText(next.name, 200, 22);
+    ctx.fillStyle = dist<150 ? '#ff9050' : '#fff';
+    ctx.font='bold 16px monospace';
+    ctx.fillText(`${dist>=0 ? dist.toFixed(0) : '-'} m`, 200, 40);
+  } else {
+    ctx.fillStyle='#7eff90'; ctx.font='bold 16px monospace';
+    ctx.fillText('终点已到', 200, 30);
+  }
+
+  // 时间
+  ctx.fillStyle='#fff'; ctx.font='bold 13px monospace';
+  ctx.fillText('时间', 460, 6);
+  ctx.fillStyle = elapsed > TARGET_TIME ? '#ff7070' : '#cfdce8';
+  ctx.font='bold 22px monospace';
+  const mm = Math.floor(elapsed/60); const ss = (elapsed%60).toFixed(0).padStart(2,'0');
+  ctx.fillText(`${mm}:${ss}`, 460, 22);
+  ctx.fillStyle='#aab'; ctx.font='11px monospace';
+  ctx.fillText(`目标 ${Math.floor(TARGET_TIME/60)}:${(TARGET_TIME%60).toString().padStart(2,'0')}`, 460, 42);
+
+  // 分数
+  ctx.fillStyle='#fff'; ctx.font='bold 13px monospace';
+  ctx.fillText('得分', 560, 6);
+  ctx.fillStyle='#7ec8e8'; ctx.font='bold 22px monospace';
+  ctx.fillText(`${score}`, 560, 22);
+  ctx.fillStyle='#aab'; ctx.font='11px monospace';
+  ctx.fillText(`最佳 ${bestScore}`, 560, 42);
+
+  // 进度条
+  ctx.fillStyle='rgba(255,255,255,0.15)';
+  ctx.fillRect(680, 18, 200, 24);
+  ctx.strokeStyle='rgba(255,255,255,0.4)';
+  ctx.strokeRect(680.5, 18.5, 200, 24);
+  const prog = Math.min(1, trainPos / ROUTE_LEN);
+  ctx.fillStyle='#7eff90';
+  ctx.fillRect(680, 18, 200*prog, 24);
+  // 各站标记
+  for(let i=0;i<STATIONS.length;i++){
+    const tx = 680 + 200*(STATIONS[i].x/ROUTE_LEN);
+    ctx.fillStyle = stationsDone.includes(i)?'#7eff90' : (i===nextStationIdx?'#f4c440':'#fff');
+    ctx.fillRect(tx-1, 14, 2, 32);
+  }
+  // 列车位置
+  const tx = 680 + 200*(trainPos/ROUTE_LEN);
+  ctx.fillStyle='#fff';
+  ctx.fillRect(tx-2, 12, 4, 36);
+  ctx.fillStyle='#222';
+  ctx.fillRect(tx-1, 13, 2, 34);
+}
+
+function drawControlPanel(){
+  // 底部控制条
+  ctx.fillStyle='rgba(20,28,40,0.92)';
+  ctx.fillRect(0, HUD_BOTTOM, W, H-HUD_BOTTOM);
+  ctx.strokeStyle='rgba(255,255,255,0.2)';
+  ctx.beginPath(); ctx.moveTo(0, HUD_BOTTOM); ctx.lineTo(W, HUD_BOTTOM); ctx.stroke();
+
+  // 节流阀
+  drawLever('节流阀', 60, HUD_BOTTOM+20, 250, 50, throttle, '#7eff90', (v)=>{
+    if(state!=='driving') return;
+    throttle = v;
+    if(v>0) brake=0;
+  });
+  // 刹车
+  drawLever('刹车', 340, HUD_BOTTOM+20, 250, 50, brake, '#ff7070', (v)=>{
+    if(state!=='driving') return;
+    brake = v;
+    if(v>0) throttle=0;
+  });
+
+  // 紧急刹车
+  addBtn(620, HUD_BOTTOM+18, 110, 54, '⚠ 紧急', ()=>{
+    if(state==='driving'){throttle=0; brake=8; showToast('紧急制动！','#ff7070');}
+  }, {emergency:true});
+
+  // 暂停/开始
+  let label = '暂停';
+  if(state==='start') label='出发 ▶';
+  else if(state==='paused') label='继续 ▶';
+  else if(state==='arrived'||state==='gameover') label='重新出发';
+  addBtn(750, HUD_BOTTOM+18, 130, 54, label, ()=>{
+    if(state==='start' || state==='paused'){
+      state='driving';
+    } else if(state==='driving'){
+      state='paused';
+    } else {
+      resetGame();
+      state='driving';
+    }
+  }, {primary:true});
+}
+
+function drawLever(name, x, y, w, h, value, col, setter){
+  // 名字
+  ctx.fillStyle='#cfdce8'; ctx.font='bold 12px monospace';
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText(name, x, y-12);
+  ctx.textAlign='right';
+  ctx.fillStyle=col;
+  ctx.font='bold 13px monospace';
+  ctx.fillText(`${value}/8`, x+w, y-12);
+
+  // 槽
+  ctx.fillStyle='rgba(255,255,255,0.08)';
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle='rgba(255,255,255,0.18)';
+  ctx.strokeRect(x+0.5, y+0.5, w, h);
+  // 8 档刻度
+  for(let i=0;i<=8;i++){
+    const tx = x + (w-30)*i/8 + 15;
+    ctx.strokeStyle='rgba(255,255,255,0.15)';
+    ctx.beginPath(); ctx.moveTo(tx, y+38); ctx.lineTo(tx, y+46); ctx.stroke();
+    if(i%2===0){
+      ctx.fillStyle='#9ab'; ctx.font='10px monospace';
+      ctx.textAlign='center'; ctx.fillText(i, tx, y+50);
+    }
+  }
+  // 填充
+  const fillW = (w-30)*value/8;
+  ctx.fillStyle=col;
+  ctx.fillRect(x+15, y+8, fillW, 22);
+  // 手柄
+  const hx = x + 15 + fillW;
+  ctx.fillStyle='#fff';
+  ctx.fillRect(hx-6, y+4, 12, 30);
+  ctx.strokeStyle='#222'; ctx.lineWidth=1;
+  ctx.strokeRect(hx-6, y+4, 12, 30);
+
+  // - / + 按钮
+  addBtn(x-30, y, 26, h, '−', ()=>{ setter(Math.max(0, value-1)); });
+  addBtn(x+w+4, y, 26, h, '+', ()=>{ setter(Math.min(8, value+1)); });
+}
+
+function drawButtons(){
+  for(const b of buttons){
+    if(!b.label) continue;
+    let bg='rgba(255,255,255,0.12)', stroke='rgba(255,255,255,0.3)', fg='#fff';
+    if(b.opts.emergency){bg='rgba(255,90,90,0.25)'; stroke='rgba(255,90,90,0.6)'; fg='#ff9090';}
+    else if(b.opts.primary){bg='rgba(122,255,144,0.20)'; stroke='rgba(122,255,144,0.55)'; fg='#7eff90';}
+    ctx.fillStyle=bg; ctx.fillRect(b.x,b.y,b.w,b.h);
+    ctx.strokeStyle=stroke; ctx.lineWidth=1.5;
+    ctx.strokeRect(b.x+0.5, b.y+0.5, b.w-1, b.h-1);
+    ctx.fillStyle=fg;
+    ctx.font='bold 14px monospace';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(b.label, b.x+b.w/2, b.y+b.h/2);
+  }
+}
+
+function drawToast(dt){
+  if(!toast) return;
+  toastT -= dt;
+  if(toastT<=0){toast=null; return;}
+  const a=Math.min(1, toastT/0.4);
+  ctx.font='bold 18px sans-serif';
+  const tw=ctx.measureText(toast.t).width;
+  ctx.fillStyle=`rgba(20,28,40,${0.92*a})`;
+  ctx.fillRect(W/2-tw/2-16, 70, tw+32, 38);
+  ctx.strokeStyle=`rgba(255,255,255,${0.3*a})`;
+  ctx.strokeRect(W/2-tw/2-16, 70, tw+32, 38);
+  ctx.fillStyle=toast.col.startsWith('#') ?
+    toast.col + Math.floor(a*255).toString(16).padStart(2,'0') :
+    toast.col;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(toast.t, W/2, 89);
+}
+
+function drawOverlay(){
+  if(state==='start'){
+    ctx.fillStyle='rgba(20,28,40,0.78)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle='#fff'; ctx.font='bold 44px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🚆 电车驾驶', W/2, 180);
+    ctx.fillStyle='#7ec8e8'; ctx.font='18px sans-serif';
+    ctx.fillText('— Train Sim —', W/2, 220);
+    ctx.fillStyle='#cfdce8'; ctx.font='15px sans-serif';
+    ctx.fillText('从樱川出发，途经 3 站抵达云海台', W/2, 270);
+    ctx.fillText('按速度限制行驶，准确停在每站站台中心', W/2, 295);
+    ctx.fillText('点击底部「出发」开始', W/2, 320);
+    ctx.fillStyle='#aab'; ctx.font='13px sans-serif';
+    ctx.fillText('键盘 W/S 加减油门 · Space 紧急刹车', W/2, 360);
+    ctx.fillStyle='#f4c440'; ctx.font='bold 15px monospace';
+    ctx.fillText(`最佳分数：${bestScore}`, W/2, 400);
+  } else if(state==='paused'){
+    ctx.fillStyle='rgba(20,28,40,0.7)';
+    ctx.fillRect(0, 56, W, HUD_BOTTOM-56);
+    ctx.fillStyle='#fff'; ctx.font='bold 42px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('⏸ 暂停', W/2, 280);
+  } else if(state==='arrived'){
+    ctx.fillStyle='rgba(20,28,40,0.85)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle='#7eff90'; ctx.font='bold 44px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🏁 抵达终点！', W/2, 180);
+    ctx.fillStyle='#fff'; ctx.font='bold 28px monospace';
+    ctx.fillText(`最终得分：${score}`, W/2, 250);
+    ctx.fillStyle='#cfdce8'; ctx.font='17px monospace';
+    ctx.fillText(`用时 ${Math.floor(elapsed/60)}:${(elapsed%60).toFixed(0).padStart(2,'0')}`, W/2, 290);
+    ctx.fillText(`停靠 ${stationsDone.length} 站`, W/2, 315);
+    ctx.fillStyle='#f4c440';
+    if(score>=bestScore) ctx.fillText('🏆 新纪录！', W/2, 350);
+    else ctx.fillText(`历史最佳：${bestScore}`, W/2, 350);
+  }
+}
+
+function resetGame(){
+  trainPos=0; trainSpeedKmh=0;
+  throttle=0; brake=8;
+  nextStationIdx=1;
+  score=0; elapsed=0;
+  stationsDone=[];
+  overSpeedTime=0;
+}
+
+// ─── 主循环 ───
+let last=performance.now();
+function loop(t){
+  const dt=Math.min(0.04, (t-last)/1000); last=t;
+  buttons.length=0;
+
+  update(dt);
+
+  drawSky();
+  drawMountains();
+  drawGround();
+  drawRails();
+  drawStations();
+  drawSpeedSigns();
+  drawTrain();
+  drawHud();
+  drawControlPanel();
+  drawButtons();
+  drawToast(dt);
+  drawOverlay();
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

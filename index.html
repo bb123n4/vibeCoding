@@ -461,6 +461,10 @@ footer {
 .p-evolve { background:#0e1610; position:relative; overflow:hidden; }
 .p-evolve canvas { display:block; width:100%; height:100%; }
 
+/* ════════════════════════  Train ════════════════════════ */
+.p-train { background:#a8d8f0; position:relative; overflow:hidden; }
+.p-train canvas { display:block; width:100%; height:100%; }
+
 /* ── Responsive ── */
 @media (max-width: 680px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
@@ -477,8 +481,8 @@ footer {
 
   <!-- ── Tab bar ── -->
   <nav class="tabs">
-    <button class="tab-btn active" data-cat="all" onclick="setTab('all')">全部 · 29</button>
-    <button class="tab-btn" data-cat="game" onclick="setTab('game')">🎮 游戏 · 16</button>
+    <button class="tab-btn active" data-cat="all" onclick="setTab('all')">全部 · 30</button>
+    <button class="tab-btn" data-cat="game" onclick="setTab('game')">🎮 游戏 · 17</button>
     <button class="tab-btn" data-cat="mystic" onclick="setTab('mystic')">🔮 玄学 · 5</button>
     <button class="tab-btn" data-cat="create" onclick="setTab('create')">🎨 创作 · 8</button>
     <button class="explore-btn" onclick="goRandom()" style="margin-left:auto">
@@ -502,6 +506,11 @@ footer {
       <a class="card" href="antique.html">
         <div class="preview p-antique"><canvas id="antiqueCanvas"></canvas></div>
         <div class="info"><div class="info-left"><div class="card-name">古玩摊</div><div class="card-desc">鉴宝识赝 · 还价收购 · 十日盈亏</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <a class="card" href="train.html">
+        <div class="preview p-train"><canvas id="trainCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">电车驾驶</div><div class="card-desc">侧视卷轴 · 节流刹车 · 精准停靠</div></div><div class="card-arrow">→</div></div>
       </a>
 
       <a class="card" href="farm.html">
@@ -1476,6 +1485,83 @@ function goRandom() {
       ctx.fillRect(cx+tw*0.02, cy-th*0.05, tw*0.08, 2);
     }
   }
+})();
+
+// ── Train mini ──
+(function(){
+  const cv=document.getElementById('trainCanvas');
+  if(!cv) return;
+  const par=cv.parentElement;
+  const W=par.offsetWidth||200, H=par.offsetHeight||160;
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  // sky
+  const g=ctx.createLinearGradient(0,0,0,H*0.55);
+  g.addColorStop(0,'#a8d8f0'); g.addColorStop(1,'#dcecf6');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H*0.55);
+  // sun
+  ctx.fillStyle='rgba(255,250,200,0.85)';
+  ctx.beginPath(); ctx.arc(W*0.82, H*0.18, W*0.05, 0, Math.PI*2); ctx.fill();
+  // mountains
+  ctx.fillStyle='#8fa9b8';
+  ctx.beginPath(); ctx.moveTo(0, H*0.50);
+  for(let i=0;i<=8;i++){
+    const x=i*W/8;
+    const hh=H*0.50 - H*0.08 - H*0.05*Math.sin(i*1.3);
+    ctx.lineTo(x, hh);
+  }
+  ctx.lineTo(W,H*0.55); ctx.closePath(); ctx.fill();
+  // ground
+  ctx.fillStyle='#b8c878';
+  ctx.fillRect(0, H*0.55, W, H*0.45);
+  // trees
+  for(let i=0;i<6;i++){
+    const tx=W*0.08 + i*W*0.16, ty=H*0.65;
+    ctx.fillStyle='#3a6a3a';
+    ctx.beginPath(); ctx.arc(tx, ty, W*0.025, 0, Math.PI*2); ctx.fill();
+  }
+  // ballast
+  ctx.fillStyle='#a89880';
+  ctx.fillRect(0, H*0.74, W, H*0.10);
+  // ties
+  ctx.fillStyle='#3a2a1a';
+  const tw=W*0.02;
+  for(let x=0;x<W;x+=tw*1.8){
+    ctx.fillRect(x, H*0.76, tw, H*0.06);
+  }
+  // rails
+  ctx.fillStyle='#5a4a3a';
+  ctx.fillRect(0, H*0.78, W, H*0.012);
+  ctx.fillRect(0, H*0.82, W, H*0.012);
+  // train (red, side)
+  const tx=W*0.18, ty=H*0.66;
+  const tw2=W*0.55, th=H*0.10;
+  ctx.fillStyle='#d24838';
+  ctx.fillRect(tx, ty, tw2, th);
+  // nose slope
+  ctx.beginPath();
+  ctx.moveTo(tx+tw2, ty); ctx.lineTo(tx+tw2+W*0.04, ty+th*0.5);
+  ctx.lineTo(tx+tw2+W*0.04, ty+th); ctx.lineTo(tx+tw2, ty+th); ctx.closePath();
+  ctx.fill();
+  // window strip
+  ctx.fillStyle='#7ec8e8';
+  for(let i=0;i<4;i++){
+    ctx.fillRect(tx+W*0.04+i*W*0.10, ty+th*0.18, W*0.07, th*0.45);
+  }
+  // wheels
+  ctx.fillStyle='#1a1a1a';
+  for(let i=0;i<4;i++){
+    const wx=tx+W*0.06+i*W*0.13;
+    ctx.beginPath(); ctx.arc(wx, ty+th+W*0.012, W*0.018, 0, Math.PI*2); ctx.fill();
+  }
+  // headlight
+  ctx.fillStyle='#fff8d0';
+  ctx.fillRect(tx+tw2+W*0.025, ty+th*0.35, W*0.012, W*0.012);
+  // label
+  ctx.fillStyle='rgba(20,28,40,0.7)';
+  ctx.font=`bold ${Math.round(H*0.10)}px sans-serif`;
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText('🚆 TRAIN', 6, 4);
 })();
 
 // ── Antique mini ──
