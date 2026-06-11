@@ -465,6 +465,10 @@ footer {
 .p-train { background:#a8d8f0; position:relative; overflow:hidden; }
 .p-train canvas { display:block; width:100%; height:100%; }
 
+/* ════════════════════════  Train3D ════════════════════════ */
+.p-train3d { background:#7eb8e8; position:relative; overflow:hidden; }
+.p-train3d canvas { display:block; width:100%; height:100%; }
+
 /* ── Responsive ── */
 @media (max-width: 680px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
@@ -481,8 +485,8 @@ footer {
 
   <!-- ── Tab bar ── -->
   <nav class="tabs">
-    <button class="tab-btn active" data-cat="all" onclick="setTab('all')">全部 · 30</button>
-    <button class="tab-btn" data-cat="game" onclick="setTab('game')">🎮 游戏 · 17</button>
+    <button class="tab-btn active" data-cat="all" onclick="setTab('all')">全部 · 31</button>
+    <button class="tab-btn" data-cat="game" onclick="setTab('game')">🎮 游戏 · 18</button>
     <button class="tab-btn" data-cat="mystic" onclick="setTab('mystic')">🔮 玄学 · 5</button>
     <button class="tab-btn" data-cat="create" onclick="setTab('create')">🎨 创作 · 8</button>
     <button class="explore-btn" onclick="goRandom()" style="margin-left:auto">
@@ -506,6 +510,11 @@ footer {
       <a class="card" href="antique.html">
         <div class="preview p-antique"><canvas id="antiqueCanvas"></canvas></div>
         <div class="info"><div class="info-left"><div class="card-name">古玩摊</div><div class="card-desc">鉴宝识赝 · 还价收购 · 十日盈亏</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <a class="card" href="train3d.html">
+        <div class="preview p-train3d"><canvas id="train3dCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">3D 列车驾驶</div><div class="card-desc">第一视角 · 隧道弯道 · 驾驶室仪表</div></div><div class="card-arrow">→</div></div>
       </a>
 
       <a class="card" href="train.html">
@@ -1485,6 +1494,100 @@ function goRandom() {
       ctx.fillRect(cx+tw*0.02, cy-th*0.05, tw*0.08, 2);
     }
   }
+})();
+
+// ── Train3D mini (first-person perspective) ──
+(function(){
+  const cv=document.getElementById('train3dCanvas');
+  if(!cv) return;
+  const par=cv.parentElement;
+  const W=par.offsetWidth||200, H=par.offsetHeight||160;
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  const HOR=H*0.42, FOC=W*0.42, CAMH=3.2, GAUGE=1.5;
+  function proj(d, lat, h, coff){
+    const z=Math.max(0.7,d), s=FOC/z;
+    return {x:W/2+(lat+coff)*s, y:HOR+(CAMH-h)*s, s};
+  }
+  function coff(d){ return d*d*0.0009; } // gentle right curve
+  // sky
+  const g=ctx.createLinearGradient(0,0,0,HOR);
+  g.addColorStop(0,'#7eb8e8'); g.addColorStop(1,'#d8ecf8');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,HOR);
+  // mountains
+  ctx.fillStyle='#8fa9b8';
+  ctx.beginPath(); ctx.moveTo(0,HOR);
+  for(let i=0;i<=8;i++) ctx.lineTo(i*W/8, HOR-H*0.07-H*0.05*Math.sin(i*1.3+1));
+  ctx.lineTo(W,HOR); ctx.closePath(); ctx.fill();
+  // ground
+  ctx.fillStyle='#9cb86a'; ctx.fillRect(0,HOR,W,H-HOR);
+  // ballast
+  for(let d=200; d>2; d-=8){
+    const c1=coff(d), c2=coff(Math.max(2,d-8));
+    const a=proj(d,-3.4,0,c1), b=proj(d,3.4,0,c1);
+    const c=proj(Math.max(2,d-8),3.4,0,c2), e=proj(Math.max(2,d-8),-3.4,0,c2);
+    if(c.y<HOR) continue;
+    ctx.fillStyle='#a89880';
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+    ctx.lineTo(c.x,c.y); ctx.lineTo(e.x,e.y); ctx.closePath(); ctx.fill();
+  }
+  // ties
+  ctx.strokeStyle='#4a3422';
+  for(let d=3; d<110; d+=3.5){
+    const c=coff(d);
+    const L=proj(d,-2.2,0,c), R=proj(d,2.2,0,c);
+    if(L.y<HOR) break;
+    ctx.lineWidth=Math.max(0.7, FOC/d*0.32);
+    ctx.beginPath(); ctx.moveTo(L.x,L.y); ctx.lineTo(R.x,R.y); ctx.stroke();
+  }
+  // rails
+  ctx.strokeStyle='#c8c8d0'; ctx.lineWidth=1.6;
+  for(const side of [-GAUGE,GAUGE]){
+    ctx.beginPath(); let first=true;
+    for(let d=2; d<200; d+=4){
+      const p=proj(d, side, 0, coff(d));
+      if(p.y<HOR) break;
+      if(first){ctx.moveTo(p.x,p.y); first=false;} else ctx.lineTo(p.x,p.y);
+    }
+    ctx.stroke();
+  }
+  // poles
+  ctx.strokeStyle='#4a4a52';
+  for(let d=15; d<150; d+=35){
+    const c=coff(d);
+    const b=proj(d,-4.2,0,c), t=proj(d,-4.2,7,c);
+    if(b.y<HOR) continue;
+    ctx.lineWidth=Math.max(0.8, 0.22*b.s);
+    ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(t.x,t.y); ctx.stroke();
+  }
+  // trees
+  [[28,9],[55,-12],[80,14],[40,18]].forEach(([d,lat])=>{
+    const c=coff(d);
+    const b=proj(d,lat,0,c), t=proj(d,lat,5,c);
+    if(b.y<HOR) return;
+    const w=Math.max(3, 3*b.s);
+    ctx.fillStyle='#5a3a20';
+    ctx.fillRect(b.x-w*0.07, t.y+(b.y-t.y)*0.6, w*0.14, (b.y-t.y)*0.4);
+    ctx.fillStyle='#3a6a3a';
+    ctx.beginPath(); ctx.ellipse(b.x, t.y+(b.y-t.y)*0.3, w*0.45, (b.y-t.y)*0.4, 0, 0, Math.PI*2); ctx.fill();
+  });
+  // cab dashboard hint at bottom
+  const cabY=H*0.84;
+  const cg=ctx.createLinearGradient(0,cabY,0,H);
+  cg.addColorStop(0,'#2a3240'); cg.addColorStop(1,'#161c26');
+  ctx.fillStyle=cg; ctx.fillRect(0,cabY,W,H-cabY);
+  ctx.fillStyle='#3a4250'; ctx.fillRect(0,cabY,W,2);
+  // tiny speedometer
+  ctx.fillStyle='#10141c';
+  ctx.beginPath(); ctx.arc(W*0.14, H*0.94, H*0.07, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#ffd890'; ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.moveTo(W*0.14, H*0.94);
+  ctx.lineTo(W*0.14+H*0.05, H*0.94-H*0.04); ctx.stroke();
+  // label
+  ctx.fillStyle='rgba(255,255,255,0.85)';
+  ctx.font=`bold ${Math.round(H*0.10)}px sans-serif`;
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText('🚆 3D', 6, 4);
 })();
 
 // ── Train mini ──
