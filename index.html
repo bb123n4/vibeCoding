@@ -469,6 +469,10 @@ footer {
 .p-train3d { background:#7eb8e8; position:relative; overflow:hidden; }
 .p-train3d canvas { display:block; width:100%; height:100%; }
 
+/* ════════════════════════  Train3D Pro ════════════════════════ */
+.p-train3dpro { background:#e8a878; position:relative; overflow:hidden; }
+.p-train3dpro canvas { display:block; width:100%; height:100%; }
+
 /* ── Responsive ── */
 @media (max-width: 680px) {
   .grid { grid-template-columns: repeat(2, 1fr); }
@@ -485,8 +489,8 @@ footer {
 
   <!-- ── Tab bar ── -->
   <nav class="tabs">
-    <button class="tab-btn active" data-cat="all" onclick="setTab('all')">全部 · 31</button>
-    <button class="tab-btn" data-cat="game" onclick="setTab('game')">🎮 游戏 · 18</button>
+    <button class="tab-btn active" data-cat="all" onclick="setTab('all')">全部 · 32</button>
+    <button class="tab-btn" data-cat="game" onclick="setTab('game')">🎮 游戏 · 19</button>
     <button class="tab-btn" data-cat="mystic" onclick="setTab('mystic')">🔮 玄学 · 5</button>
     <button class="tab-btn" data-cat="create" onclick="setTab('create')">🎨 创作 · 8</button>
     <button class="explore-btn" onclick="goRandom()" style="margin-left:auto">
@@ -510,6 +514,11 @@ footer {
       <a class="card" href="antique.html">
         <div class="preview p-antique"><canvas id="antiqueCanvas"></canvas></div>
         <div class="info"><div class="info-left"><div class="card-name">古玩摊</div><div class="card-desc">鉴宝识赝 · 还价收购 · 十日盈亏</div></div><div class="card-arrow">→</div></div>
+      </a>
+
+      <a class="card" href="train3d-pro.html">
+        <div class="preview p-train3dpro"><canvas id="train3dproCanvas"></canvas></div>
+        <div class="info"><div class="info-left"><div class="card-name">3D 列车驾驶 Pro</div><div class="card-desc">three.js · 黄昏山线 · 过弯倾斜</div></div><div class="card-arrow">→</div></div>
       </a>
 
       <a class="card" href="train3d.html">
@@ -1494,6 +1503,94 @@ function goRandom() {
       ctx.fillRect(cx+tw*0.02, cy-th*0.05, tw*0.08, 2);
     }
   }
+})();
+
+// ── Train3D Pro mini (dusk first-person) ──
+(function(){
+  const cv=document.getElementById('train3dproCanvas');
+  if(!cv) return;
+  const par=cv.parentElement;
+  const W=par.offsetWidth||200, H=par.offsetHeight||160;
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  const HOR=H*0.42, FOC=W*0.42, CAMH=3.2, GAUGE=1.5;
+  function proj(d, lat, h, coff){
+    const z=Math.max(0.7,d), s=FOC/z;
+    return {x:W/2+(lat+coff)*s, y:HOR+(CAMH-h)*s, s};
+  }
+  function coff(d){ return -d*d*0.0011; } // left curve
+  // dusk sky
+  const g=ctx.createLinearGradient(0,0,0,HOR);
+  g.addColorStop(0,'#d88858'); g.addColorStop(1,'#f0c090');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,HOR);
+  // sun
+  ctx.fillStyle='#ffd9a0';
+  ctx.beginPath(); ctx.arc(W*0.70, HOR*0.55, W*0.055, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(255,217,160,0.35)';
+  ctx.beginPath(); ctx.arc(W*0.70, HOR*0.55, W*0.085, 0, Math.PI*2); ctx.fill();
+  // dark mountains
+  ctx.fillStyle='#6a5a58';
+  ctx.beginPath(); ctx.moveTo(0,HOR);
+  for(let i=0;i<=8;i++) ctx.lineTo(i*W/8, HOR-H*0.10-H*0.06*Math.sin(i*1.5+0.8));
+  ctx.lineTo(W,HOR); ctx.closePath(); ctx.fill();
+  // dusk ground
+  ctx.fillStyle='#5e6a42'; ctx.fillRect(0,HOR,W,H-HOR);
+  // ballast
+  for(let d=200; d>2; d-=8){
+    const c1=coff(d), c2=coff(Math.max(2,d-8));
+    const a=proj(d,-3.4,0,c1), b=proj(d,3.4,0,c1);
+    const c=proj(Math.max(2,d-8),3.4,0,c2), e=proj(Math.max(2,d-8),-3.4,0,c2);
+    if(c.y<HOR) continue;
+    ctx.fillStyle='#7a6a56';
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+    ctx.lineTo(c.x,c.y); ctx.lineTo(e.x,e.y); ctx.closePath(); ctx.fill();
+  }
+  // ties
+  ctx.strokeStyle='#3a2c1e';
+  for(let d=3; d<110; d+=3.5){
+    const c=coff(d);
+    const L1=proj(d,-2.2,0,c), R1=proj(d,2.2,0,c);
+    if(L1.y<HOR) break;
+    ctx.lineWidth=Math.max(0.7, FOC/d*0.32);
+    ctx.beginPath(); ctx.moveTo(L1.x,L1.y); ctx.lineTo(R1.x,R1.y); ctx.stroke();
+  }
+  // rails (sunset glint)
+  ctx.strokeStyle='#f0d8b8'; ctx.lineWidth=1.8;
+  for(const side of [-GAUGE,GAUGE]){
+    ctx.beginPath(); let first=true;
+    for(let d=2; d<200; d+=4){
+      const p=proj(d, side, 0, coff(d));
+      if(p.y<HOR) break;
+      if(first){ctx.moveTo(p.x,p.y); first=false;} else ctx.lineTo(p.x,p.y);
+    }
+    ctx.stroke();
+  }
+  // dark trees
+  [[30,10],[60,-14],[90,16],[45,-20]].forEach(([d,lat])=>{
+    const c=coff(d);
+    const b=proj(d,lat,0,c), t=proj(d,lat,5,c);
+    if(b.y<HOR) return;
+    const w=Math.max(3, 3*b.s);
+    ctx.fillStyle='#2a3a24';
+    ctx.beginPath();
+    ctx.moveTo(b.x, t.y);
+    ctx.lineTo(b.x-w*0.4, b.y);
+    ctx.lineTo(b.x+w*0.4, b.y);
+    ctx.closePath(); ctx.fill();
+  });
+  // red hood hint
+  ctx.fillStyle='#b83828';
+  ctx.beginPath();
+  ctx.moveTo(W*0.30, H);
+  ctx.lineTo(W*0.38, H*0.88);
+  ctx.lineTo(W*0.62, H*0.88);
+  ctx.lineTo(W*0.70, H);
+  ctx.closePath(); ctx.fill();
+  // label
+  ctx.fillStyle='rgba(255,255,255,0.9)';
+  ctx.font=`bold ${Math.round(H*0.10)}px sans-serif`;
+  ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText('🚆 3D PRO', 6, 4);
 })();
 
 // ── Train3D mini (first-person perspective) ──
